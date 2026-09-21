@@ -1,0 +1,221 @@
+:root {
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --text: #1c2321;
+  --muted: #5d6b66;
+  --border: #dde3e0;
+  --accent: #2f7d6d;
+  --ok: #2f7d6d;
+  --warn: #b7791f;
+  --error: #c0392b;
+
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121615;
+    --surface: #1b211f;
+    --text: #e6ece9;
+    --muted: #9aa8a3;
+    --border: #2c3532;
+    --accent: #5cc3ab;
+    --ok: #5cc3ab;
+    --warn: #e0a84a;
+    --error: #ef7a6c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+.app {
+  display: grid;
+  gap: 16px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 860px) {
+  .app {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  header {
+    grid-column: 1 / -1;
+  }
+  .camera {
+    grid-row: span 2;
+  }
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.subtitle,
+.note,
+.muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.camera {
+  position: relative;
+  align-self: start;
+}
+
+video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #000;
+  border-radius: 12px;
+  transform: scaleX(-1); /* mirror, feels natural for a selfie view */
+}
+
+.badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--muted);
+}
+
+.badge[data-state="found"] {
+  background: var(--ok);
+}
+
+.badge[data-state="missing"] {
+  background: var(--warn);
+}
+
+.badge[data-state="error"] {
+  background: var(--error);
+}
+
+.panel {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.metric dt {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.metric dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.bar {
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+
+output {
+  min-width: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+pre {
+  margin: 8px 0 12px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+button {
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.answer {
+  margin-top: 12px;
+}
+
+.answer dl {
+  margin: 0;
+}
+
+.answer dt {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.answer dd {
+  margin: 0 0 8px;
+}
+
+.answer p {
+  margin: 0;
+}
+
+.error {
+  color: var(--error);
+}

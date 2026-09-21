@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Equilibre</title>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>Equilibre</h1>
+        <p class="subtitle">Prototipe hari 1: deteksi wajah di browser</p>
+      </header>
+
+      <section class="camera">
+        <video id="video" autoplay playsinline muted></video>
+        <p id="face-status" class="badge" data-state="loading">Memuat kamera dan model…</p>
+      </section>
+
+      <section class="panel">
+        <h2>Sinyal wajah</h2>
+        <dl id="blendshapes" class="metrics"></dl>
+        <dl class="metrics">
+          <div class="metric"><dt>fps aktual</dt><dd><output id="fps">–</output></dd></div>
+          <div class="metric"><dt>delegate</dt><dd><output id="delegate">–</output></dd></div>
+        </dl>
+        <p class="note">Video diproses di perangkat ini dan tidak pernah dikirim ke server.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Uji Langflow</h2>
+        <p class="note">Data yang dikirim ke server hanya JSON ini:</p>
+        <pre id="sample"></pre>
+        <button id="send-sample" type="button">Kirim contoh ke Langflow</button>
+        <div id="answer" class="answer" aria-live="polite"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

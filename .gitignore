@@ -1,0 +1,18 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# Secrets (API key Langflow, OpenRouter, dll.)
+.env
+.env.*
+!.env.example
+
+# Bob workspace config (berisi API key project Langflow)
+.bob/
+
+# Logs & OS/editor noise
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
