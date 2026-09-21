@@ -1026,7 +1026,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 0
+                "value": 512
               },
               "model": {
                 "_input_type": "ModelInput",
@@ -1064,7 +1064,26 @@
                 "trace_as_input": true,
                 "track_in_telemetry": false,
                 "type": "model",
-                "value": ""
+                "value": [
+                  {
+                    "name": "qwen/qwen3.8-flash",
+                    "provider": "OpenAI Compatible",
+                    "category": "OpenAI Compatible",
+                    "icon": "Plug",
+                    "metadata": {
+                      "icon": "Plug",
+                      "tool_calling": true,
+                      "reasoning": false,
+                      "search": false,
+                      "preview": false,
+                      "not_supported": false,
+                      "deprecated": false,
+                      "default": false,
+                      "model_type": "llm",
+                      "created": 0
+                    }
+                  }
+                ]
               },
               "model_name": {
                 "_input_type": "StrInput",
