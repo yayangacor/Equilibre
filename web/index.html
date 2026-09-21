@@ -10,31 +10,65 @@
     <main class="app">
       <header>
         <h1>Equilibre</h1>
-        <p class="subtitle">Prototipe hari 1: deteksi wajah di browser</p>
+        <p class="subtitle">Prototipe hari 2: kalibrasi, fitur kelelahan, dan label</p>
       </header>
 
-      <section class="camera">
-        <video id="video" autoplay playsinline muted></video>
-        <p id="face-status" class="badge" data-state="loading">Memuat kamera dan model…</p>
-      </section>
+      <div class="column">
+        <section class="camera">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay" hidden></canvas>
+          <p id="face-status" class="badge" data-state="loading">Memuat kamera dan model…</p>
+          <p id="camera-prompt" class="camera-prompt" hidden></p>
+        </section>
 
-      <section class="panel">
-        <h2>Sinyal wajah</h2>
-        <dl id="blendshapes" class="metrics"></dl>
-        <dl class="metrics">
-          <div class="metric"><dt>fps aktual</dt><dd><output id="fps">–</output></dd></div>
-          <div class="metric"><dt>delegate</dt><dd><output id="delegate">–</output></dd></div>
-        </dl>
-        <p class="note">Video diproses di perangkat ini dan tidak pernah dikirim ke server.</p>
-      </section>
+        <section class="panel">
+          <h2>Sinyal wajah</h2>
+          <dl id="signals" class="metrics"></dl>
+          <dl class="metrics">
+            <div class="metric"><dt>fps aktual</dt><dd><output id="fps">–</output></dd></div>
+            <div class="metric"><dt>delegate</dt><dd><output id="delegate">–</output></dd></div>
+          </dl>
+          <div id="debug" hidden>
+            <h3>Debug: facialTransformationMatrixes[0].data</h3>
+            <p class="note">Layout terdeteksi: <output id="matrix-layout">–</output></p>
+            <pre id="matrix">–</pre>
+          </div>
+          <p class="note">Video diproses di perangkat ini dan tidak pernah dikirim ke server.</p>
+        </section>
+      </div>
 
-      <section class="panel">
-        <h2>Uji Langflow</h2>
-        <p class="note">Data yang dikirim ke server hanya JSON ini:</p>
-        <pre id="sample"></pre>
-        <button id="send-sample" type="button">Kirim contoh ke Langflow</button>
-        <div id="answer" class="answer" aria-live="polite"></div>
-      </section>
+      <div class="column">
+        <section class="panel">
+          <h2>Status</h2>
+          <p id="label" class="label" data-label="none">Memuat…</p>
+          <p id="label-meta" class="note"></p>
+          <ul id="reasons" class="reasons"></ul>
+          <p id="pending" class="note pending" hidden></p>
+        </section>
+
+        <section class="panel">
+          <h2>Kalibrasi</h2>
+          <p id="calib-status" class="calib-status" aria-live="polite"></p>
+          <div id="calib-progress" class="bar progress" hidden><span></span></div>
+          <dl id="baseline" class="metrics wide" hidden></dl>
+          <button id="calib-button" type="button" disabled>Mulai kalibrasi</button>
+        </section>
+
+        <section class="panel">
+          <h2 id="window-title">60 detik terakhir</h2>
+          <dl id="features" class="metrics wide"></dl>
+          <button id="download-log" type="button" class="secondary">Unduh log sesi (CSV)</button>
+          <p class="note">Log berisi angka per frame saja (tanpa gambar) dan disimpan di perangkat ini.</p>
+        </section>
+
+        <section class="panel">
+          <h2>Langflow</h2>
+          <p class="note">Data yang dikirim ke server hanya JSON ini:</p>
+          <pre id="payload">Belum ada status.</pre>
+          <button id="send-status" type="button" disabled>Kirim status saat ini ke Langflow</button>
+          <div id="answer" class="answer" aria-live="polite"></div>
+        </section>
+      </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

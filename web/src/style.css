@@ -8,6 +8,8 @@
   --ok: #2f7d6d;
   --warn: #b7791f;
   --error: #c0392b;
+  --idle: #6b7773;
+  --on-status: #ffffff;
 
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
@@ -26,6 +28,8 @@
     --ok: #5cc3ab;
     --warn: #e0a84a;
     --error: #ef7a6c;
+    --idle: #7d8a86;
+    --on-status: #121615;
   }
 }
 
@@ -47,15 +51,20 @@ body {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.column {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
 @media (min-width: 860px) {
   .app {
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
   }
   header {
     grid-column: 1 / -1;
-  }
-  .camera {
-    grid-row: span 2;
   }
 }
 
@@ -67,6 +76,11 @@ h1 {
 h2 {
   margin: 0 0 12px;
   font-size: 1rem;
+}
+
+h3 {
+  margin: 12px 0 4px;
+  font-size: 0.875rem;
 }
 
 .subtitle,
@@ -82,14 +96,49 @@ h2 {
   align-self: start;
 }
 
-video {
+video,
+.camera canvas {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  background: #000;
   border-radius: 12px;
   transform: scaleX(-1); /* mirror, feels natural for a selfie view */
+}
+
+video {
+  background: #000;
+}
+
+/* Debug overlay: same box, fit and mirroring as the video so the points line up. */
+.camera canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.camera canvas[hidden] {
+  display: none;
+}
+
+.camera-prompt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  font-size: clamp(1.5rem, 5vw, 3rem);
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+  background: rgb(0 0 0 / 0.45);
+  border-radius: 12px;
+}
+
+.camera-prompt[hidden] {
+  display: none;
 }
 
 .badge {
@@ -135,6 +184,14 @@ video {
   grid-template-columns: 9rem minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+}
+
+.metrics.wide .metric {
+  grid-template-columns: 12rem minmax(0, 1fr);
+}
+
+.metrics.wide .metric dt {
+  font-family: inherit;
 }
 
 .metric dt {
@@ -190,6 +247,12 @@ button {
   cursor: pointer;
 }
 
+button.secondary {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: progress;
@@ -218,4 +281,63 @@ button:disabled {
 
 .error {
   color: var(--error);
+}
+
+.label {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--on-status);
+  background: var(--idle);
+}
+
+.label::first-letter {
+  text-transform: uppercase;
+}
+
+.label[data-label="normal"] {
+  background: var(--ok);
+}
+
+.label[data-label="lelah ringan"] {
+  background: var(--warn);
+}
+
+.label[data-label="lelah"] {
+  background: var(--error);
+}
+
+.reasons {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.reasons li + li {
+  margin-top: 4px;
+}
+
+.pending {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--warn);
+  background: var(--bg);
+}
+
+.calib-status {
+  margin: 0 0 12px;
+}
+
+.calib-status[data-state="error"] {
+  color: var(--error);
+}
+
+.progress {
+  margin: 0 0 12px;
+}
+
+.progress span {
+  transition: width 0.4s linear;
 }
