@@ -7,6 +7,9 @@ dist/
 .env.*
 !.env.example
 
+# Session logs from "Unduh log sesi" (per-frame face numbers of a tester)
+equilibre-sesi-*.csv
+
 # Bob workspace config (berisi API key project Langflow)
 .bob/
 
