@@ -54,13 +54,29 @@ describe("computeWindowFeatures", () => {
     expect(f.perclos).toBe(0);
     expect(f.pct_kepala_menunduk).toBeCloseTo(0.5);
     expect(f.pct_mata_terbuka).toBeCloseTo(0.5);
+    expect(f.pct_mata_tertutup).toBe(0); // low lids with the head down are "not seen", not closed
     expect(f.kedip_per_menit).toBe(0); // per minute of readable eyes, not of face time
   });
 
   it("gives no PERCLOS when the eyes were readable for less than 5 seconds", () => {
     const f = compute(tenFps((t, i) => (i < 40 ? frame(t, { ear: 0.05 }) : frame(t, { pitchDeg: -30 }))));
     expect(f.perclos).toBeNull();
-    expect(f.pct_mata_terbuka).toBe(0);
+    // Wide-open lids still count as open with the head down: they rule out "tertidur".
+    expect(f.pct_mata_terbuka).toBeCloseTo(560 / 600);
+    expect(f.pct_mata_tertutup).toBeCloseTo(40 / 600);
+  });
+
+  it("leaves blinks shorter than 500 ms out of PERCLOS", () => {
+    const t = (i: number) => NOW - WINDOW + (i + 1) * 100;
+    const shortStarts = Array.from({ length: 20 }, (_, n) => 10 + n * 20); // 20 blinks of 2 frames
+    const closedFrames = new Set([...shortStarts.flatMap((i) => [i, i + 1]), 500, 501, 502, 503, 504, 505]);
+    const closures = [
+      ...shortStarts.map((i) => blink(t(i + 2), 200)),
+      blink(t(506), 600), // a slow blink: still counted
+    ];
+    const f = compute(tenFps((ft, i) => frame(ft, { ear: closedFrames.has(i) ? 0.05 : 0.3 })), closures);
+    expect(f.perclos).toBeCloseTo(6 / 600);
+    expect(f.pct_mata_tertutup).toBeCloseTo(46 / 600);
   });
 
   it("counts blinks per minute of face time and averages their duration", () => {
@@ -87,13 +103,23 @@ describe("computeWindowFeatures", () => {
     expect(f.gerak_tubuh).toBeCloseTo(0.02);
   });
 
+  it("reports how often most of the body is in view and how often it is still", () => {
+    // "tertidur" needs 0.5 × 0.4 = 0.2 of the frame: a 0.15 mask (a coat on the chair) is present but not enough.
+    const bodies = [0.4, 0.35, 0.15, 0.3].map((area, i) => ({ t: NOW - 2000 + i * 500, area, motion: i === 0 ? NaN : i / 100 }));
+    const f = compute(tenFps((t) => noFace(t)), [], [], bodies);
+    expect(f.pct_tubuh_ada).toBe(1);
+    expect(f.pct_tubuh_utuh).toBeCloseTo(0.75);
+    expect(f.pct_tubuh_diam).toBeCloseTo(1 / 3); // motions 0.01, 0.02, 0.03 against 0.015
+  });
+
   it("returns nulls when there is not enough data", () => {
     const empty = compute([]);
     expect(empty).toMatchObject({ perclos: null, kedip_per_menit: null, pct_wajah_hilang: null, pct_tubuh_ada: null, n_frame: 0 });
+    expect(empty).toMatchObject({ pct_mata_terbuka: null, pct_mata_tertutup: null, pct_tubuh_utuh: null, pct_tubuh_diam: null });
 
     const away = compute(tenFps((t) => noFace(t)));
     expect(away).toMatchObject({ perclos: null, kedip_per_menit: null, pct_kepala_menunduk: null, pct_wajah_hilang: 1 });
-    expect(away).toMatchObject({ pct_mata_terbuka: 0, pct_tubuh_ada: null, gerak_tubuh: null });
+    expect(away).toMatchObject({ pct_mata_terbuka: 0, pct_mata_tertutup: 0, pct_tubuh_ada: null, gerak_tubuh: null });
 
     expect(compute([frame(NOW - 2000), frame(NOW - 1000)]).kedip_per_menit).toBeNull();
   });

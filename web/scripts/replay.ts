@@ -1,12 +1,11 @@
 // Replays a session CSV ("Unduh log sesi") through the app's own pipeline (Monitor),
 // so threshold changes in src/ can be checked against recorded sessions.
-// Run with Node's built-in type stripping: npm run replay -- <file.csv> [--lelah=N]
+// Run with Node's built-in type stripping: npm run replay -- <file.csv> [--tidur=N] [--window=seconds]
 import { readFileSync } from "node:fs";
 import type { EyeClosure } from "../src/blink.ts";
 import type { BodySample } from "../src/body.ts";
 import type { Baseline } from "../src/calibration.ts";
 import { Monitor } from "../src/monitor.ts";
-import { SLEEP } from "../src/rules.ts";
 import type { FrameSignal } from "../src/signals.ts";
 import type { YawnEvent } from "../src/yawn.ts";
 
@@ -19,7 +18,7 @@ function parseCsv(path: string) {
   const comment = (pattern: RegExp) => lines.find((l) => l.startsWith("#") && pattern.test(l))?.match(pattern)?.[1];
   const opened = Date.parse(comment(/dibuka (\S+)/) ?? "");
   const windowMs = Number(comment(/window_ms=(\d+)/) ?? 60_000);
-  const minMenitLelah = Number(comment(/min_menit_lelah=(\d+(?:\.\d+)?)/) ?? SLEEP.fatigueMinutes);
+  const tidur = comment(/tidur_menit=(\d+(?:\.\d+)?)/);
   const parsed = JSON.parse(comment(/baseline=(.*)$/) ?? "null") as Baseline | null;
   // CSVs from before body detection have no bodyArea and no body columns.
   const baseline = parsed && { ...parsed, bodyArea: parsed.bodyArea ?? null };
@@ -49,20 +48,22 @@ function parseCsv(path: string) {
         body: Number.isFinite(area) ? { t, area, motion: get("body_motion") } : null,
       };
     });
-  return { opened, windowMs, minMenitLelah, baseline, frames };
+  return { opened, windowMs, tidurMenit: tidur === undefined ? undefined : Number(tidur), baseline, frames };
 }
 
 const [path, ...flags] = process.argv.slice(2);
 if (!path) {
-  console.error("Pemakaian: npm run replay -- <file.csv> [--lelah=N]");
+  console.error("Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik]");
   process.exit(1);
 }
-const { opened, windowMs, minMenitLelah, baseline, frames } = parseCsv(path);
+const { opened, windowMs, tidurMenit, baseline, frames } = parseCsv(path);
 if (!baseline) {
   console.error("CSV ini tidak punya baseline (belum dikalibrasi saat diunduh), jadi tidak ada label untuk diputar ulang.");
   process.exit(1);
 }
-const lelahFlag = flags.find((f) => f.startsWith("--lelah="));
+const flag = (name: string) => flags.find((f) => f.startsWith(`--${name}=`))?.slice(name.length + 3);
+const tidurFlag = flag("tidur");
+const windowFlag = flag("window");
 
 // The live loop starts right after calibration (baseline.createdAt, wall clock), or at
 // page load when the baseline came from storage. "dibuka" = performance.timeOrigin.
@@ -73,15 +74,15 @@ if (live.length === 0) {
   process.exit(1);
 }
 const monitor = new Monitor(baseline, {
-  windowMs,
+  windowMs: windowFlag ? Number(windowFlag) * 1000 : windowMs,
   evalIntervalMs: EVAL_INTERVAL_MS,
-  minMenitLelah: lelahFlag ? Number(lelahFlag.slice("--lelah=".length)) : minMenitLelah,
+  tidurMenit: tidurFlag ? Number(tidurFlag) : tidurMenit,
 });
 const hasBody = live.some((f) => f.body !== null);
 console.log(
   `${frames.length} frame, ${live.length} setelah kalibrasi (${live[0].waktu} → ${live[live.length - 1].waktu}), ` +
-    `jendela ${windowMs / 1000} detik, deteksi tubuh ${hasBody ? "ada" : "tidak ada di CSV ini"}, ` +
-    `syarat tertidur ${monitor.options.minMenitLelah} menit "lelah"`,
+    `jendela ${monitor.options.windowMs / 1000} detik, deteksi tubuh ${hasBody ? "ada" : "tidak ada di CSV ini"}, ` +
+    `tertidur setelah ${monitor.sleepMinutes.eyesClosed} menit mata terpejam / ${monitor.sleepMinutes.eyesHidden} menit mata tidak terlihat`,
 );
 
 const closures: EyeClosure[] = [];
@@ -93,7 +94,7 @@ const fixed = (x: number | null, width: number) => (x === null ? "-" : x.toFixed
 const motion = (x: number | null) => (x === null ? "    -" : x.toFixed(3));
 
 console.log(
-  "waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka tubuh gerak | mentah               -> tampil               | alasan",
+  "waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka terpejam tubuh diam gerak | mentah               -> tampil               | alasan",
 );
 for (const f of live) {
   if (f.body) monitor.pushBody(f.body);
@@ -109,7 +110,8 @@ for (const f of live) {
   console.log(
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
       `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
-      `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}  ${pct(feat.pct_tubuh_ada)} ${motion(feat.gerak_tubuh)} | ` +
+      `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}     ${pct(feat.pct_mata_tertutup)}  ` +
+      `${pct(feat.pct_tubuh_ada)} ${pct(feat.pct_tubuh_diam)} ${motion(feat.gerak_tubuh)} | ` +
       `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ` +
       [...(latest?.alasan ?? []), ...(latest?.catatan ?? []).map((c) => `(${c})`), ...(hold ? [hold] : [])].join(" / "),
   );

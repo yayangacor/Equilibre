@@ -20,6 +20,10 @@ export const GRID_COLS = 16;
 export const BODY = {
   minArea: 0.05, // below this there is no person in view at all
   minShareOfBaseline: 0.3, // …or less than 30% of the area seen while working normally during calibration
+  // "tertidur" needs most of the calibrated body in view, so a coat left on the chair
+  // (partly segmented as a person, and perfectly still) does not count.
+  sleepShareOfBaseline: 0.5,
+  stillMotion: 0.015, // a sample at or below this counts as still. Scale unknown until the first sleep recording.
 } as const;
 
 // Averages a confidence mask (row-major, width × height) into GRID_COLS columns and
@@ -57,7 +61,7 @@ export function toBodySample(grid: BodyGrid, previous: BodyGrid | null, t: numbe
 }
 
 // baselineArea = Baseline.bodyArea (null for a baseline made before body detection existed).
-export function bodyPresent(sample: BodySample, baselineArea: number | null): boolean {
-  const relative = baselineArea === null ? 0 : BODY.minShareOfBaseline * baselineArea;
+export function bodyPresent(sample: BodySample, baselineArea: number | null, share: number = BODY.minShareOfBaseline): boolean {
+  const relative = baselineArea === null ? 0 : share * baselineArea;
   return sample.area >= Math.max(BODY.minArea, relative);
 }

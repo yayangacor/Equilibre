@@ -20,13 +20,13 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { Monitor } from "./monitor.ts";
+import { FATIGUE_HISTORY_MINUTES, Monitor } from "./monitor.ts";
 import { toAnalyzePayload } from "./payload.ts";
 import { RULES, SLEEP, type Evaluation } from "./rules.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 
-// ── Config. Dev shortcuts: ?calib=30&window=20&lelah=1&debug=1 ──────────────────
+// ── Config. Dev shortcuts: ?calib=30&window=20&tidur=1&debug=1 ──────────────────
 
 const params = new URLSearchParams(location.search);
 function numberParam(name: string, fallback: number, min: number, max: number): number {
@@ -45,8 +45,8 @@ const CALIB_CONFIRM_CLOSED_FRAMES = 3;
 const CALIB_WAIT_CLOSED_MS = 8_000;
 const CALIB_NORMAL_MS = numberParam("calib", 300, 10, 1800) * 1000;
 const BODY_INTERVAL_MS = 500; // body presence changes slowly; ±2×/second is plenty
-// Minutes of "lelah" before "tertidur" is possible. ?lelah=1 makes the sleep scenario demo-able.
-const MIN_MENIT_LELAH = numberParam("lelah", SLEEP.fatigueMinutes, 0, SLEEP.historyMinutes);
+// Minutes of closed eyes before "tertidur" (twice that with the eyes hidden). ?tidur=1 makes it demo-able.
+const TIDUR_MENIT = numberParam("tidur", SLEEP.eyesClosedMinutes, 0.5, 30);
 const DEBUG = params.get("debug") === "1";
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
 const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
@@ -139,9 +139,11 @@ const featureRows = {
   menunduk: metricRow(featuresList, "Kepala menunduk"),
   hilang: metricRow(featuresList, "Wajah tidak terdeteksi"),
   terbuka: metricRow(featuresList, "Mata terlihat terbuka"),
+  terpejam: metricRow(featuresList, "Mata terlihat terpejam"),
   tubuh: metricRow(featuresList, "Tubuh terdeteksi"),
+  diam: metricRow(featuresList, "Tubuh diam"),
   gerak: metricRow(featuresList, "Gerak tubuh (median)"),
-  menitLelah: metricRow(featuresList, `Menit "lelah" (${SLEEP.historyMinutes} menit)`),
+  menitLelah: metricRow(featuresList, `Menit "lelah"/"tertidur" (${FATIGUE_HISTORY_MINUTES} menit)`),
   frame: metricRow(featuresList, "Jumlah frame"),
 };
 
@@ -188,7 +190,7 @@ let sending = false;
 
 function resetWindow(t: number) {
   monitor = baseline
-    ? new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS, minMenitLelah: MIN_MENIT_LELAH })
+    ? new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS, tidurMenit: TIDUR_MENIT })
     : null;
   latest = null;
   hold = null;
@@ -288,9 +290,11 @@ function renderFeatures() {
   featureRows.menunduk(show(f?.pct_kepala_menunduk, asPct));
   featureRows.hilang(show(f?.pct_wajah_hilang, asPct));
   featureRows.terbuka(show(f?.pct_mata_terbuka, asPct));
+  featureRows.terpejam(show(f?.pct_mata_tertutup, asPct));
   featureRows.tubuh(bodyDetection ? show(f?.pct_tubuh_ada, asPct) : "nonaktif (model gagal dimuat)");
+  featureRows.diam(show(f?.pct_tubuh_diam, asPct));
   featureRows.gerak(show(f?.gerak_tubuh, (v) => fmt3.format(v)));
-  featureRows.menitLelah(monitor ? `${fmt.format(menitLelah)} (syarat tertidur ${MIN_MENIT_LELAH})` : "–");
+  featureRows.menitLelah(monitor ? fmt.format(menitLelah) : "–");
   featureRows.frame(f ? `${f.n_frame} (data ${Math.round(f.durasi_jendela_detik)} detik)` : "–");
 }
 
@@ -646,7 +650,7 @@ byId("download-log").addEventListener("click", () => {
   const csv = framesToCsv(sessionLog, bodyLog, performance.timeOrigin, [
     `Equilibre log sesi, halaman dibuka ${started.toISOString()}`,
     `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${DETECT_INTERVAL_MS} ` +
-      `body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} min_menit_lelah=${MIN_MENIT_LELAH}`,
+      `body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} tidur_menit=${TIDUR_MENIT}`,
     `baseline=${JSON.stringify(baseline)}`,
   ]);
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
