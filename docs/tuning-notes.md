@@ -96,6 +96,7 @@ Perubahan lain di versi yang sama:
 - **Mata tidak terlihat ≥ 50% jendela + tubuh ada** → label ditahan. Sebelumnya hanya "wajah hilang ≥ 50%"; sekarang juga kepala jatuh ke depan dengan wajah masih terdeteksi.
 - **PERCLOS tanpa kedip pendek** (< 500 ms), temuan 1 opsi A.
 - **Kedip ≥ 2× baseline** jadi poin pendukung: hanya dihitung kalau sudah ada tanda lain; kalau sendirian, muncul sebagai `catatan`. Di CSV 21 Sep laju kedip saat normal 24–48/menit (baseline 25,8), saat pura-pura mengantuk sampai 67.
+- **Saran istirahat panjang**: kalau label tampil `lelah`/`tertidur` total ≥ 15 menit dalam 60 menit terakhir (`ADVICE` di `rules.ts`; menit yang ditahan dan `lelah ringan` tidak dihitung), panel Status menyarankan berhenti dan, kalau badan kurang fit, minta izin. Payload membawa `menit_lelah_60`; server menurunkan `saran_istirahat_panjang` dengan batas yang sama, jadi keputusan ini tidak dibuat oleh LLM.
 
 Efek di replay CSV 21 Sep, jendela 60 detik (`--window=60`), kode lama → baru:
 
