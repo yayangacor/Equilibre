@@ -118,6 +118,10 @@ Buka `?debug=1&calib=30&window=20&tidur=1` (jalur tertidur jadi 1 menit mata ter
 
 1. Kerja normal 1 menit.
 2. Melihat HP di tangan 1 menit, lalu HP di pangkuan **3 menit sambil menggulir seperti biasa** → tidak boleh `tertidur`.
+   - **HP tidak perlu terlihat kamera.** Equilibre tidak mendeteksi HP; yang dibaca hanya wajah (ada/tidak, posisi kepala, mata) dan siluet tubuh (luas, gerak). Yang diuji adalah postur main HP: kepala menunduk dalam, tangan di bawah meja, hanya jempol yang bergerak. Ini kasus tersulit karena kamera hanya melihat kepala dan bahu yang nyaris diam, mirip tidur telungkup.
+   - Pegang HP di tempat yang biasa dipakai. Kalau biasanya di pangkuan di bawah meja, biarkan HP dan tangan di luar frame. Kalau tangan dan HP ikut masuk frame, gerakannya mungkin ikut terbaca sebagai gerak tubuh, sehingga uji jadi lebih mudah dari kenyataan.
+   - Menggulir dan membaca seperti biasa (media sosial, chat). Jangan sengaja diam, jangan sengaja banyak bergerak.
+   - Wajah boleh kadang terbaca, kadang tidak. Kalau terbaca dengan mata terbuka, `tertidur` sudah batal; kalau tidak terbaca, hanya gerak tubuh yang menentukan. Catat mana yang lebih sering terjadi (panel debug: "Wajah terdeteksi" / "Wajah tidak terdeteksi").
 3. Pura-pura mengantuk: pejam pelan ≥ 1 detik beberapa kali dan menguap, sampai label "lelah" bertahan ≥ 1 menit.
 4. Mata terpejam dengan kepala tegak, diam 90 detik → "lelah", lalu "tertidur".
 5. Kepala direbahkan di meja, diam 3 menit → label ditahan, lalu "tertidur".
