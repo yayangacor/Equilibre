@@ -1,4 +1,4 @@
-export const LABELS = ["normal", "lelah ringan", "lelah", "tidak di depan layar"] as const;
+export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di depan layar"] as const;
 
 export type Label = (typeof LABELS)[number];
 
@@ -8,6 +8,7 @@ export type FatigueFeatures = {
   perclos?: number;
   kedip_per_menit?: number;
   durasi_kedip_ms?: number;
+  mata_tertutup_lama?: number;
   menguap?: number;
   pct_kepala_menunduk?: number;
   pct_wajah_hilang?: number;
@@ -22,6 +23,7 @@ const NUMERIC_FIELDS = {
   perclos: [0, 1],
   kedip_per_menit: [0, 200],
   durasi_kedip_ms: [0, 5000],
+  mata_tertutup_lama: [0, 1000],
   menguap: [0, 1000],
   pct_kepala_menunduk: [0, 1],
   pct_wajah_hilang: [0, 1],
