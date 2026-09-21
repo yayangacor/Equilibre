@@ -17,6 +17,14 @@ type EyeRange = Pick<Baseline, "earOpen" | "earClosed">;
 // ⚠️ Initial thresholds, tuned on 23 Sep from recorded sessions.
 export const MAX_MISSING_FACE = 0.3;
 export const MIN_EAR_RANGE = 0.05; // open and closed eyes must differ at least this much
+// A frame looks "closed" when EAR is well below the open reference, or when the
+// eyeBlink blendshapes say so (backup signal, PLAN "Kalau macet"). Landmarks of
+// closed eyes flicker open now and then (seen in the 21 Sep session log), so
+// stage A only needs part of its frames to look closed, and earClosed comes
+// from those frames only.
+export const CLOSED_EAR_RATIO = 0.6;
+export const CLOSED_BLINK = 0.5;
+export const MIN_CLOSED_SHARE = 0.3;
 export const MIN_NORMAL_STAGE_MS = 10_000;
 // Blink stats need ~10 fps. A hidden tab gets its timers throttled to ~1 fps,
 // which would silently record "no blinks" as the personal baseline.
@@ -44,7 +52,12 @@ export function percentile(values: readonly number[], p: number): number {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
 }
 
+export function looksClosed(f: FrameSignal, earOpenRef: number): boolean {
+  return f.face && (f.ear <= CLOSED_EAR_RATIO * earOpenRef || (f.blinkLeft + f.blinkRight) / 2 >= CLOSED_BLINK);
+}
+
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+const num = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format;
 
 export type CalibrationResult = { ok: true; baseline: Baseline } | { ok: false; error: string };
 
@@ -80,19 +93,34 @@ export function computeBaseline(
     return { ok: false, error: "Tahap kerja normal terlalu singkat. Ulangi kalibrasi." };
   }
 
-  const intervals = normalFrames.slice(1).map((f, i) => f.t - normalFrames[i].t);
-  if (median(intervals) > MAX_MEDIAN_FRAME_INTERVAL_MS) {
+  const intervalMs = median(normalFrames.slice(1).map((f, i) => f.t - normalFrames[i].t));
+  if (intervalMs > MAX_MEDIAN_FRAME_INTERVAL_MS) {
     return {
       ok: false,
-      error: "Kamera terlalu jarang dibaca (tab ini tersembunyi?). Ulangi kalibrasi dengan tab Equilibre tetap terlihat.",
+      error:
+        `Kamera hanya terbaca ±${num(1000 / intervalMs)} fps saat tahap kerja normal (minimal ±${num(1000 / MAX_MEDIAN_FRAME_INTERVAL_MS)} fps). ` +
+        "Biasanya karena tab ini tersembunyi; ulangi dengan tab Equilibre tetap terlihat.",
     };
   }
 
-  const range = { earClosed: median(closed.map((f) => f.ear)), earOpen: median(normal.map((f) => f.ear)) };
+  const earOpen = median(normal.map((f) => f.ear));
+  const closedLike = closed.filter((f) => looksClosed(f, earOpen));
+  const closedShare = closedLike.length / closed.length;
+  if (closedShare < MIN_CLOSED_SHARE) {
+    return {
+      ok: false,
+      error:
+        `Mata hanya terdeteksi terpejam di ${pct(closedShare)} frame tahap mata terpejam (minimal ${pct(MIN_CLOSED_SHARE)}). ` +
+        "Ulangi, dan tahan mata tetap terpejam sampai terdengar bunyi beep panjang.",
+    };
+  }
+  const range = { earOpen, earClosed: median(closedLike.map((f) => f.ear)) };
   if (range.earOpen - range.earClosed < MIN_EAR_RANGE) {
     return {
       ok: false,
-      error: "Mata tampak tidak terpejam saat tahap mata terpejam. Ulangi, dan tetap pejamkan mata sampai terdengar bunyi beep.",
+      error:
+        `EAR saat terpejam (${num(range.earClosed)}) terlalu dekat dengan saat terbuka (${num(range.earOpen)}); ` +
+        `selisih minimal ${num(MIN_EAR_RANGE)}. Ulangi dengan wajah menghadap kamera.`,
     };
   }
 

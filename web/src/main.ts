@@ -1,7 +1,16 @@
 import "./style.css";
 import type { FaceLandmarker, FaceLandmarkerResult } from "@mediapipe/tasks-vision";
 import { initialBlinkState, stepBlink, type EyeClosure } from "./blink.ts";
-import { blinkThreshold, computeBaseline, loadBaseline, saveBaseline, type Baseline, type KeyValueStore } from "./calibration.ts";
+import {
+  blinkThreshold,
+  computeBaseline,
+  loadBaseline,
+  looksClosed,
+  median,
+  saveBaseline,
+  type Baseline,
+  type KeyValueStore,
+} from "./calibration.ts";
 import { createFaceLandmarker } from "./face.ts";
 import {
   computeWindowFeatures,
@@ -30,7 +39,10 @@ const WINDOW_MS = numberParam("window", 60, 10, 600) * 1000;
 const EVAL_INTERVAL_MS = 10_000;
 const FEATURES_REFRESH_MS = 1_000;
 const CALIB_CLOSED_MS = 3_000;
-const CALIB_REACTION_MS = 500; // frames right after "pejamkan mata" are skipped
+// Stage A records only once the eyes are actually closed, so a slow reaction or
+// closing early during the countdown no longer puts open-eye frames in the sample.
+const CALIB_CONFIRM_CLOSED_FRAMES = 3;
+const CALIB_WAIT_CLOSED_MS = 8_000;
 const CALIB_NORMAL_MS = numberParam("calib", 300, 10, 1800) * 1000;
 const DEBUG = params.get("debug") === "1";
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
@@ -132,8 +144,10 @@ function openStore(): KeyValueStore | null {
 const store = openStore();
 
 type CalibrationRun = {
-  phase: "countdown" | "closed" | "normal";
-  closedFrom: number;
+  phase: "countdown" | "waiting" | "closed" | "normal";
+  open: FrameSignal[]; // countdown frames: eyes open, the reference for "closed"
+  openRef: number;
+  closedStreak: number;
   closed: FrameSignal[];
   normal: FrameSignal[];
   cancelled: boolean;
@@ -186,8 +200,11 @@ function onFrame(s: FrameSignal) {
   breakState = breakState ? stepBreak(breakState, s.t, s.face) : initialBreakState(s.t);
 
   if (calibration) {
-    if (calibration.phase === "closed" && s.t >= calibration.closedFrom) calibration.closed.push(s);
-    if (calibration.phase === "normal") calibration.normal.push(s);
+    const run = calibration;
+    if (run.phase === "countdown") run.open.push(s);
+    if (run.phase === "waiting") run.closedStreak = looksClosed(s, run.openRef) ? run.closedStreak + 1 : 0;
+    if (run.phase === "closed") run.closed.push(s);
+    if (run.phase === "normal") run.normal.push(s);
     return;
   }
   if (!baseline) return;
@@ -446,16 +463,18 @@ function runDetection(landmarker: FaceLandmarker) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function beep(audio: AudioContext) {
+// Short ticks during the countdown double as a sound check, so the user can
+// trust the final (long, higher) beep instead of peeking at the screen.
+function tone(audio: AudioContext, frequency: number, seconds: number) {
   const osc = audio.createOscillator();
   const gain = audio.createGain();
   const t = audio.currentTime;
-  osc.frequency.value = 880;
-  gain.gain.setValueAtTime(0.25, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0.3, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + seconds);
   osc.connect(gain).connect(audio.destination);
   osc.start(t);
-  osc.stop(t + 0.35);
+  osc.stop(t + seconds);
 }
 
 function setCalibStatus(text: string) {
@@ -464,7 +483,15 @@ function setCalibStatus(text: string) {
 }
 
 async function runCalibration() {
-  const run: CalibrationRun = { phase: "countdown", closedFrom: Infinity, closed: [], normal: [], cancelled: false };
+  const run: CalibrationRun = {
+    phase: "countdown",
+    open: [],
+    openRef: NaN,
+    closedStreak: 0,
+    closed: [],
+    normal: [],
+    cancelled: false,
+  };
   calibration = run;
   // Created inside the click handler, so the browser lets it play the beep.
   const audio = new AudioContext();
@@ -475,19 +502,40 @@ async function runCalibration() {
   try {
     cameraPrompt.hidden = false;
     for (const n of [3, 2, 1]) {
-      setCalibStatus(`Tahap 1 dari 2: saat hitungan habis, pejamkan mata dan tahan sampai terdengar bunyi beep. ${n}…`);
+      setCalibStatus(
+        `Tahap 1 dari 2: lihat ke layar dengan mata terbuka. Saat hitungan habis, pejamkan mata ` +
+          `dan tahan sampai terdengar bunyi beep panjang (±3 detik). ${n}…`,
+      );
       cameraPrompt.textContent = String(n);
+      tone(audio, 440, 0.08);
       await sleep(1000);
       if (run.cancelled) return;
     }
 
-    run.phase = "closed";
-    run.closedFrom = performance.now() + CALIB_REACTION_MS;
-    setCalibStatus("Tahap 1 dari 2: pejamkan mata sampai terdengar bunyi beep.");
+    run.openRef = median(run.open.filter((f) => f.face && Number.isFinite(f.ear)).map((f) => f.ear));
+    run.phase = "waiting";
+    setCalibStatus("Tahap 1 dari 2: pejamkan mata dan tahan sampai terdengar bunyi beep panjang.");
     cameraPrompt.textContent = "Pejamkan mata";
-    await sleep(CALIB_REACTION_MS + CALIB_CLOSED_MS);
+    const waitStart = performance.now();
+    while (run.closedStreak < CALIB_CONFIRM_CLOSED_FRAMES) {
+      if (run.cancelled) return;
+      if (performance.now() - waitStart > CALIB_WAIT_CLOSED_MS) {
+        tone(audio, 220, 0.6);
+        outcome = {
+          message:
+            `Mata tidak terdeteksi terpejam dalam ${CALIB_WAIT_CLOSED_MS / 1000} detik setelah aba-aba. ` +
+            "Ulangi, pastikan wajah terlihat jelas, lalu pejamkan mata saat hitungan habis.",
+          isError: true,
+        };
+        return;
+      }
+      await sleep(50);
+    }
+
+    run.phase = "closed";
+    await sleep(CALIB_CLOSED_MS);
     if (run.cancelled) return;
-    beep(audio);
+    tone(audio, 880, 0.6);
 
     run.phase = "normal";
     cameraPrompt.hidden = true;

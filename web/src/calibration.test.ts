@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BASELINE_KEY,
+  looksClosed,
   blinkThreshold,
   computeBaseline,
   loadBaseline,
@@ -39,6 +40,16 @@ describe("thresholds", () => {
   });
 });
 
+describe("looksClosed", () => {
+  it("uses EAR relative to the open reference, with eyeBlink as a backup", () => {
+    expect(looksClosed(frame(0, { ear: 0.17 }), 0.3)).toBe(true);
+    expect(looksClosed(frame(0, { ear: 0.25 }), 0.3)).toBe(false);
+    expect(looksClosed(frame(0, { ear: 0.25, blinkLeft: 0.6, blinkRight: 0.5 }), 0.3)).toBe(true);
+    expect(looksClosed(frame(0, { ear: 0.1 }), NaN)).toBe(false); // no reference yet: blendshapes only
+    expect(looksClosed(noFace(0), 0.3)).toBe(false);
+  });
+});
+
 describe("computeBaseline", () => {
   it("derives personal values from both stages", () => {
     const result = computeBaseline(closedStage(), normalStage(), 42);
@@ -73,7 +84,26 @@ describe("computeBaseline", () => {
   it("rejects calibration when the eyes were not really closed in stage A", () => {
     const result = computeBaseline(earSeries(repeat(0.28, 30)), normalStage(), 0);
     expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toContain("tidak terpejam");
+    expect(!result.ok && result.error).toContain("hanya terdeteksi terpejam di 0%");
+  });
+
+  it("tolerates eyes flickering open during stage A and uses only the closed frames", () => {
+    // 40% closed, 60% open: the old median-of-everything rule read this as "not closed".
+    const flicker = earSeries(Array.from({ length: 30 }, (_, i) => (i % 5 < 2 ? 0.08 : 0.3)));
+    const result = computeBaseline(flicker, normalStage(), 0);
+    expect(result.ok && result.baseline.earClosed).toBeCloseTo(0.08);
+  });
+
+  it("accepts eyeBlink blendshapes as the closed signal when EAR drops only a little", () => {
+    const blendshapeClosed = earSeries(repeat(0.22, 30)).map((f) => ({ ...f, blinkLeft: 0.8, blinkRight: 0.7 }));
+    const result = computeBaseline(blendshapeClosed, normalStage(), 0);
+    expect(result.ok && result.baseline.earClosed).toBeCloseTo(0.22);
+  });
+
+  it("reports the measured EARs when open and closed are too close", () => {
+    const barelyClosed = earSeries(repeat(0.27, 30)).map((f) => ({ ...f, blinkLeft: 0.9, blinkRight: 0.9 }));
+    const result = computeBaseline(barelyClosed, normalStage(), 0);
+    expect(!result.ok && result.error).toContain("EAR saat terpejam (0,27)");
   });
 
   it("rejects a normal stage shorter than 10 s", () => {
