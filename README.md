@@ -1,6 +1,6 @@
 # Equilibre
 
-Equilibre adalah web app pendamping kerja yang membantu pekerja di depan komputer mengenali tanda kelelahan sebelum berubah menjadi stres dan burnout. MediaPipe Face Landmarker berjalan langsung di browser untuk membaca indikator mata dan wajah (kedip, PERCLOS, menguap, posisi kepala). **Video dan data wajah tidak pernah keluar dari perangkat.** Yang dikirim ke server hanya label dan angka ringkasan. Flow Langflow menyusun rekomendasi relief berbasis bukti dalam Bahasa Indonesia, dan IBM Bob menjadi agen percakapan "Tanya Equilibre" yang memanggil flow Langflow lewat MCP.
+Equilibre adalah web app pendamping kerja yang membantu pekerja di depan komputer mengenali tanda kelelahan sebelum berubah menjadi stres dan burnout. MediaPipe Face Landmarker berjalan langsung di browser untuk membaca indikator mata dan wajah (kedip, PERCLOS, menguap, posisi kepala), dan MediaPipe Image Segmenter (model selfie) mendeteksi apakah tubuh masih di depan kamera saat wajah tidak terlihat. **Video dan data wajah tidak pernah keluar dari perangkat.** Yang dikirim ke server hanya label dan angka ringkasan. Flow Langflow menyusun rekomendasi relief berbasis bukti dalam Bahasa Indonesia, dan IBM Bob menjadi agen percakapan "Tanya Equilibre" yang memanggil flow Langflow lewat MCP.
 
 > Status: tahap awal pengembangan (IBM × Hacktiv8 National Hackathon 2026).
 

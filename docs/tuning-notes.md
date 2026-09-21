@@ -4,7 +4,7 @@ Catatan kerja untuk menyetel threshold rules (`web/src/rules.ts`, `features.ts`,
 
 ## Cara memutar ulang sesi
 
-1. Di aplikasi, klik **Unduh log sesi (CSV)**. Isinya angka per frame saja (EAR, jawOpen, pitch, blendshape kedip), tanpa gambar.
+1. Di aplikasi, klik **Unduh log sesi (CSV)**. Isinya angka per frame saja (EAR, jawOpen, pitch, blendshape kedip dan arah pandang, luas dan gerak tubuh), tanpa gambar.
 2. Jalankan:
 
    ```bash
@@ -12,7 +12,7 @@ Catatan kerja untuk menyetel threshold rules (`web/src/rules.ts`, `features.ts`,
    npm run replay -- "C:/Users/LEGION 5/Downloads/equilibre-sesi-20260921-140729.csv"
    ```
 
-`scripts/replay.ts` memakai modul yang **sama persis** dengan loop live (`blink`, `yawn`, `calibration`, `features`, `rules`). Jadi setelah threshold di `src/` diubah, cukup jalankan replay lagi untuk melihat efeknya. Hasilnya berupa timeline tiap 10 detik: fps, 6 fitur jendela, label mentah → label tampil (setelah hysteresis), dan alasannya.
+`scripts/replay.ts` memakai pipeline yang **sama persis** dengan loop live (`Monitor` di `monitor.ts`, yang memanggil `blink`, `yawn`, `features`, `rules`). Jadi setelah threshold di `src/` diubah, cukup jalankan replay lagi untuk melihat efeknya. Hasilnya berupa timeline tiap 10 detik: fps, 6 fitur jendela, label mentah → label tampil (setelah hysteresis), dan alasannya.
 
 CSV sesi **jangan di-commit**, karena berisi data wajah (numerik) milik tester. Pola `equilibre-sesi-*.csv` sudah masuk `.gitignore`.
 
@@ -50,3 +50,38 @@ Arah pitch sudah dicek user: `pitch relatif` negatif saat menunduk.
 3. **Menguap: hanya 1 dari beberapa percobaan yang terhitung** (6,8 detik, 14:02:54). Percobaan 14:02:26 hanya 0,9 detik di atas `jawOpen` 0,5 (minimum 1,5 detik). Percobaan 14:02:17 terjadi saat kepala menunduk, dan wajah sempat hilang dari deteksi. Sebelum menurunkan durasi minimum, rekam dulu sesi **berbicara** supaya bicara tidak ikut terhitung menguap.
 4. **EAR terbuka bergantung pada posisi kamera**: ±0,30 saat kamera di bawah wajah, 0,243 saat sejajar mata. Kalibrasi personal menangani ini, tapi user perlu kalibrasi ulang kalau kamera dipindah. Pesan di panel kalibrasi sudah menyebut hal ini.
 5. **Kalibrasi tahap A (sudah diperbaiki di `d6f46eb`).** Landmark mata terpejam sesekali "meloncat" terbuka, dan 3 detik rekaman sering tidak bersamaan dengan saat mata benar-benar terpejam. Sekarang tahap A menunggu mata terdeteksi terpejam, cukup ≥30% frame terbaca tertutup, dan `eyeBlink` dipakai sebagai cadangan.
+
+## Menunduk melihat HP, dan tertidur di meja (21 Sep sore)
+
+Temuan user saat uji di mode debug:
+
+1. **Melihat HP (kepala menunduk) terbaca "lelah".** Ada dua penyebab. Pertama, `pct_kepala_menunduk ≥ 30%` langsung menambah 1 poin. Kedua, saat melihat ke bawah kelopak atas ikut turun, dan webcam melihat mata dari atas, sehingga EAR turun seperti mata terpejam dan PERCLOS naik. Di CSV `equilibre-sesi-20260921-140729.csv`, saat kepala menunduk tapi mata tetap menatap layar, EAR justru tinggi (median 0,32). Jadi yang menurunkan EAR adalah arah pandang ke bawah. CSV uji HP-nya sendiri belum ada, jadi ini baru dugaan terkuat.
+2. **Tertidur di meja tidak bisa dibedakan dari pergi.** Dua-duanya hanya terbaca sebagai "wajah hilang", karena sebelumnya Equilibre hanya membaca wajah.
+
+Perubahan:
+
+| Bagian | Sebelum | Sesudah |
+|---|---|---|
+| Mata dinilai | Semua frame yang ada wajahnya | Hanya saat kepala tidak menunduk (`pitch relatif > −15°`, `eyesReadable` di `features.ts`). PERCLOS `null` kalau mata terbaca < 5 detik |
+| Poin ke-4 | Kepala menunduk ≥ 30% | **Mata terpejam ≥ 1 detik** (`mata_tertutup_lama` ≥ 1). Penutupan ≥ 1 detik yang terpotong karena kepala turun/wajah hilang tetap dihitung, karena begitulah pola orang tertidur: mata terpejam dulu, baru kepala jatuh |
+| Kepala menunduk | Poin lelah | Hanya `catatan` di UI (tidak dihitung) |
+| Wajah hilang, tubuh masih ada | "tidak di depan layar" | Label terakhir **ditahan** dengan penjelasan (mata tidak bisa dinilai) |
+| Label baru `tertidur` | – | Syarat **semua**: mata terlihat terbuka ≤ 10% dari jendela, tubuh ada di ≥ 80% sampel, gerak tubuh (median) ≤ 0,015, dan status "lelah" sudah ≥ 15 menit dalam 60 menit terakhir |
+
+Deteksi tubuh memakai **MediaPipe Image Segmenter (model selfie, ±250 KB, CPU, 2×/detik)**. Mask orang diringkas jadi grid 16×12 dan langsung dibuang. Yang disimpan hanya `body_area` (luas mask) dan `body_motion` (perubahan grid antar-sampel). Pose Landmarker tidak dipakai karena detektornya memakai wajah sebagai patokan, sehingga kemungkinan ikut gagal saat kepala di meja. Kalibrasi tahap B sekarang juga menyimpan `bodyArea`. Tubuh dianggap ada kalau luasnya ≥ 5% frame dan ≥ 30% dari `bodyArea`. Baseline lama tetap bisa dipakai, tapi sebaiknya kalibrasi ulang.
+
+Syarat `tertidur` sengaja ketat (keputusan user 21 Sep): kondisi ini langka dan baru masuk akal setelah lelah berat dalam waktu lama. Kalau indikator risiko stres sudah ada (1 Okt), indikator itu bisa ditambahkan sebagai syarat.
+
+⚠️ Semua angka di atas masih nilai awal. Yang paling belum pasti adalah `SLEEP.maxMotion` (0,015), karena skala `body_motion` belum pernah diukur.
+
+### Rekaman yang dibutuhkan untuk tuning
+
+Buka `?debug=1&calib=30&window=20&lelah=1`, **kalibrasi ulang**, lalu rekam satu sesi dan unduh CSV-nya:
+
+1. Kerja normal 1 menit.
+2. Melihat HP di tangan 1 menit, lalu HP di pangkuan 1 menit (kepala sangat menunduk).
+3. Pura-pura mengantuk sampai label "lelah" bertahan ≥ 1 menit.
+4. Kepala direbahkan di meja, diam 2 menit → harapannya "lelah" ditahan, lalu "tertidur".
+5. Tinggalkan kursi 1 menit → "tidak di depan layar".
+
+Yang dicek dari CSV: `look_down` saat melihat HP vs saat mata terpejam (kandidat pembeda kalau HP dipegang setinggi dada dan kepala hanya sedikit menunduk), `body_area` saat duduk / kepala di meja / kursi kosong, dan `body_motion` saat bekerja vs diam. Replay dengan syarat tertidur lain: `npm run replay -- <file.csv> --lelah=1`.
