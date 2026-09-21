@@ -7,7 +7,10 @@ export type FatigueFeatures = {
   skor?: number;
   perclos?: number;
   kedip_per_menit?: number;
+  durasi_kedip_ms?: number;
   menguap?: number;
+  pct_kepala_menunduk?: number;
+  pct_wajah_hilang?: number;
   menit_sejak_jeda?: number;
 };
 
@@ -18,7 +21,10 @@ const NUMERIC_FIELDS = {
   skor: [0, 1],
   perclos: [0, 1],
   kedip_per_menit: [0, 200],
+  durasi_kedip_ms: [0, 5000],
   menguap: [0, 1000],
+  pct_kepala_menunduk: [0, 1],
+  pct_wajah_hilang: [0, 1],
   menit_sejak_jeda: [0, 24 * 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
