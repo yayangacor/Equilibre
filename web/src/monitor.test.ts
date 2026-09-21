@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BodySample } from "./body.ts";
-import { Monitor } from "./monitor.ts";
+import { Monitor, type EvaluationStep } from "./monitor.ts";
 import type { Label } from "./rules.ts";
 import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, FRAME_MS, noFace } from "./test-helpers.ts";
@@ -10,15 +10,16 @@ const EVAL_MS = 10_000;
 type Scene = (t: number) => { frame: FrameSignal; body: Omit<BodySample, "t"> };
 
 // Plays a scenario like the live loop: a frame every 100 ms, a body sample every
-// 500 ms, an evaluation every 10 s. Returns the shown label after each evaluation.
-function play(monitor: Monitor, seconds: number, at: Scene, start = 0): Label[] {
+// 500 ms, an evaluation every 10 s. Returns the shown label after each evaluation
+// (and collects the evaluation steps into `steps` when given).
+function play(monitor: Monitor, seconds: number, at: Scene, start = 0, steps: EvaluationStep[] = []): Label[] {
   const shown: Label[] = [];
   for (let t = start + FRAME_MS; t <= start + seconds * 1000; t += FRAME_MS) {
     const step = at(t);
     if (t % 500 === 0) monitor.pushBody({ t, ...step.body });
     monitor.pushFrame(step.frame);
     if (t % EVAL_MS === 0) {
-      monitor.evaluate(t);
+      steps.push(monitor.evaluate(t));
       shown.push(monitor.labelState.shown?.label ?? ("-" as Label));
     }
   }
@@ -40,8 +41,9 @@ const empty = { area: 0.01, motion: 0.001 };
 const coat = { area: 0.15, motion: 0.001 };
 
 const upright: Scene = (t) => ({ frame: frame(t), body: working });
-// Drowsy but awake: eyes closed in 1 of every 5 frames (PERCLOS 20%).
-const drowsy: Scene = (t) => ({ frame: frame(t, { ear: (t / FRAME_MS) % 5 === 0 ? 0.05 : 0.3 }), body: working });
+// Drowsy but awake: 600 ms eye closures every 2 s (PERCLOS 30%). Quick blinks would
+// not count: blinks under 500 ms stay out of PERCLOS.
+const drowsy: Scene = (t) => ({ frame: frame(t, { ear: (t / FRAME_MS) % 20 < 6 ? 0.05 : 0.3 }), body: working });
 const eyesClosed: Scene = (t) => ({ frame: frame(t, { ear: 0.05 }), body: still });
 const headOnDesk: Scene = (t) => ({ frame: noFace(t), body: still });
 // Face still found, head dropped forward 30° past the baseline, lids low.
@@ -92,6 +94,33 @@ describe("Monitor: tertidur", () => {
     const minutes = minutesUntil(play(monitor, 3 * 60, headOnDesk, 60_000), "tertidur");
     expect(minutes).toBeGreaterThanOrEqual(1.8);
     expect(minutes).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("Monitor: long rest advice", () => {
+  it("advises a long rest once lelah adds up to 15 minutes within the hour", () => {
+    const monitor = create();
+    const steps: EvaluationStep[] = [];
+    expect(play(monitor, 14 * 60, drowsy, 0, steps).at(-1)).toBe("lelah");
+    const before = steps.at(-1)!;
+    expect(before.menitLelah).toBeGreaterThan(13);
+    expect(before.saran).toBeNull();
+    play(monitor, 2 * 60, drowsy, 14 * 60_000, steps);
+    const after = steps.at(-1)!;
+    expect(after.menitLelah).toBeGreaterThanOrEqual(15);
+    expect(after.saran).toMatch(/^Dalam 60 menit terakhir kamu 1\d menit dalam kondisi "lelah"/);
+  });
+
+  it("does not count the held minutes before tertidur", () => {
+    const monitor = create();
+    const steps: EvaluationStep[] = [];
+    play(monitor, 60, upright);
+    play(monitor, 20 * 60, headOnDesk, 60_000, steps); // held, then tertidur from ±9 minutes
+    // Only the tertidur stretch counts (about 11 minutes), not the held minutes before it.
+    const step = steps.at(-1)!;
+    expect(step.menitLelah).toBeGreaterThan(10);
+    expect(step.menitLelah).toBeLessThan(12);
+    expect(step.saran).toBeNull();
   });
 });
 

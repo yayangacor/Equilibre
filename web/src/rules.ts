@@ -44,6 +44,25 @@ export const SLEEP = {
   minCoverage: 0.9, // recorded data must span 90% of the lookback
 } as const;
 
+// Long rest advice (user decision, 21 Sep): what is rare is not "tertidur" itself but
+// spending a good part of the last hour "lelah" or "tertidur". Only then Equilibre
+// suggests stopping, possibly taking leave. The server applies the same threshold
+// (LONG_REST_MINUTES in server/src/features.ts; payload.test.ts checks).
+export const ADVICE = {
+  historyMinutes: 60,
+  longRestMinutes: 15,
+} as const;
+
+// menitLelah = minutes the shown label was "lelah" or "tertidur" within ADVICE.historyMinutes.
+export function longRestAdvice(menitLelah: number): string | null {
+  if (menitLelah < ADVICE.longRestMinutes) return null;
+  return (
+    `Dalam ${ADVICE.historyMinutes} menit terakhir kamu ${Math.floor(menitLelah)} menit dalam kondisi "lelah" ` +
+    `atau "tertidur" (batas ${ADVICE.longRestMinutes} menit). Sebaiknya berhenti dulu dan istirahat yang cukup. ` +
+    "Kalau badan terasa kurang fit, pertimbangkan untuk minta izin."
+  );
+}
+
 export type SleepLookback = {
   eyesClosed: WindowFeatures; // features over the last eyesClosedMinutes
   eyesHidden: WindowFeatures; // features over the last eyesHiddenMinutes

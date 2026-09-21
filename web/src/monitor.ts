@@ -3,8 +3,10 @@ import type { BodySample } from "./body.ts";
 import { blinkThreshold, type Baseline } from "./calibration.ts";
 import { computeWindowFeatures, eyesReadable, type WindowFeatures } from "./features.ts";
 import {
+  ADVICE,
   evaluate,
   initialLabelState,
+  longRestAdvice,
   SLEEP,
   type Evaluation,
   type Label,
@@ -30,10 +32,10 @@ export type EvaluationStep = {
   hold: string | null;
   lookback: SleepLookback;
   menitLelah: number;
+  saran: string | null; // long rest advice (longRestAdvice)
 };
 
 const HEAVY: readonly Label[] = ["lelah", "tertidur"];
-export const FATIGUE_HISTORY_MINUTES = 60;
 
 export class Monitor {
   readonly baseline: Baseline;
@@ -95,9 +97,9 @@ export class Monitor {
     };
   }
 
-  // Minutes the shown label was "lelah" or "tertidur" within FATIGUE_HISTORY_MINUTES.
+  // Minutes the shown label was "lelah" or "tertidur" within ADVICE.historyMinutes.
   menitLelah(now: number): number {
-    const from = now - FATIGUE_HISTORY_MINUTES * 60_000;
+    const from = now - ADVICE.historyMinutes * 60_000;
     const heavy = this.history.filter((h) => h.t > from && h.t <= now && HEAVY.includes(h.label)).length;
     return (heavy * this.options.evalIntervalMs) / 60_000;
   }
@@ -109,9 +111,10 @@ export class Monitor {
     this.labelState = result.state;
     if (result.latest && this.labelState.shown) {
       this.history.push({ t: now, label: this.labelState.shown.label });
-      dropBefore(this.history, now - FATIGUE_HISTORY_MINUTES * 60_000, (h) => h.t);
+      dropBefore(this.history, now - ADVICE.historyMinutes * 60_000, (h) => h.t);
     }
-    return { features, latest: result.latest, hold: result.hold, lookback, menitLelah: this.menitLelah(now) };
+    const menitLelah = this.menitLelah(now);
+    return { features, latest: result.latest, hold: result.hold, lookback, menitLelah, saran: longRestAdvice(menitLelah) };
   }
 }
 

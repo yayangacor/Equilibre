@@ -6,6 +6,7 @@ import {
   evaluate,
   hiddenFaceNote,
   initialLabelState,
+  longRestAdvice,
   type Evaluation,
   type Label,
   type SleepLookback,
@@ -216,6 +217,16 @@ describe("tertidur and hidden eyes", () => {
     expect(hiddenFaceNote({ ...asleep, pct_tubuh_ada: 0.5 })).not.toBeNull();
     expect(hiddenFaceNote({ ...asleep, pct_tubuh_ada: 0.49 })).toBeNull();
     expect(hiddenFaceNote({ ...asleep, pct_mata_terbuka: 0.7 })).toBeNull();
+  });
+});
+
+describe("long rest advice", () => {
+  it("appears from 15 minutes of lelah/tertidur in the last hour", () => {
+    expect(longRestAdvice(14.9)).toBeNull();
+    expect(longRestAdvice(15.5)).toBe(
+      'Dalam 60 menit terakhir kamu 15 menit dalam kondisi "lelah" atau "tertidur" (batas 15 menit). ' +
+        "Sebaiknya berhenti dulu dan istirahat yang cukup. Kalau badan terasa kurang fit, pertimbangkan untuk minta izin.",
+    );
   });
 });
 

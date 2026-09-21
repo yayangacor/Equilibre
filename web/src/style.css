@@ -332,6 +332,14 @@ button:disabled {
   background: var(--bg);
 }
 
+.long-rest {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--error);
+  background: var(--bg);
+  color: var(--text);
+}
+
 .calib-status {
   margin: 0 0 12px;
 }

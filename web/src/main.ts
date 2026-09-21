@@ -20,9 +20,9 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { FATIGUE_HISTORY_MINUTES, Monitor } from "./monitor.ts";
+import { Monitor } from "./monitor.ts";
 import { toAnalyzePayload } from "./payload.ts";
-import { RULES, SLEEP, type Evaluation } from "./rules.ts";
+import { ADVICE, RULES, SLEEP, type Evaluation } from "./rules.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 
@@ -67,6 +67,7 @@ const labelBadge = byId("label");
 const labelMeta = byId("label-meta");
 const reasonList = byId("reasons");
 const pendingNote = byId("pending");
+const longRestNote = byId("long-rest");
 const calibStatus = byId("calib-status");
 const calibProgress = byId("calib-progress");
 const calibButton = byId<HTMLButtonElement>("calib-button");
@@ -143,7 +144,7 @@ const featureRows = {
   tubuh: metricRow(featuresList, "Tubuh terdeteksi"),
   diam: metricRow(featuresList, "Tubuh diam"),
   gerak: metricRow(featuresList, "Gerak tubuh (median)"),
-  menitLelah: metricRow(featuresList, `Menit "lelah"/"tertidur" (${FATIGUE_HISTORY_MINUTES} menit)`),
+  menitLelah: metricRow(featuresList, `Menit "lelah"/"tertidur" (${ADVICE.historyMinutes} menit)`),
   frame: metricRow(featuresList, "Jumlah frame"),
 };
 
@@ -179,6 +180,7 @@ let monitor: Monitor | null = null;
 let latest: Evaluation | null = null;
 let hold: string | null = null;
 let menitLelah = 0;
+let saran: string | null = null;
 let features: WindowFeatures | null = null;
 let lastEvalT = 0;
 let lastFeaturesT = 0;
@@ -195,6 +197,7 @@ function resetWindow(t: number) {
   latest = null;
   hold = null;
   menitLelah = 0;
+  saran = null;
   features = null;
   lastEvalT = t;
   lastFeaturesT = t;
@@ -226,7 +229,7 @@ function onFrame(s: FrameSignal) {
   }
   if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
     lastEvalT = s.t;
-    ({ latest, hold, menitLelah } = monitor.evaluate(s.t));
+    ({ latest, hold, menitLelah, saran } = monitor.evaluate(s.t));
     renderStatus();
     renderPayload();
   }
@@ -306,6 +309,8 @@ function setLabel(text: string, label = "none") {
 function renderStatus() {
   reasonList.replaceChildren();
   pendingNote.hidden = true;
+  longRestNote.hidden = saran === null || calibration !== null;
+  longRestNote.textContent = saran ?? "";
   labelMeta.textContent = "";
 
   if (calibration) {
@@ -348,7 +353,7 @@ function renderStatus() {
 function currentPayload() {
   const shown = monitor?.labelState.shown;
   if (!shown || !features || !breakState) return null;
-  return toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()));
+  return toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()), menitLelah);
 }
 
 function renderPayload() {

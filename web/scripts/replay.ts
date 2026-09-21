@@ -104,7 +104,7 @@ for (const f of live) {
 
   if (f.t - lastEval < EVAL_INTERVAL_MS) continue;
   lastEval = f.t;
-  const { features: feat, latest, hold } = monitor.evaluate(f.t);
+  const { features: feat, latest, hold, menitLelah, saran } = monitor.evaluate(f.t);
   const fps = feat.durasi_jendela_detik > 0 ? feat.n_frame / feat.durasi_jendela_detik : 0;
   const shown = monitor.labelState.shown;
   console.log(
@@ -113,7 +113,12 @@ for (const f of live) {
       `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}     ${pct(feat.pct_mata_tertutup)}  ` +
       `${pct(feat.pct_tubuh_ada)} ${pct(feat.pct_tubuh_diam)} ${motion(feat.gerak_tubuh)} | ` +
       `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ` +
-      [...(latest?.alasan ?? []), ...(latest?.catatan ?? []).map((c) => `(${c})`), ...(hold ? [hold] : [])].join(" / "),
+      [
+        ...(latest?.alasan ?? []),
+        ...(latest?.catatan ?? []).map((c) => `(${c})`),
+        ...(hold ? [hold] : []),
+        ...(saran ? [`[SARAN ISTIRAHAT PANJANG: ${menitLelah.toFixed(1)} menit lelah/tertidur]`] : []),
+      ].join(" / "),
   );
 }
 
