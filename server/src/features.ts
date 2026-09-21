@@ -13,7 +13,14 @@ export type FatigueFeatures = {
   pct_kepala_menunduk?: number;
   pct_wajah_hilang?: number;
   menit_sejak_jeda?: number;
+  menit_lelah_60?: number; // minutes labelled "lelah" or "tertidur" in the last hour
 };
+
+// A long rest (stop working, maybe take leave) is advised from this many
+// "lelah"/"tertidur" minutes in the last hour. Decided here, not by the LLM, so the
+// advice is consistent. Same value as ADVICE.longRestMinutes in web/src/rules.ts
+// (web/src/payload.test.ts checks).
+export const LONG_REST_MINUTES = 15;
 
 // Allowed aggregate numbers and their valid ranges. Anything outside this list
 // (landmarks, images, free text) is rejected, so raw face data can never be
@@ -28,6 +35,7 @@ const NUMERIC_FIELDS = {
   pct_kepala_menunduk: [0, 1],
   pct_wajah_hilang: [0, 1],
   menit_sejak_jeda: [0, 24 * 60],
+  menit_lelah_60: [0, 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
 type ParseResult = { ok: true; value: FatigueFeatures } | { ok: false; error: string };
@@ -58,4 +66,11 @@ export function parseFeatures(body: unknown): ParseResult {
   }
 
   return { ok: true, value };
+}
+
+// What the Langflow flow receives: the validated numbers plus the long-rest flag
+// derived from them.
+export function toFlowInput(f: FatigueFeatures): FatigueFeatures & { saran_istirahat_panjang?: boolean } {
+  if (f.menit_lelah_60 === undefined) return f;
+  return { ...f, saran_istirahat_panjang: f.menit_lelah_60 >= LONG_REST_MINUTES };
 }

@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler } from "express";
 import { config } from "./config.ts";
-import { parseFeatures } from "./features.ts";
+import { parseFeatures, toFlowInput } from "./features.ts";
 import { LangflowError, parseJsonReply, runFlow } from "./langflow.ts";
 
 const app = express();
@@ -23,7 +23,7 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    const text = await runFlow(config.langflowFlowId, JSON.stringify(parsed.value));
+    const text = await runFlow(config.langflowFlowId, JSON.stringify(toFlowInput(parsed.value)));
     res.json({ text, result: parseJsonReply(text) });
   } catch (err) {
     if (err instanceof LangflowError) {
