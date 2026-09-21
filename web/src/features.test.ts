@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { EyeClosure } from "./blink.ts";
+import type { BodySample } from "./body.ts";
 import { computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
+import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, noFace, repeat } from "./test-helpers.ts";
+import type { YawnEvent } from "./yawn.ts";
 
 const WINDOW = 60_000;
 const NOW = 100_000;
@@ -17,11 +20,14 @@ const blink = (endT: number, durationMs: number, kind: EyeClosure["kind"] = "bli
   durationMs,
 });
 
+const compute = (frames: FrameSignal[], closures: EyeClosure[] = [], yawns: YawnEvent[] = [], bodies: BodySample[] = []) =>
+  computeWindowFeatures({ frames, closures, yawns, bodies }, BASELINE, NOW, WINDOW);
+
 describe("computeWindowFeatures", () => {
   it("computes PERCLOS from face frames under the P80 threshold (0.14)", () => {
-    const frames = tenFps((t, i) => frame(t, { ear: i < 90 ? 0.12 : 0.3 })); // 15% closed
-    const f = computeWindowFeatures(frames, [], [], BASELINE, NOW, WINDOW);
+    const f = compute(tenFps((t, i) => frame(t, { ear: i < 90 ? 0.12 : 0.3 }))); // 15% closed
     expect(f.perclos).toBeCloseTo(0.15);
+    expect(f.pct_mata_terbuka).toBeCloseTo(0.85);
     expect(f.n_frame).toBe(600);
     expect(f.pct_wajah_hilang).toBe(0);
     expect(f.durasi_jendela_detik).toBeCloseTo(59.9);
@@ -29,26 +35,40 @@ describe("computeWindowFeatures", () => {
 
   it("excludes frames outside the window", () => {
     const old = repeat(0, 50).map((_, i) => frame(NOW - WINDOW - i * 100, { ear: 0.05 }));
-    const f = computeWindowFeatures([...old, ...tenFps((t) => frame(t))], [], [], BASELINE, NOW, WINDOW);
+    const f = compute([...old, ...tenFps((t) => frame(t))]);
     expect(f.n_frame).toBe(600);
     expect(f.perclos).toBe(0);
   });
 
   it("uses only face frames for ratios but all frames for pct_wajah_hilang", () => {
-    const frames = tenFps((t, i) => (i % 4 === 0 ? noFace(t) : frame(t, { pitchDeg: i % 2 ? -25 : -5 })));
-    const f = computeWindowFeatures(frames, [], [], BASELINE, NOW, WINDOW);
+    const f = compute(tenFps((t, i) => (i % 4 === 0 ? noFace(t) : frame(t, { pitchDeg: i % 2 ? -25 : -5 }))));
     expect(f.pct_wajah_hilang).toBeCloseTo(0.25);
     // Odd frames are head-down (−25 − (−5) = −20° ≤ −15°); they are 2/3 of the face frames.
     expect(f.pct_kepala_menunduk).toBeCloseTo(2 / 3);
     expect(f.perclos).toBe(0);
   });
 
+  it("does not judge the eyes while the head is down (looking at a phone)", () => {
+    // Second half: head down 25° with lids low (EAR 0.05), as when reading a phone.
+    const f = compute(tenFps((t, i) => (i < 300 ? frame(t) : frame(t, { pitchDeg: -30, ear: 0.05 }))));
+    expect(f.perclos).toBe(0);
+    expect(f.pct_kepala_menunduk).toBeCloseTo(0.5);
+    expect(f.pct_mata_terbuka).toBeCloseTo(0.5);
+    expect(f.kedip_per_menit).toBe(0); // per minute of readable eyes, not of face time
+  });
+
+  it("gives no PERCLOS when the eyes were readable for less than 5 seconds", () => {
+    const f = compute(tenFps((t, i) => (i < 40 ? frame(t, { ear: 0.05 }) : frame(t, { pitchDeg: -30 }))));
+    expect(f.perclos).toBeNull();
+    expect(f.pct_mata_terbuka).toBe(0);
+  });
+
   it("counts blinks per minute of face time and averages their duration", () => {
-    const frames = tenFps((t) => frame(t));
     const closures = [blink(NOW - 70_000, 100), blink(NOW - 50_000, 100), blink(NOW - 30_000, 300), blink(NOW - 5_000, 1200, "long")];
-    const f = computeWindowFeatures(frames, closures, [], BASELINE, NOW, WINDOW);
+    const f = compute(tenFps((t) => frame(t)), closures);
     expect(f.kedip_per_menit).toBeCloseTo(2 / (59.9 / 60));
     expect(f.durasi_kedip_ms).toBe(200);
+    expect(f.mata_tertutup_lama).toBe(1);
   });
 
   it("counts yawns that ended inside the window", () => {
@@ -56,18 +76,26 @@ describe("computeWindowFeatures", () => {
       { startT: NOW - 65_000, endT: NOW - 62_000, durationMs: 3000 },
       { startT: NOW - 10_000, endT: NOW - 8_000, durationMs: 2000 },
     ];
-    expect(computeWindowFeatures(tenFps((t) => frame(t)), [], yawns, BASELINE, NOW, WINDOW).menguap).toBe(1);
+    expect(compute(tenFps((t) => frame(t)), [], yawns).menguap).toBe(1);
+  });
+
+  it("reports body presence and the median body motion", () => {
+    // BASELINE.bodyArea 0.4 → present from 0.3 × 0.4 = 0.12 (above the 0.05 floor).
+    const bodies = [0.4, 0.35, 0.1, 0.3].map((area, i) => ({ t: NOW - 2000 + i * 500, area, motion: i === 0 ? NaN : i / 100 }));
+    const f = compute(tenFps((t) => noFace(t)), [], [], [{ t: NOW - WINDOW - 100, area: 0, motion: 0.5 }, ...bodies]);
+    expect(f.pct_tubuh_ada).toBeCloseTo(0.75);
+    expect(f.gerak_tubuh).toBeCloseTo(0.02);
   });
 
   it("returns nulls when there is not enough data", () => {
-    const empty = computeWindowFeatures([], [], [], BASELINE, NOW, WINDOW);
-    expect(empty).toMatchObject({ perclos: null, kedip_per_menit: null, pct_wajah_hilang: null, n_frame: 0 });
+    const empty = compute([]);
+    expect(empty).toMatchObject({ perclos: null, kedip_per_menit: null, pct_wajah_hilang: null, pct_tubuh_ada: null, n_frame: 0 });
 
-    const away = computeWindowFeatures(tenFps((t) => noFace(t)), [], [], BASELINE, NOW, WINDOW);
+    const away = compute(tenFps((t) => noFace(t)));
     expect(away).toMatchObject({ perclos: null, kedip_per_menit: null, pct_kepala_menunduk: null, pct_wajah_hilang: 1 });
+    expect(away).toMatchObject({ pct_mata_terbuka: 0, pct_tubuh_ada: null, gerak_tubuh: null });
 
-    const justStarted = [frame(NOW - 2000), frame(NOW - 1000)];
-    expect(computeWindowFeatures(justStarted, [], [], BASELINE, NOW, WINDOW).kedip_per_menit).toBeNull();
+    expect(compute([frame(NOW - 2000), frame(NOW - 1000)]).kedip_per_menit).toBeNull();
   });
 });
 

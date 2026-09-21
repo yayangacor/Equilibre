@@ -1,55 +1,68 @@
-// Replays a session CSV ("Unduh log sesi") through the app's own pipeline modules,
+// Replays a session CSV ("Unduh log sesi") through the app's own pipeline (Monitor),
 // so threshold changes in src/ can be checked against recorded sessions.
-// Run with Node's built-in type stripping: npm run replay -- <file.csv>
+// Run with Node's built-in type stripping: npm run replay -- <file.csv> [--lelah=N]
 import { readFileSync } from "node:fs";
-import { initialBlinkState, stepBlink, type EyeClosure } from "../src/blink.ts";
-import { blinkThreshold, type Baseline } from "../src/calibration.ts";
-import { computeWindowFeatures } from "../src/features.ts";
-import { evaluate, initialLabelState } from "../src/rules.ts";
+import type { EyeClosure } from "../src/blink.ts";
+import type { BodySample } from "../src/body.ts";
+import type { Baseline } from "../src/calibration.ts";
+import { Monitor } from "../src/monitor.ts";
+import { SLEEP } from "../src/rules.ts";
 import type { FrameSignal } from "../src/signals.ts";
-import { initialYawnState, stepYawn, type YawnEvent } from "../src/yawn.ts";
+import type { YawnEvent } from "../src/yawn.ts";
 
 const EVAL_INTERVAL_MS = 10_000; // same as main.ts
 
-type Row = FrameSignal & { waktu: string };
+type Row = FrameSignal & { waktu: string; body: BodySample | null };
 
 function parseCsv(path: string) {
   const lines = readFileSync(path, "utf8").split(/\r?\n/);
   const comment = (pattern: RegExp) => lines.find((l) => l.startsWith("#") && pattern.test(l))?.match(pattern)?.[1];
   const opened = Date.parse(comment(/dibuka (\S+)/) ?? "");
   const windowMs = Number(comment(/window_ms=(\d+)/) ?? 60_000);
-  const baseline = JSON.parse(comment(/baseline=(.*)$/) ?? "null") as Baseline | null;
-  const num = (x: string) => (x === "" ? NaN : Number(x));
+  const minMenitLelah = Number(comment(/min_menit_lelah=(\d+(?:\.\d+)?)/) ?? SLEEP.fatigueMinutes);
+  const parsed = JSON.parse(comment(/baseline=(.*)$/) ?? "null") as Baseline | null;
+  // CSVs from before body detection have no bodyArea and no body columns.
+  const baseline = parsed && { ...parsed, bodyArea: parsed.bodyArea ?? null };
+
+  const header = lines.find((l) => l.startsWith("t_ms"))?.split(",") ?? [];
+  const col = (name: string) => header.indexOf(name);
+  const num = (x: string | undefined) => (x === undefined || x === "" ? NaN : Number(x));
   const frames: Row[] = lines
     .filter((l) => l && !l.startsWith("#") && !l.startsWith("t_ms"))
     .map((l) => {
       const c = l.split(",");
+      const get = (name: string) => num(c[col(name)]);
+      const t = get("t_ms");
+      const area = col("body_area") >= 0 ? get("body_area") : NaN;
       return {
-        t: num(c[0]),
-        waktu: c[1],
-        face: c[2] === "1",
-        earLeft: num(c[3]),
-        earRight: num(c[4]),
-        ear: num(c[5]),
-        jawOpen: num(c[6]),
-        pitchDeg: num(c[7]),
-        blinkLeft: num(c[8]),
-        blinkRight: num(c[9]),
+        t,
+        waktu: c[col("waktu")],
+        face: c[col("face")] === "1",
+        earLeft: get("ear_left"),
+        earRight: get("ear_right"),
+        ear: get("ear"),
+        jawOpen: get("jaw_open"),
+        pitchDeg: get("pitch_deg"),
+        blinkLeft: get("blink_left"),
+        blinkRight: get("blink_right"),
+        lookDown: col("look_down") >= 0 ? get("look_down") : NaN,
+        body: Number.isFinite(area) ? { t, area, motion: get("body_motion") } : null,
       };
     });
-  return { opened, windowMs, baseline, frames };
+  return { opened, windowMs, minMenitLelah, baseline, frames };
 }
 
-const path = process.argv[2];
+const [path, ...flags] = process.argv.slice(2);
 if (!path) {
-  console.error("Pemakaian: npm run replay -- <file.csv>");
+  console.error("Pemakaian: npm run replay -- <file.csv> [--lelah=N]");
   process.exit(1);
 }
-const { opened, windowMs, baseline, frames } = parseCsv(path);
+const { opened, windowMs, minMenitLelah, baseline, frames } = parseCsv(path);
 if (!baseline) {
   console.error("CSV ini tidak punya baseline (belum dikalibrasi saat diunduh), jadi tidak ada label untuk diputar ulang.");
   process.exit(1);
 }
+const lelahFlag = flags.find((f) => f.startsWith("--lelah="));
 
 // The live loop starts right after calibration (baseline.createdAt, wall clock), or at
 // page load when the baseline came from storage. "dibuka" = performance.timeOrigin.
@@ -59,43 +72,46 @@ if (live.length === 0) {
   console.error("Tidak ada frame setelah kalibrasi.");
   process.exit(1);
 }
+const monitor = new Monitor(baseline, {
+  windowMs,
+  evalIntervalMs: EVAL_INTERVAL_MS,
+  minMenitLelah: lelahFlag ? Number(lelahFlag.slice("--lelah=".length)) : minMenitLelah,
+});
+const hasBody = live.some((f) => f.body !== null);
 console.log(
   `${frames.length} frame, ${live.length} setelah kalibrasi (${live[0].waktu} → ${live[live.length - 1].waktu}), ` +
-    `jendela ${windowMs / 1000} detik`,
+    `jendela ${windowMs / 1000} detik, deteksi tubuh ${hasBody ? "ada" : "tidak ada di CSV ini"}, ` +
+    `syarat tertidur ${monitor.options.minMenitLelah} menit "lelah"`,
 );
 
-let blinkState = initialBlinkState();
-let yawnState = initialYawnState();
-let labelState = initialLabelState();
 const closures: EyeClosure[] = [];
 const yawns: YawnEvent[] = [];
-const seen: Row[] = [];
 let lastEval = live[0].t;
 
 const pct = (x: number | null) => (x === null ? "   -" : `${(x * 100).toFixed(0).padStart(3)}%`);
 const fixed = (x: number | null, width: number) => (x === null ? "-" : x.toFixed(0)).padStart(width);
+const motion = (x: number | null) => (x === null ? "    -" : x.toFixed(3));
 
-console.log("waktu    | fps  perclos kedip/m durasi menguap nunduk hilang | mentah               -> tampil               | alasan");
+console.log(
+  "waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka tubuh gerak | mentah               -> tampil               | alasan",
+);
 for (const f of live) {
-  seen.push(f);
-  const blink = stepBlink(blinkState, f.t, f.ear, blinkThreshold(baseline), f.face);
-  blinkState = blink.state;
-  if (blink.event) closures.push(blink.event);
-  const yawn = stepYawn(yawnState, f.t, f.jawOpen, f.face);
-  yawnState = yawn.state;
-  if (yawn.event) yawns.push(yawn.event);
+  if (f.body) monitor.pushBody(f.body);
+  const step = monitor.pushFrame(f);
+  if (step.closure) closures.push(step.closure);
+  if (step.yawn) yawns.push(step.yawn);
 
   if (f.t - lastEval < EVAL_INTERVAL_MS) continue;
   lastEval = f.t;
-  const feat = computeWindowFeatures(seen, closures, yawns, baseline, f.t, windowMs);
-  const result = evaluate(feat, baseline, labelState);
-  labelState = result.state;
+  const { features: feat, latest, hold } = monitor.evaluate(f.t);
   const fps = feat.durasi_jendela_detik > 0 ? feat.n_frame / feat.durasi_jendela_detik : 0;
+  const shown = monitor.labelState.shown;
   console.log(
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
-      `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.menguap).padStart(5)}  ${pct(feat.pct_kepala_menunduk)}  ` +
-      `${pct(feat.pct_wajah_hilang)} | ${(result.latest?.label ?? "-").padEnd(20)} -> ${(labelState.shown?.label ?? "-").padEnd(20)} | ` +
-      (result.latest?.alasan.join(" / ") ?? ""),
+      `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
+      `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}  ${pct(feat.pct_tubuh_ada)} ${motion(feat.gerak_tubuh)} | ` +
+      `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ` +
+      [...(latest?.alasan ?? []), ...(latest?.catatan ?? []).map((c) => `(${c})`), ...(hold ? [hold] : [])].join(" / "),
   );
 }
 

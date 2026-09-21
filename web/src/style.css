@@ -9,6 +9,7 @@
   --warn: #b7791f;
   --error: #c0392b;
   --idle: #6b7773;
+  --sleep: #5b4bb7;
   --on-status: #ffffff;
 
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
@@ -29,6 +30,7 @@
     --warn: #e0a84a;
     --error: #ef7a6c;
     --idle: #7d8a86;
+    --sleep: #a597f0;
     --on-status: #121615;
   }
 }
@@ -308,6 +310,10 @@ button:disabled {
 
 .label[data-label="lelah"] {
   background: var(--error);
+}
+
+.label[data-label="tertidur"] {
+  background: var(--sleep);
 }
 
 .reasons {

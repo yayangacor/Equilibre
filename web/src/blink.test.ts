@@ -31,6 +31,17 @@ describe("blink detection", () => {
     expect(detectEyeClosures(earSeries([OPEN, SHUT, SHUT, null, OPEN, OPEN]), THRESHOLD)).toEqual([]);
   });
 
+  it("still reports a long closure when the face disappears after 1 s (dozing off, then the head drops)", () => {
+    const events = detectEyeClosures(earSeries([OPEN, ...repeat(SHUT, 11), null, null]), THRESHOLD);
+    expect(events).toEqual([{ kind: "long", startT: 100, endT: 1200, durationMs: 1100 }]);
+  });
+
+  it("ends a closure on frames marked unreadable (head down), like a missing face", () => {
+    const headDownAt = (t: number) => t >= 400;
+    const events = detectEyeClosures(earSeries([OPEN, SHUT, SHUT, SHUT, SHUT, OPEN]), THRESHOLD, (f) => !headDownAt(f.t));
+    expect(events).toEqual([]);
+  });
+
   it("cancels a blink across a gap in the frame stream", () => {
     const frames = [frame(0, { ear: OPEN }), frame(100, { ear: SHUT }), frame(1100, { ear: OPEN })];
     expect(detectEyeClosures(frames, THRESHOLD)).toEqual([]);

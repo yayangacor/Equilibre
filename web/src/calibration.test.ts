@@ -63,7 +63,14 @@ describe("computeBaseline", () => {
     // 6 blinks over 29.9 s of face time.
     expect(b.blinkPerMin).toBeCloseTo(6 / (29.9 / 60), 3);
     expect(b.jawOpenP95).toBeGreaterThan(0.9);
+    expect(b.bodyArea).toBeNull(); // no body samples: segmenter not loaded
     expect(b.createdAt).toBe(42);
+  });
+
+  it("takes the median body area of stage B", () => {
+    const bodies = [0.3, 0.42, 0.4, 0.45, 0.38].map((area, i) => ({ t: 10_000 + i * 500, area, motion: 0.01 }));
+    const result = computeBaseline(closedStage(), normalStage(), 0, bodies);
+    expect(result.ok && result.baseline.bodyArea).toBeCloseTo(0.4);
   });
 
   it("ignores frames without a face", () => {
@@ -140,6 +147,15 @@ describe("baseline storage", () => {
     const store = memoryStore();
     expect(saveBaseline(store, BASELINE)).toBe(true);
     expect(loadBaseline(store)).toEqual(BASELINE);
+  });
+
+  it("loads a baseline saved before body detection existed", () => {
+    const store = memoryStore();
+    const { bodyArea: _, ...old } = BASELINE;
+    store.data.set(BASELINE_KEY, JSON.stringify(old));
+    expect(loadBaseline(store)).toEqual({ ...BASELINE, bodyArea: null });
+    store.data.set(BASELINE_KEY, JSON.stringify({ ...BASELINE, bodyArea: "0.4" }));
+    expect(loadBaseline(store)).toBeNull();
   });
 
   it("returns null for missing, corrupt or incomplete data", () => {

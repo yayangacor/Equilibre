@@ -1,8 +1,7 @@
 import "./style.css";
-import type { FaceLandmarker, FaceLandmarkerResult } from "@mediapipe/tasks-vision";
-import { initialBlinkState, stepBlink, type EyeClosure } from "./blink.ts";
+import type { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+import { bodyPresent, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
 import {
-  blinkThreshold,
   computeBaseline,
   loadBaseline,
   looksClosed,
@@ -11,22 +10,23 @@ import {
   type Baseline,
   type KeyValueStore,
 } from "./calibration.ts";
-import { createFaceLandmarker } from "./face.ts";
+import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
-  computeWindowFeatures,
+  eyesReadable,
+  headDown,
   initialBreakState,
   minutesSinceBreak,
   stepBreak,
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
+import { Monitor } from "./monitor.ts";
 import { toAnalyzePayload } from "./payload.ts";
-import { evaluate, initialLabelState, RULES, type Evaluation, type LabelState } from "./rules.ts";
+import { RULES, SLEEP, type Evaluation } from "./rules.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
-import { initialYawnState, stepYawn, type YawnEvent } from "./yawn.ts";
 
-// ── Config. Dev shortcuts: ?calib=30&window=20&debug=1 ──────────────────────────
+// ── Config. Dev shortcuts: ?calib=30&window=20&lelah=1&debug=1 ──────────────────
 
 const params = new URLSearchParams(location.search);
 function numberParam(name: string, fallback: number, min: number, max: number): number {
@@ -44,8 +44,12 @@ const CALIB_CLOSED_MS = 3_000;
 const CALIB_CONFIRM_CLOSED_FRAMES = 3;
 const CALIB_WAIT_CLOSED_MS = 8_000;
 const CALIB_NORMAL_MS = numberParam("calib", 300, 10, 1800) * 1000;
+const BODY_INTERVAL_MS = 500; // body presence changes slowly; ±2×/second is plenty
+// Minutes of "lelah" before "tertidur" is possible. ?lelah=1 makes the sleep scenario demo-able.
+const MIN_MENIT_LELAH = numberParam("lelah", SLEEP.fatigueMinutes, 0, SLEEP.historyMinutes);
 const DEBUG = params.get("debug") === "1";
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
+const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
 
 // ── DOM ─────────────────────────────────────────────────────────────────────────
 
@@ -119,6 +123,10 @@ const signalRows = {
   jawOpen: metricRow(signalsList, "jawOpen", true),
   blinkLeft: metricRow(signalsList, "eyeBlinkLeft", true),
   blinkRight: metricRow(signalsList, "eyeBlinkRight", true),
+  lookDown: metricRow(signalsList, "eyeLookDown", true),
+  eyes: metricRow(signalsList, "Mata dinilai?"),
+  bodyArea: metricRow(signalsList, "Tubuh (luas mask)", true),
+  bodyMotion: metricRow(signalsList, "Gerak tubuh"),
 };
 
 const featuresList = byId("features");
@@ -126,9 +134,14 @@ const featureRows = {
   perclos: metricRow(featuresList, "Mata tertutup (PERCLOS)"),
   kedip: metricRow(featuresList, "Kedip per menit"),
   durasi: metricRow(featuresList, "Durasi kedip rata-rata"),
+  lama: metricRow(featuresList, "Mata terpejam ≥1 detik"),
   menguap: metricRow(featuresList, "Menguap"),
   menunduk: metricRow(featuresList, "Kepala menunduk"),
   hilang: metricRow(featuresList, "Wajah tidak terdeteksi"),
+  terbuka: metricRow(featuresList, "Mata terlihat terbuka"),
+  tubuh: metricRow(featuresList, "Tubuh terdeteksi"),
+  gerak: metricRow(featuresList, "Gerak tubuh (median)"),
+  menitLelah: metricRow(featuresList, `Menit "lelah" (${SLEEP.historyMinutes} menit)`),
   frame: metricRow(featuresList, "Jumlah frame"),
 };
 
@@ -150,46 +163,39 @@ type CalibrationRun = {
   closedStreak: number;
   closed: FrameSignal[];
   normal: FrameSignal[];
+  normalBodies: BodySample[];
   cancelled: boolean;
 };
 
 let baseline: Baseline | null = store ? loadBaseline(store) : null;
 let calibration: CalibrationRun | null = null;
 let detecting = false;
+let bodyDetection = false; // the segmenter loaded
 
-// Rolling window (only while calibrated and not calibrating).
-let frames: FrameSignal[] = [];
-let closures: EyeClosure[] = [];
-let yawns: YawnEvent[] = [];
-let blinkState = initialBlinkState();
-let yawnState = initialYawnState();
-let labelState: LabelState = initialLabelState();
+// Rolling window + label (only while calibrated and not calibrating).
+let monitor: Monitor | null = null;
 let latest: Evaluation | null = null;
+let hold: string | null = null;
+let menitLelah = 0;
 let features: WindowFeatures | null = null;
 let lastEvalT = 0;
 let lastFeaturesT = 0;
 
 let breakState: BreakState | null = null;
 const sessionLog: FrameSignal[] = [];
+const bodyLog: BodySample[] = [];
 let sending = false;
 
 function resetWindow(t: number) {
-  frames = [];
-  closures = [];
-  yawns = [];
-  blinkState = initialBlinkState();
-  yawnState = initialYawnState();
-  labelState = initialLabelState();
+  monitor = baseline
+    ? new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS, minMenitLelah: MIN_MENIT_LELAH })
+    : null;
   latest = null;
+  hold = null;
+  menitLelah = 0;
   features = null;
   lastEvalT = t;
   lastFeaturesT = t;
-}
-
-function dropBefore<T>(list: T[], cutoff: number, time: (item: T) => number) {
-  let n = 0;
-  while (n < list.length && time(list[n]) <= cutoff) n++;
-  if (n > 0) list.splice(0, n);
 }
 
 // ── Per-frame pipeline ──────────────────────────────────────────────────────────
@@ -207,35 +213,29 @@ function onFrame(s: FrameSignal) {
     if (run.phase === "normal") run.normal.push(s);
     return;
   }
-  if (!baseline) return;
+  if (!monitor) return;
 
-  frames.push(s);
-  const blink = stepBlink(blinkState, s.t, s.ear, blinkThreshold(baseline), s.face);
-  blinkState = blink.state;
-  if (blink.event) closures.push(blink.event);
-  const yawn = stepYawn(yawnState, s.t, s.jawOpen, s.face);
-  yawnState = yawn.state;
-  if (yawn.event) yawns.push(yawn.event);
-
-  const cutoff = s.t - WINDOW_MS;
-  dropBefore(frames, cutoff, (f) => f.t);
-  dropBefore(closures, cutoff, (c) => c.endT);
-  dropBefore(yawns, cutoff, (y) => y.endT);
-
+  monitor.pushFrame(s);
   if (s.t - lastFeaturesT >= FEATURES_REFRESH_MS) {
     lastFeaturesT = s.t;
-    features = computeWindowFeatures(frames, closures, yawns, baseline, s.t, WINDOW_MS);
+    features = monitor.features(s.t);
+    menitLelah = monitor.menitLelah(s.t);
     renderFeatures();
   }
   if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
     lastEvalT = s.t;
-    const current = computeWindowFeatures(frames, closures, yawns, baseline, s.t, WINDOW_MS);
-    const result = evaluate(current, baseline, labelState);
-    labelState = result.state;
-    latest = result.latest;
+    ({ latest, hold, menitLelah } = monitor.evaluate(s.t));
     renderStatus();
     renderPayload();
   }
+}
+
+// Runs in the same tick as onFrame for that frame, just before it.
+function onBody(b: BodySample) {
+  bodyLog.push(b);
+  if (bodyLog.length > MAX_LOG_BODIES + 200) bodyLog.splice(0, 200);
+  if (calibration?.phase === "normal") calibration.normalBodies.push(b);
+  else if (!calibration) monitor?.pushBody(b);
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────────
@@ -257,6 +257,24 @@ function renderSignals(s: FrameSignal) {
   signalRows.jawOpen(score(s.jawOpen), s.jawOpen);
   signalRows.blinkLeft(score(s.blinkLeft), s.blinkLeft);
   signalRows.blinkRight(score(s.blinkRight), s.blinkRight);
+  signalRows.lookDown(score(s.lookDown), s.lookDown);
+  signalRows.eyes(
+    !baseline
+      ? "belum kalibrasi"
+      : eyesReadable(s, baseline)
+        ? "ya"
+        : !s.face
+          ? "tidak (wajah hilang)"
+          : headDown(s, baseline)
+            ? "tidak (menunduk)"
+            : "tidak",
+  );
+}
+
+function renderBody(b: BodySample) {
+  const present = bodyPresent(b, baseline?.bodyArea ?? null);
+  signalRows.bodyArea(`${asPct(b.area)} · ${present ? "ada orang" : "kosong"}`, b.area);
+  signalRows.bodyMotion(show(b.motion, (v) => fmt3.format(v)));
 }
 
 function renderFeatures() {
@@ -265,9 +283,14 @@ function renderFeatures() {
   featureRows.perclos(show(f?.perclos, asPct));
   featureRows.kedip(show(f?.kedip_per_menit, (v) => fmt.format(v)));
   featureRows.durasi(show(f?.durasi_kedip_ms, (v) => `${Math.round(v)} ms`));
+  featureRows.lama(f ? `${f.mata_tertutup_lama}×` : "–");
   featureRows.menguap(f ? String(f.menguap) : "–");
   featureRows.menunduk(show(f?.pct_kepala_menunduk, asPct));
   featureRows.hilang(show(f?.pct_wajah_hilang, asPct));
+  featureRows.terbuka(show(f?.pct_mata_terbuka, asPct));
+  featureRows.tubuh(bodyDetection ? show(f?.pct_tubuh_ada, asPct) : "nonaktif (model gagal dimuat)");
+  featureRows.gerak(show(f?.gerak_tubuh, (v) => fmt3.format(v)));
+  featureRows.menitLelah(monitor ? `${fmt.format(menitLelah)} (syarat tertidur ${MIN_MENIT_LELAH})` : "–");
   featureRows.frame(f ? `${f.n_frame} (data ${Math.round(f.durasi_jendela_detik)} detik)` : "–");
 }
 
@@ -291,10 +314,11 @@ function renderStatus() {
     labelMeta.textContent = "Kalibrasi dulu supaya Equilibre mengenal kondisi normalmu.";
     return;
   }
-  const shown = labelState.shown;
-  if (!shown) {
+  const labelState = monitor?.labelState;
+  const shown = labelState?.shown;
+  if (!labelState || !shown) {
     setLabel("Menganalisis…");
-    labelMeta.textContent = `Label pertama muncul sekitar ${EVAL_INTERVAL_MS / 1000} detik setelah kamera berjalan.`;
+    labelMeta.textContent = hold ?? `Label pertama muncul sekitar ${EVAL_INTERVAL_MS / 1000} detik setelah kamera berjalan.`;
     return;
   }
 
@@ -304,8 +328,12 @@ function renderStatus() {
     reasonList.append(el("li", shown.label === "normal" ? "Tidak ada tanda kelelahan di jendela ini." : "–"));
   }
   for (const reason of shown.alasan) reasonList.append(el("li", reason));
+  for (const note of shown.catatan) reasonList.append(el("li", note, "muted"));
 
-  if (labelState.candidate && latest) {
+  if (hold) {
+    pendingNote.hidden = false;
+    pendingNote.textContent = hold;
+  } else if (labelState.candidate && latest) {
     pendingNote.hidden = false;
     pendingNote.textContent =
       `Evaluasi terakhir: "${labelState.candidate}" (${labelState.streak}/${RULES.confirmEvaluations}). ` +
@@ -314,8 +342,9 @@ function renderStatus() {
 }
 
 function currentPayload() {
-  if (!labelState.shown || !features || !breakState) return null;
-  return toAnalyzePayload(labelState.shown, features, minutesSinceBreak(breakState, performance.now()));
+  const shown = monitor?.labelState.shown;
+  if (!shown || !features || !breakState) return null;
+  return toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()));
 }
 
 function renderPayload() {
@@ -336,6 +365,7 @@ function renderBaseline() {
     ["Durasi kedip", b.blinkDurationMs === null ? "tidak ada kedip terekam" : `${Math.round(b.blinkDurationMs)} ms`],
     ["Pitch normal", asDeg(b.pitchDeg)],
     ["jawOpen P95", fmt2.format(b.jawOpenP95)],
+    ["Luas tubuh normal", b.bodyArea === null ? "belum ada (kalibrasi ulang)" : asPct(b.bodyArea)],
     ["Dibuat", new Date(b.createdAt).toLocaleString("id-ID")],
   ];
   for (const [name, value] of rows) metricRow(baselineList, name)(value);
@@ -350,7 +380,9 @@ function renderCalibrationIdle(message?: string, isError = false) {
   calibStatus.textContent =
     message ??
     (baseline
-      ? "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
+      ? baseline.bodyArea === null && bodyDetection
+        ? "Baseline ini dibuat sebelum ada deteksi tubuh. Kalibrasi ulang supaya Equilibre juga mengenal posisi dudukmu."
+        : "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
       : `Kalibrasi ±${Math.round((CALIB_NORMAL_MS + CALIB_CLOSED_MS) / 1000) + 4} detik: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
   renderBaseline();
 }
@@ -358,7 +390,7 @@ function renderCalibrationIdle(message?: string, isError = false) {
 // ── Debug overlay (?debug=1) ────────────────────────────────────────────────────
 
 let lastMatrixRender = 0;
-function renderDebug(result: FaceLandmarkerResult) {
+function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
   if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
     overlay.width = video.videoWidth;
     overlay.height = video.videoHeight;
@@ -366,6 +398,17 @@ function renderDebug(result: FaceLandmarkerResult) {
   const ctx = overlay.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, overlay.width, overlay.height);
+  if (grid) {
+    // The coarse person mask the body features are computed from.
+    const w = overlay.width / grid.cols;
+    const h = overlay.height / grid.rows;
+    ctx.fillStyle = "#7c5cff";
+    for (let i = 0; i < grid.cells.length; i++) {
+      ctx.globalAlpha = 0.35 * grid.cells[i];
+      ctx.fillRect((i % grid.cols) * w, Math.floor(i / grid.cols) * h, w, h);
+    }
+    ctx.globalAlpha = 1;
+  }
   const landmarks = result.faceLandmarks[0];
   if (landmarks) {
     const eyes: [readonly number[], string][] = [
@@ -433,20 +476,32 @@ function cameraErrorMessage(err: unknown): string {
   }
 }
 
-function runDetection(landmarker: FaceLandmarker) {
+function runDetection({ landmarker, segmenter }: Detectors) {
   let lastVideoTime = -1;
   let fpsFrames = 0;
   let fpsWindowStart = performance.now();
+  let lastBodyT = -Infinity;
+  let grid: BodyGrid | null = null;
 
   const tick = () => {
     const now = performance.now();
     if (video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
       const result = landmarker.detectForVideo(video, now);
+      if (segmenter && now - lastBodyT >= BODY_INTERVAL_MS) {
+        lastBodyT = now;
+        const next = segmentBody(segmenter, video, now);
+        if (next) {
+          const body = toBodySample(next, grid, now);
+          grid = next;
+          onBody(body);
+          renderBody(body);
+        }
+      }
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);
       onFrame(signal);
       renderSignals(signal);
-      if (DEBUG) renderDebug(result);
+      if (DEBUG) renderDebug(result, grid);
       fpsFrames++;
     }
     if (now - fpsWindowStart >= 1000) {
@@ -490,6 +545,7 @@ async function runCalibration() {
     closedStreak: 0,
     closed: [],
     normal: [],
+    normalBodies: [],
     cancelled: false,
   };
   calibration = run;
@@ -552,7 +608,7 @@ async function runCalibration() {
       await sleep(500);
     }
 
-    const result = computeBaseline(run.closed, run.normal, Date.now());
+    const result = computeBaseline(run.closed, run.normal, Date.now(), run.normalBodies);
     if (!result.ok) {
       outcome = { message: result.error, isError: true };
       return;
@@ -587,9 +643,10 @@ calibButton.addEventListener("click", () => {
 
 byId("download-log").addEventListener("click", () => {
   const started = new Date(performance.timeOrigin);
-  const csv = framesToCsv(sessionLog, performance.timeOrigin, [
+  const csv = framesToCsv(sessionLog, bodyLog, performance.timeOrigin, [
     `Equilibre log sesi, halaman dibuka ${started.toISOString()}`,
-    `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${DETECT_INTERVAL_MS}`,
+    `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${DETECT_INTERVAL_MS} ` +
+      `body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} min_menit_lelah=${MIN_MENIT_LELAH}`,
     `baseline=${JSON.stringify(baseline)}`,
   ]);
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -655,7 +712,7 @@ async function main() {
   renderStatus();
   renderCalibrationIdle();
 
-  const [camera, model] = await Promise.allSettled([startCamera(), createFaceLandmarker()]);
+  const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {
     console.error(camera.reason);
     setFaceStatus("error", cameraErrorMessage(camera.reason));
@@ -667,11 +724,13 @@ async function main() {
     return;
   }
 
-  delegateOutput.textContent = model.value.delegate;
+  bodyDetection = model.value.segmenter !== null;
+  delegateOutput.textContent = `${model.value.delegate} · tubuh ${bodyDetection ? "CPU" : "nonaktif"}`;
   resetWindow(performance.now());
   detecting = true;
   renderCalibrationIdle();
-  runDetection(model.value.landmarker);
+  renderFeatures();
+  runDetection(model.value);
 }
 
 void main();

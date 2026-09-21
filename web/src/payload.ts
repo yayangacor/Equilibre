@@ -9,6 +9,7 @@ export type AnalyzePayload = {
   perclos?: number;
   kedip_per_menit?: number;
   durasi_kedip_ms?: number;
+  mata_tertutup_lama: number;
   menguap: number;
   pct_kepala_menunduk?: number;
   pct_wajah_hilang?: number;
@@ -28,6 +29,7 @@ export function toAnalyzePayload(evaluation: Evaluation, f: WindowFeatures, meni
     ...optional("perclos", f.perclos, 3),
     ...optional("kedip_per_menit", f.kedip_per_menit, 1, 200),
     ...optional("durasi_kedip_ms", f.durasi_kedip_ms, 0, 5000),
+    mata_tertutup_lama: f.mata_tertutup_lama,
     menguap: f.menguap,
     ...optional("pct_kepala_menunduk", f.pct_kepala_menunduk, 3),
     ...optional("pct_wajah_hilang", f.pct_wajah_hilang, 3),

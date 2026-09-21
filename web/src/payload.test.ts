@@ -4,14 +4,18 @@ import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload } from "./payload.ts";
 import type { Evaluation } from "./rules.ts";
 
-const evaluation: Evaluation = { label: "lelah", skor: 0.754321, poin: 2, alasan: ["Mata tertutup 18% …"] };
+const evaluation: Evaluation = { label: "lelah", skor: 0.754321, poin: 2, alasan: ["Mata tertutup 18% …"], catatan: [] };
 const features: WindowFeatures = {
   perclos: 0.18234,
   kedip_per_menit: 9.87,
   durasi_kedip_ms: 312.4,
+  mata_tertutup_lama: 1,
   menguap: 2,
   pct_kepala_menunduk: 0.3333,
   pct_wajah_hilang: 0.05,
+  pct_mata_terbuka: 0.81,
+  pct_tubuh_ada: 1,
+  gerak_tubuh: 0.02,
   n_frame: 598,
   durasi_jendela_detik: 59.9,
 };
@@ -26,6 +30,7 @@ describe("toAnalyzePayload", () => {
       perclos: 0.182,
       kedip_per_menit: 9.9,
       durasi_kedip_ms: 312,
+      mata_tertutup_lama: 1,
       menguap: 2,
       pct_kepala_menunduk: 0.333,
       pct_wajah_hilang: 0.05,
@@ -37,6 +42,9 @@ describe("toAnalyzePayload", () => {
     const payload = toAnalyzePayload(evaluation, features, 1);
     expect(Object.keys(payload)).not.toContain("alasan");
     expect(Object.keys(payload)).not.toContain("n_frame");
+    // Body numbers only steer the label locally.
+    expect(Object.keys(payload)).not.toContain("pct_tubuh_ada");
+    expect(Object.keys(payload)).not.toContain("gerak_tubuh");
   });
 
   it("omits missing values and clamps to the server ranges", () => {

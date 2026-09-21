@@ -13,6 +13,7 @@ export type FrameSignal = {
   pitchDeg: number; // head elevation: negative = looking down (absolute, compare against the baseline)
   blinkLeft: number; // blendshape eyeBlinkLeft, backup signal
   blinkRight: number; // blendshape eyeBlinkRight, backup signal
+  lookDown: number; // mean of eyeLookDownLeft/Right: gaze down (logged for tuning, not used by the rules yet)
 };
 
 // Landmark indices in EAR order p1..p6 (Soukupová & Čech, 2016):
@@ -77,6 +78,7 @@ export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, 
       pitchDeg: NaN,
       blinkLeft: NaN,
       blinkRight: NaN,
+      lookDown: NaN,
     };
   }
 
@@ -96,5 +98,6 @@ export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, 
     pitchDeg: matrix ? pitchFromMatrix(matrix.data) : NaN,
     blinkLeft: blendshape("eyeBlinkLeft"),
     blinkRight: blendshape("eyeBlinkRight"),
+    lookDown: (blendshape("eyeLookDownLeft") + blendshape("eyeLookDownRight")) / 2,
   };
 }

@@ -1,4 +1,5 @@
 import { detectEyeClosures } from "./blink.ts";
+import type { BodySample } from "./body.ts";
 import type { FrameSignal } from "./signals.ts";
 
 // Personal reference values. Numbers only: nothing here can reconstruct a face.
@@ -9,6 +10,7 @@ export type Baseline = {
   blinkDurationMs: number | null; // null when no blink was seen during calibration
   pitchDeg: number; // median head elevation while working normally
   jawOpenP95: number;
+  bodyArea: number | null; // median person-mask area while working normally; null = no body detection
   createdAt: number; // epoch ms
 };
 
@@ -61,12 +63,14 @@ const num = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format;
 
 export type CalibrationResult = { ok: true; baseline: Baseline } | { ok: false; error: string };
 
-// closedFrames: stage A (eyes closed on purpose). normalFrames: stage B (working as usual).
-// Frames without a face are ignored, but too many of them make the stage invalid.
+// closedFrames: stage A (eyes closed on purpose). normalFrames and normalBodies: stage B
+// (working as usual). Frames without a face are ignored, but too many of them make
+// the stage invalid. Without body samples (segmenter not loaded) bodyArea is null.
 export function computeBaseline(
   closedFrames: readonly FrameSignal[],
   normalFrames: readonly FrameSignal[],
   createdAt: number,
+  normalBodies: readonly BodySample[] = [],
 ): CalibrationResult {
   const withFace = (frames: readonly FrameSignal[]) => frames.filter((f) => f.face && Number.isFinite(f.ear));
   const closed = withFace(closedFrames);
@@ -140,6 +144,7 @@ export function computeBaseline(
       blinkDurationMs: blinks.length > 0 ? blinks.reduce((sum, b) => sum + b.durationMs, 0) / blinks.length : null,
       pitchDeg: median(pitches),
       jawOpenP95: percentile(normal.map((f) => f.jawOpen).filter(Number.isFinite), 0.95),
+      bodyArea: normalBodies.length > 0 ? median(normalBodies.map((b) => b.area)) : null,
       createdAt,
     },
   };
@@ -173,6 +178,8 @@ export function loadBaseline(store: KeyValueStore): Baseline | null {
     const isNumber = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
     if (!NUMBER_FIELDS.every((key) => isNumber(v[key]))) return null;
     if (v.blinkDurationMs !== null && !isNumber(v.blinkDurationMs)) return null;
+    // Baselines saved before body detection existed have no bodyArea: still usable.
+    if (v.bodyArea !== undefined && v.bodyArea !== null && !isNumber(v.bodyArea)) return null;
     // Rebuild instead of trusting the parsed object, so unknown keys are dropped.
     return {
       earOpen: v.earOpen as number,
@@ -181,6 +188,7 @@ export function loadBaseline(store: KeyValueStore): Baseline | null {
       blinkDurationMs: v.blinkDurationMs as number | null,
       pitchDeg: v.pitchDeg as number,
       jawOpenP95: v.jawOpenP95 as number,
+      bodyArea: isNumber(v.bodyArea) ? v.bodyArea : null,
       createdAt: v.createdAt as number,
     };
   } catch {

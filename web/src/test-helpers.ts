@@ -14,13 +14,14 @@ export function frame(t: number, overrides: Partial<FrameSignal> = {}): FrameSig
     pitchDeg: 0,
     blinkLeft: 0,
     blinkRight: 0,
+    lookDown: 0,
     ...overrides,
   };
 }
 
 export function noFace(t: number): FrameSignal {
   const nan = NaN;
-  return { t, face: false, earLeft: nan, earRight: nan, ear: nan, jawOpen: nan, pitchDeg: nan, blinkLeft: nan, blinkRight: nan };
+  return { t, face: false, earLeft: nan, earRight: nan, ear: nan, jawOpen: nan, pitchDeg: nan, blinkLeft: nan, blinkRight: nan, lookDown: nan };
 }
 
 // One frame per value, FRAME_MS apart; null = no face in that frame.
@@ -48,5 +49,6 @@ export const BASELINE: Baseline = {
   blinkDurationMs: 200,
   pitchDeg: -5,
   jawOpenP95: 0.2,
+  bodyArea: 0.4,
   createdAt: 0,
 };
