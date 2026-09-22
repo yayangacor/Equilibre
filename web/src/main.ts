@@ -729,7 +729,7 @@ async function main() {
   }
   if (model.status === "rejected") {
     console.error(model.reason);
-    setFaceStatus("error", "Model MediaPipe gagal dimuat. Cek koneksi internet (WASM diambil dari CDN).");
+    setFaceStatus("error", "Model MediaPipe gagal dimuat. Muat ulang halaman; kalau tetap gagal, jalankan ulang npm run dev (file WASM disalin saat itu).");
     return;
   }
 

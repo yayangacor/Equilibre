@@ -1,6 +1,8 @@
 # Dependencies & build output
 node_modules/
 dist/
+# MediaPipe WASM copied from node_modules by web/scripts/copy-wasm.ts
+web/public/mediapipe/
 
 # Secrets (API key Langflow, OpenRouter, dll.)
 .env

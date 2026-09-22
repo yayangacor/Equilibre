@@ -3,9 +3,9 @@ import { maskToGrid, type BodyGrid } from "./body.ts";
 
 type WasmFileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>; // not exported by the package
 
-// Must match the exact @mediapipe/tasks-vision version pinned in package.json.
-// TODO before demo: serve the WASM from public/ so the app works offline.
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
+// Served from public/, copied from node_modules by scripts/copy-wasm.ts before
+// dev/build: works offline and always matches the installed package version.
+const WASM_URL = "/mediapipe/wasm";
 const FACE_MODEL_URL = "/models/face_landmarker.task";
 // Selfie segmenter (float16, ±250 KB): person vs background, for body presence.
 const BODY_MODEL_URL = "/models/selfie_segmenter.tflite";
