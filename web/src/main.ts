@@ -1,5 +1,15 @@
 import "./style.css";
 import type { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+import {
+  afterFailedSend,
+  AUTO_SEND,
+  autoTarget,
+  initialAutoSendState,
+  loadAutoSend,
+  saveAutoSend,
+  stepAutoSend,
+  type AutoTarget,
+} from "./autoSend.ts";
 import { bodyPresent, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
 import {
   computeBaseline,
@@ -107,6 +117,8 @@ const sendNote = byId("send-note");
 const answer = byId("answer");
 const powerToggle = byId<HTMLInputElement>("power-saving");
 const powerNote = byId("power-note");
+const autoSendToggle = byId<HTMLInputElement>("auto-send");
+const autoSendNote = byId("auto-send-note");
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -232,6 +244,11 @@ const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
 let sending = false;
 
+// Automatic sending (NOTES D-37): off unless switched on, remembered on this device.
+let autoSendOn = store ? loadAutoSend(store) : false;
+let autoState = initialAutoSendState();
+let lastAuto: { t: number; target: AutoTarget; ok: boolean | null } | null = null;
+
 function resetWindow(t: number) {
   monitor = baseline
     ? new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS, tidurMenit: TIDUR_MENIT })
@@ -279,7 +296,18 @@ function onFrame(s: FrameSignal) {
     recordEvaluation(step, s.t);
     renderStatus();
     renderPayload();
+    maybeAutoSend();
   }
+}
+
+function maybeAutoSend() {
+  const target = autoTarget(monitor?.labelState.shown?.label ?? null, saran !== null);
+  const step = stepAutoSend(autoState, target, Date.now(), autoSendOn && !sending);
+  autoState = step.state;
+  if (!step.send || target === null) return;
+  lastAuto = { t: Date.now(), target, ok: null };
+  renderAutoSend();
+  void sendStatus("otomatis");
 }
 
 // ── Local history + what the user tells back ────────────────────────────────────
@@ -818,15 +846,55 @@ function renderAnswer({ text, result }: AnalyzeResponse) {
   answer.replaceChildren(list);
 }
 
-// Manual only: the LLM budget is small (NOTES D-19); automatic sending is P06 step 5.
+// ── Automatic sending (NOTES D-37) ──────────────────────────────────────────────
+
+const minuteClock = (t: number) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+
+function renderAutoSend() {
+  autoSendToggle.checked = autoSendOn;
+  const rule =
+    "saat label menjadi lelah ringan, lelah, atau tertidur, atau saat saran istirahat panjang muncul, " +
+    `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit. Tiap kiriman memakai satu panggilan LLM.`;
+  if (!autoSendOn) {
+    autoSendNote.textContent = `Mati: status hanya dikirim lewat tombol di bawah. Kalau dinyalakan, status dikirim sendiri ${rule}`;
+    return;
+  }
+  const last =
+    lastAuto === null
+      ? ""
+      : ` Terakhir ${minuteClock(lastAuto.t)} (${lastAuto.target}): ` +
+        (lastAuto.ok === null
+          ? "menunggu jawaban."
+          : lastAuto.ok
+            ? "terkirim."
+            : `gagal, dicoba lagi paling cepat ${minuteClock(lastAuto.t + AUTO_SEND.minGapMs)}.`);
+  autoSendNote.textContent = `Menyala: status dikirim sendiri ${rule}${last}`;
+}
+
+autoSendToggle.addEventListener("change", () => {
+  autoSendOn = autoSendToggle.checked;
+  if (store) saveAutoSend(store, autoSendOn);
+  renderAutoSend();
+});
+
+// How an automatic send ended. A failure lets the same condition be tried after the gap.
+function autoSendDone(ok: boolean) {
+  if (!ok) autoState = afterFailedSend(autoState);
+  if (lastAuto) lastAuto.ok = ok;
+  renderAutoSend();
+}
+
 // A reply is stored with the payload's label, and its feedback buttons appear under it.
-async function sendStatus() {
+async function sendStatus(pemicu: "manual" | "otomatis") {
   const payload = currentPayload();
-  if (!payload || notSent(payload)) return;
+  if (!payload || notSent(payload)) {
+    if (pemicu === "otomatis") autoSendDone(false);
+    return;
+  }
   payloadPre.textContent = JSON.stringify(payload, null, 2);
   sending = true;
   sendButton.disabled = true;
-  answer.replaceChildren(el("p", "Menunggu jawaban Langflow…", "muted"));
+  answer.replaceChildren(el("p", pemicu === "otomatis" ? "Dikirim otomatis, menunggu jawaban Langflow…" : "Menunggu jawaban Langflow…", "muted"));
   selfReport.showRecommendation(null);
   try {
     const res = await fetch("/api/analyze", {
@@ -840,17 +908,19 @@ async function sendStatus() {
     }
     const reply = body as AnalyzeResponse;
     renderAnswer(reply);
-    const context = { t: Date.now(), sesi: SESSION, pemicu: "manual" as const, label: payload.label };
+    if (pemicu === "otomatis") autoSendDone(true);
+    const context = { t: Date.now(), sesi: SESSION, pemicu, label: payload.label };
     selfReport.showRecommendation(await panel.add("rekomendasi", toRecommendationRecord(reply, context)));
   } catch (err) {
     const message = err instanceof TypeError ? "Tidak bisa menghubungi backend." : (err as Error).message;
-    answer.replaceChildren(el("p", message, "error"));
+    answer.replaceChildren(el("p", pemicu === "otomatis" ? `Kirim otomatis gagal: ${message}` : message, "error"));
+    if (pemicu === "otomatis") autoSendDone(false);
   } finally {
     sending = false;
     renderPayload();
   }
 }
-sendButton.addEventListener("click", sendStatus);
+sendButton.addEventListener("click", () => void sendStatus("manual"));
 
 // ── Start ───────────────────────────────────────────────────────────────────────
 
@@ -861,6 +931,7 @@ async function main() {
   renderStatus();
   renderCalibrationIdle();
   renderPower();
+  renderAutoSend();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
   void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock());

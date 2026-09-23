@@ -1,9 +1,11 @@
 // Replays a session CSV ("Unduh log sesi") through the app's own pipeline (Monitor),
 // so threshold changes in src/ can be checked against recorded sessions.
 // Run with Node's built-in type stripping:
-//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan]
-// --ringkasan also prints what the dashboard would show for the session (history.ts).
+//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis]
+// --ringkasan also prints what the dashboard would show for the session (history.ts);
+// --kirim-otomatis, when the automatic sending would have called Langflow (autoSend.ts, no network).
 import { readFileSync } from "node:fs";
+import { autoTarget, initialAutoSendState, stepAutoSend } from "../src/autoSend.ts";
 import type { EyeClosure } from "../src/blink.ts";
 import type { BodySample } from "../src/body.ts";
 import { median, type Baseline } from "../src/calibration.ts";
@@ -56,7 +58,9 @@ function parseCsv(path: string) {
 
 const [path, ...flags] = process.argv.slice(2);
 if (!path) {
-  console.error("Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]] [--ringkasan]");
+  console.error(
+    "Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis]",
+  );
   process.exit(1);
 }
 const { opened, windowMs, tidurMenit, baseline, frames } = parseCsv(path);
@@ -116,6 +120,8 @@ console.log(
 const closures: EyeClosure[] = [];
 const yawns: YawnEvent[] = [];
 const records: EvaluationRecord[] = []; // what the live app would store (--ringkasan)
+let autoState = initialAutoSendState(); // --kirim-otomatis, as if the toggle were on
+const autoSends: string[] = [];
 let lastEval = live[0].t;
 let nextBody = 0;
 
@@ -143,6 +149,10 @@ for (const f of live) {
     const context = { t: opened + f.t, sesi: opened, menitSejakJeda: 0, hematDaya: fpsFlag !== undefined };
     records.push(toEvaluationRecord(shown, evaluation, context));
   }
+  const target = autoTarget(shown?.label ?? null, saran !== null);
+  const auto = stepAutoSend(autoState, target, opened + f.t, true);
+  autoState = auto.state;
+  if (auto.send) autoSends.push(`${f.waktu.slice(0, 8)} ${target}`);
   console.log(
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
       `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
@@ -164,6 +174,11 @@ for (const c of closures.filter((c) => c.kind === "long")) {
   console.log(`Mata tertutup lama: ${at(c.startT)}, ${Math.round(c.durationMs)} ms`);
 }
 for (const y of yawns) console.log(`Menguap: ${at(y.startT)}, ${Math.round(y.durationMs)} ms`);
+
+if (flags.includes("--kirim-otomatis")) {
+  console.log(`\nKirim otomatis (toggle menyala): ${autoSends.length} panggilan Langflow`);
+  for (const line of autoSends) console.log(`  ${line}`);
+}
 
 if (flags.includes("--ringkasan")) {
   for (const hari of [...new Set(records.map((r) => r.hari))]) {
