@@ -21,7 +21,7 @@ import {
   type WindowFeatures,
 } from "./features.ts";
 import { Monitor } from "./monitor.ts";
-import { toAnalyzePayload } from "./payload.ts";
+import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import {
   detectIntervalMs,
   initialPowerState,
@@ -88,6 +88,7 @@ const calibButton = byId<HTMLButtonElement>("calib-button");
 const baselineList = byId("baseline");
 const payloadPre = byId("payload");
 const sendButton = byId<HTMLButtonElement>("send-status");
+const sendNote = byId("send-note");
 const answer = byId("answer");
 const powerToggle = byId<HTMLInputElement>("power-saving");
 const powerNote = byId("power-note");
@@ -377,10 +378,15 @@ function currentPayload() {
   return toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()), menitLelah);
 }
 
+// The server answers 422 for "tidak di depan layar" (nothing to recommend while away),
+// so the button does not offer it.
+const notSent = (payload: AnalyzePayload | null) => payload?.label === "tidak di depan layar";
+
 function renderPayload() {
   const payload = currentPayload();
   payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "Belum ada status.";
-  sendButton.disabled = payload === null || sending;
+  sendButton.disabled = payload === null || sending || notSent(payload);
+  sendNote.hidden = !notSent(payload);
 }
 
 function renderBaseline() {
@@ -762,7 +768,7 @@ function renderAnswer({ text, result }: AnalyzeResponse) {
 // Manual only: the LLM budget is small, automatic sending comes on 28 Sep.
 async function sendStatus() {
   const payload = currentPayload();
-  if (!payload) return;
+  if (!payload || notSent(payload)) return;
   payloadPre.textContent = JSON.stringify(payload, null, 2);
   sending = true;
   sendButton.disabled = true;
@@ -783,7 +789,7 @@ async function sendStatus() {
     answer.replaceChildren(el("p", message, "error"));
   } finally {
     sending = false;
-    sendButton.disabled = false;
+    renderPayload();
   }
 }
 sendButton.addEventListener("click", sendStatus);

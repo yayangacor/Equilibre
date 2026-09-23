@@ -279,6 +279,10 @@ button:disabled {
   cursor: progress;
 }
 
+.send-note {
+  margin-top: 8px;
+}
+
 .answer {
   margin-top: 12px;
 }
