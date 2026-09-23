@@ -188,6 +188,25 @@ video {
   gap: 8px;
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.power-note {
+  margin: 4px 0 12px;
+}
+
 .metrics.wide .metric {
   grid-template-columns: 12rem minmax(0, 1fr);
 }

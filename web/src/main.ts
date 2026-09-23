@@ -22,6 +22,21 @@ import {
 } from "./features.ts";
 import { Monitor } from "./monitor.ts";
 import { toAnalyzePayload } from "./payload.ts";
+import {
+  detectIntervalMs,
+  initialPowerState,
+  isLowBattery,
+  loadPowerChoice,
+  LOW_BATTERY,
+  NORMAL_INTERVAL_MS,
+  onBattery,
+  onToggle,
+  powerReason,
+  SAVING_INTERVAL_MS,
+  savePowerChoice,
+  type PowerReason,
+  type PowerState,
+} from "./powerSaving.ts";
 import { ADVICE, RULES, SLEEP, type Evaluation } from "./rules.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
@@ -34,7 +49,6 @@ function numberParam(name: string, fallback: number, min: number, max: number): 
   return params.has(name) && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
 }
 
-const DETECT_INTERVAL_MS = 100; // ±10 fps: enough to catch blinks, easy on laptop batteries
 const WINDOW_MS = numberParam("window", 60, 10, 600) * 1000;
 const EVAL_INTERVAL_MS = 10_000;
 const FEATURES_REFRESH_MS = 1_000;
@@ -75,6 +89,8 @@ const baselineList = byId("baseline");
 const payloadPre = byId("payload");
 const sendButton = byId<HTMLButtonElement>("send-status");
 const answer = byId("answer");
+const powerToggle = byId<HTMLInputElement>("power-saving");
+const powerNote = byId("power-note");
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -184,6 +200,11 @@ let saran: string | null = null;
 let features: WindowFeatures | null = null;
 let lastEvalT = 0;
 let lastFeaturesT = 0;
+
+// Detection rate (hemat daya). Every change goes into the session log header.
+let power: PowerState = initialPowerState(store ? loadPowerChoice(store) : false);
+let batteryLevel: number | null = null; // null = Battery Status API not available (Chromium only)
+const powerLog: { t_ms: number; sebab: PowerReason }[] = [{ t_ms: 0, sebab: powerReason(power) }];
 
 let breakState: BreakState | null = null;
 const sessionLog: FrameSignal[] = [];
@@ -518,9 +539,61 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       fpsFrames = 0;
       fpsWindowStart = now;
     }
-    setTimeout(tick, Math.max(0, DETECT_INTERVAL_MS - (performance.now() - now)));
+    setTimeout(tick, Math.max(0, detectIntervalMs(power, calibration !== null) - (performance.now() - now)));
   };
   tick();
+}
+
+// ── Power saving (hemat daya) ───────────────────────────────────────────────────
+
+function renderPower() {
+  const reason = powerReason(power);
+  powerToggle.checked = reason !== null;
+  const battery = batteryLevel === null ? "" : `baterai ${asPct(batteryLevel)}`;
+  powerNote.textContent =
+    reason === "baterai"
+      ? `Aktif otomatis: ${battery} dan tidak sedang diisi. Deteksi ±5 fps, kalibrasi tetap ±10 fps.`
+      : reason === "pilihan"
+        ? "Deteksi ±5 fps: baterai lebih awet, tapi sebagian kedip singkat tidak terbaca. Kalibrasi tetap ±10 fps."
+        : power.dismissed
+          ? `Dimatikan (${battery}). Tidak menyala otomatis lagi sampai baterai diisi.`
+          : batteryLevel !== null
+            ? `Deteksi ±10 fps. Menyala otomatis saat baterai di bawah ${asPct(LOW_BATTERY)} dan tidak diisi.`
+            : "Deteksi ±10 fps.";
+}
+
+function setPower(next: PowerState) {
+  const before = powerReason(power);
+  power = next;
+  const reason = powerReason(power);
+  if (reason !== before) powerLog.push({ t_ms: Math.round(performance.now() * 10) / 10, sebab: reason });
+  renderPower();
+}
+
+powerToggle.addEventListener("change", () => {
+  setPower(onToggle(power, powerToggle.checked));
+  if (store) savePowerChoice(store, power.chosen);
+});
+
+// Battery Status API: Chromium only, and it may be blocked by a permissions policy.
+// Without it the toggle is simply manual.
+type BatteryInfo = EventTarget & { level: number; charging: boolean };
+
+async function watchBattery() {
+  const nav = navigator as Navigator & { getBattery?: () => Promise<BatteryInfo> };
+  if (!nav.getBattery) return;
+  try {
+    const battery = await nav.getBattery();
+    const update = () => {
+      batteryLevel = battery.level;
+      setPower(onBattery(power, isLowBattery(battery.level, battery.charging)));
+    };
+    battery.addEventListener("levelchange", update);
+    battery.addEventListener("chargingchange", update);
+    update();
+  } catch (err) {
+    console.warn("Status baterai tidak tersedia; hemat daya hanya manual.", err);
+  }
 }
 
 // ── Calibration ─────────────────────────────────────────────────────────────────
@@ -654,8 +727,11 @@ byId("download-log").addEventListener("click", () => {
   const started = new Date(performance.timeOrigin);
   const csv = framesToCsv(sessionLog, bodyLog, performance.timeOrigin, [
     `Equilibre log sesi, halaman dibuka ${started.toISOString()}`,
-    `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${DETECT_INTERVAL_MS} ` +
-      `body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} tidur_menit=${TIDUR_MENIT}`,
+    `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${NORMAL_INTERVAL_MS} ` +
+      `hemat_daya_interval_ms=${SAVING_INTERVAL_MS} body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} ` +
+      `tidur_menit=${TIDUR_MENIT}`,
+    // When power saving was on (sebab not null) or off (null); calibration always ran at detect_interval_ms.
+    `hemat_daya=${JSON.stringify(powerLog)}`,
     `baseline=${JSON.stringify(baseline)}`,
   ]);
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -720,6 +796,8 @@ async function main() {
   renderFeatures();
   renderStatus();
   renderCalibrationIdle();
+  renderPower();
+  void watchBattery();
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {
