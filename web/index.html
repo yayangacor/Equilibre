@@ -41,6 +41,15 @@
               <div class="table-scroll"><table id="chart-table"></table></div>
             </details>
           </figure>
+          <div id="day-recs-block" hidden>
+            <h3>Rekomendasi</h3>
+            <ol id="day-recs" class="recs"></ol>
+          </div>
+          <div class="history-actions">
+            <button id="export-history" type="button" class="secondary small">Unduh riwayat (JSON)</button>
+            <button id="clear-history" type="button" class="secondary small danger">Hapus semua riwayat</button>
+          </div>
+          <p id="history-action-note" class="note" aria-live="polite"></p>
           <p class="note">Riwayat hanya disimpan di perangkat ini selama 30 hari dan tidak dikirim ke server.</p>
         </section>
 
@@ -70,6 +79,26 @@
           <ul id="reasons" class="reasons"></ul>
           <p id="pending" class="note pending" hidden></p>
           <p id="long-rest" class="note long-rest" hidden></p>
+          <div id="correction" class="correction" hidden>
+            <button id="correct-label" type="button" class="secondary small">Label ini tidak sesuai</button>
+            <div id="correction-choices" class="choices" hidden>
+              <span class="note">Menurutku sebenarnya:</span>
+              <span id="correction-options" class="choice-row"></span>
+              <button id="correction-cancel" type="button" class="link">Batal</button>
+            </div>
+            <p id="correction-note" class="note" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="panel kss" id="kss-panel">
+          <h2>Cek kantuk (KSS)</h2>
+          <p id="kss-prompt" class="note">Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.</p>
+          <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
+          <p id="kss-note" class="note" aria-live="polite"></p>
+          <p class="note fine">
+            Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990), label tiap langkah menurut Miley dkk. (2016).
+            Terjemahan Equilibre, belum divalidasi. Disimpan di perangkat ini saja.
+          </p>
         </section>
 
         <section class="panel">
@@ -96,6 +125,9 @@
             Label "tidak di depan layar" tidak dikirim ke Langflow: tidak ada kondisi kerja yang perlu direkomendasikan.
           </p>
           <div id="answer" class="answer" aria-live="polite"></div>
+          <div id="feedback" class="feedback" hidden>
+            <span class="note">Rekomendasi ini:</span>
+          </div>
         </section>
       </div>
     </main>

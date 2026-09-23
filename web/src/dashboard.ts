@@ -1,4 +1,4 @@
-import { CHART_LABELS, type DaySummary, type HourSummary } from "./history.ts";
+import { CHART_LABELS, type DaySummary, type Feedback, type HourSummary, type RecommendationRecord } from "./history.ts";
 import { LABELS } from "./rules.ts";
 
 // The "Riwayat" panel: one day's numbers, an hourly stacked column chart and the same
@@ -22,6 +22,7 @@ export type DashboardView = {
   day: string; // the day shown
   today: string;
   summary: DaySummary | null; // null: history not available
+  rekomendasi: readonly RecommendationRecord[]; // that day's, oldest first
   problem: string | null;
 };
 
@@ -34,7 +35,21 @@ export type DashboardElements = {
   chart: HTMLElement; // wrapper the SVG is drawn into; holds the tooltip too
   tip: HTMLElement;
   table: HTMLTableElement;
+  recsBlock: HTMLElement;
+  recs: HTMLElement;
 };
+
+export const FEEDBACKS: readonly { value: Feedback; text: string }[] = [
+  { value: "sudah dilakukan", text: "Sudah dilakukan" },
+  { value: "tidak relevan", text: "Tidak relevan" },
+];
+
+// The recommendation sentence of a reply; the raw text when the reply was not JSON.
+export function recommendationText(r: RecommendationRecord): string {
+  const value = r.hasil?.rekomendasi;
+  const text = typeof value === "string" ? value : Array.isArray(value) ? value.map(String).join(" ") : r.teks;
+  return text.length > 220 ? `${text.slice(0, 219)}…` : text;
+}
 
 function html<K extends keyof HTMLElementTagNameMap>(tag: K, text = "", className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -62,10 +77,12 @@ function describeHour(h: HourSummary): string {
 
 export class Dashboard {
   private readonly ui: DashboardElements;
+  private readonly onFeedback: (id: number, feedback: Feedback) => void;
   private hours: readonly HourSummary[] = [];
 
-  constructor(ui: DashboardElements, onPickDay: (day: string) => void) {
+  constructor(ui: DashboardElements, onPickDay: (day: string) => void, onFeedback: (id: number, feedback: Feedback) => void) {
     this.ui = ui;
+    this.onFeedback = onFeedback;
     ui.select.addEventListener("change", () => onPickDay(ui.select.value));
     ui.legend.replaceChildren(
       ...[...CHART_LABELS].reverse().map((label) => {
@@ -106,6 +123,7 @@ export class Dashboard {
         : "Tidak ada riwayat untuk hari ini.");
     ui.stats.hidden = empty;
     ui.figure.hidden = empty;
+    this.renderRecommendations(view.rekomendasi);
     this.hours = s && !empty ? s.perJam : [];
     if (!s || empty) {
       this.drawChart();
@@ -143,6 +161,25 @@ export class Dashboard {
     );
     this.renderTable();
     this.drawChart();
+  }
+
+  // Newest first, each with its own feedback buttons (D-06): automatic ones may have
+  // arrived while nobody looked at the Langflow panel.
+  private renderRecommendations(recs: readonly RecommendationRecord[]) {
+    const { recsBlock, recs: list } = this.ui;
+    recsBlock.hidden = recs.length === 0;
+    list.replaceChildren(
+      ...[...recs].reverse().map((r) => {
+        const item = html("li");
+        const time = new Date(r.t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+        item.append(
+          html("p", `${time} · ${r.status ?? r.label}${r.pemicu === "otomatis" ? " · otomatis" : ""}`, "rec-head"),
+          html("p", recommendationText(r), "rec-text"),
+        );
+        if (r.id !== undefined) item.append(feedbackButtons(r.feedback, (f) => this.onFeedback(r.id as number, f)));
+        return item;
+      }),
+    );
   }
 
   private renderTable() {
@@ -251,6 +288,19 @@ export class Dashboard {
     const right = cx + barW / 2 + 8;
     tip.style.left = `${right + tipW <= width ? right : Math.max(0, cx - barW / 2 - 8 - tipW)}px`;
   }
+}
+
+// Two toggle buttons; the chosen one is pressed. Choosing the other one changes the answer.
+export function feedbackButtons(current: Feedback | null, choose: (f: Feedback) => void): HTMLElement {
+  const row = html("div", "", "feedback-row");
+  for (const { value, text } of FEEDBACKS) {
+    const button = html("button", text, "secondary small");
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(current === value));
+    button.addEventListener("click", () => choose(value));
+    row.append(button);
+  }
+  return row;
 }
 
 function roundedTop(x: number, y: number, w: number, h: number, r: number): string {

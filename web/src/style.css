@@ -614,3 +614,118 @@ select {
   text-align: left;
   white-space: nowrap;
 }
+
+/* ── Feedback, koreksi label, KSS (selfReport.ts) ──────────────────────────── */
+
+button.small {
+  padding: 4px 12px;
+  font-size: 0.875rem;
+}
+
+button.link {
+  padding: 4px 6px;
+  font-size: 0.875rem;
+  color: var(--accent);
+  background: none;
+}
+
+button.secondary[aria-pressed="true"] {
+  color: var(--on-status);
+  background: var(--accent);
+}
+
+button.danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.correction {
+  margin-top: 12px;
+}
+
+.choices,
+.choice-row,
+.feedback,
+.feedback-row,
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.correction .note {
+  margin-top: 6px;
+}
+
+.feedback {
+  margin-top: 12px;
+}
+
+.kss[data-due] {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 2px var(--warn);
+}
+
+.kss-scale {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.kss-option {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.kss-option:hover,
+.kss-option:focus-visible {
+  border-color: var(--accent);
+}
+
+.kss-n {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.fine {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
+
+#day-recs-block h3 {
+  margin: 12px 0 8px;
+}
+
+.recs {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-head {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.rec-text {
+  margin: 2px 0 6px;
+  font-size: 0.875rem;
+}
+
+.history-actions {
+  margin: 12px 0 8px;
+}

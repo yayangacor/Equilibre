@@ -105,6 +105,69 @@ export function toBreakRecord(b: { mulai: number; selesai: number }, sesi: numbe
   };
 }
 
+type Context = { t: number; sesi: number };
+
+// What /api/analyze answered, as the app received it (main.ts AnalyzeResponse).
+export function toRecommendationRecord(
+  reply: { text: string; result: unknown },
+  context: Context & { pemicu: RecommendationRecord["pemicu"]; label: Label },
+): RecommendationRecord {
+  const { result } = reply;
+  const hasil = result !== null && typeof result === "object" && !Array.isArray(result) ? (result as Record<string, unknown>) : null;
+  return {
+    t: context.t,
+    hari: dayKey(context.t),
+    sesi: context.sesi,
+    pemicu: context.pemicu,
+    label: context.label,
+    status: typeof hasil?.status === "string" ? hasil.status : null,
+    hasil,
+    teks: reply.text,
+    feedback: null,
+    t_feedback: null,
+  };
+}
+
+// A correction names a state at the screen: someone clicking is awake and present, so
+// "tertidur" and "tidak di depan layar" are never the answer.
+export const correctionChoices = (shown: Label): Label[] =>
+  (["normal", "lelah ringan", "lelah"] as const).filter((l) => l !== shown);
+
+export function toLabelCorrection(shown: Evaluation, koreksi: Label, context: Context): LabelCorrectionRecord {
+  return {
+    t: context.t,
+    hari: dayKey(context.t),
+    sesi: context.sesi,
+    label_tampil: shown.label,
+    label_koreksi: koreksi,
+    skor: shown.skor,
+    alasan: [...shown.alasan],
+  };
+}
+
+export function toKssRecord(kss: number, context: Context & { labelTampil: Label | null; pengingat: boolean }): KssRecord {
+  return {
+    t: context.t,
+    hari: dayKey(context.t),
+    sesi: context.sesi,
+    kss,
+    label_tampil: context.labelTampil,
+    pengingat: context.pengingat,
+  };
+}
+
+// The file behind "Unduh riwayat (JSON)": everything kept, plus what it is.
+export function toExport(stores: DayData, now: number) {
+  return {
+    format: "equilibre-riwayat",
+    versi: 1,
+    dibuat: new Date(now).toISOString(),
+    hari_disimpan: HISTORY_DAYS,
+    catatan: "Label dan angka ringkasan dari perangkat ini saja, tanpa gambar. Waktu dalam milidetik sejak epoch.",
+    ...stores,
+  };
+}
+
 // ── One day, summed up (dashboard "Riwayat") ────────────────────────────────────
 
 export type DayData = {

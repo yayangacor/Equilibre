@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { WindowFeatures } from "./features.ts";
 import {
+  correctionChoices,
   dayKey,
   oldestKeptDay,
   summarizeDay,
   toBreakRecord,
   toEvaluationRecord,
+  toExport,
+  toKssRecord,
+  toLabelCorrection,
+  toRecommendationRecord,
   type DayData,
   type EvaluationRecord,
   type RecommendationRecord,
@@ -180,6 +185,65 @@ describe("summarizeDay", () => {
     expect(s.sesi).toBe(0);
     expect(s.kss.rataRata).toBeNull();
     expect(s.menit.normal).toBe(0);
+  });
+});
+
+describe("feedback records", () => {
+  const ctx = { t: local(2026, 9, 23, 14, 30), sesi: 7 };
+
+  it("keeps the server's status and the parsed reply of a recommendation", () => {
+    const reply = { text: '{"rekomendasi":"Jeda 10 menit."}', result: { rekomendasi: "Jeda 10 menit.", status: "perlu jeda" } };
+    expect(toRecommendationRecord(reply, { ...ctx, pemicu: "otomatis", label: "lelah" })).toEqual({
+      t: ctx.t,
+      hari: "2026-09-23",
+      sesi: 7,
+      pemicu: "otomatis",
+      label: "lelah",
+      status: "perlu jeda",
+      hasil: reply.result,
+      teks: reply.text,
+      feedback: null,
+      t_feedback: null,
+    });
+  });
+
+  it("stores a reply that was not a JSON object as text only", () => {
+    for (const result of [null, "teks", ["a"], 3]) {
+      const r = toRecommendationRecord({ text: "Maaf, format salah.", result }, { ...ctx, pemicu: "manual", label: "lelah ringan" });
+      expect(r).toMatchObject({ hasil: null, status: null, teks: "Maaf, format salah." });
+    }
+  });
+
+  it("offers only states at the screen as a correction, never the shown one", () => {
+    expect(correctionChoices("lelah")).toEqual(["normal", "lelah ringan"]);
+    expect(correctionChoices("normal")).toEqual(["lelah ringan", "lelah"]);
+    expect(correctionChoices("tertidur")).toEqual(["normal", "lelah ringan", "lelah"]);
+    expect(correctionChoices("tidak di depan layar")).toEqual(["normal", "lelah ringan", "lelah"]);
+  });
+
+  it("copies the reasons the user disagreed with", () => {
+    const shown: Evaluation = { label: "lelah", skor: 0.75, poin: 3, alasan: ["Menguap 2× …"], catatan: [] };
+    const record = toLabelCorrection(shown, "normal", ctx);
+    expect(record).toEqual({ t: ctx.t, hari: "2026-09-23", sesi: 7, label_tampil: "lelah", label_koreksi: "normal", skor: 0.75, alasan: ["Menguap 2× …"] });
+    expect(record.alasan).not.toBe(shown.alasan);
+  });
+
+  it("stores a KSS rating with the label shown at that moment", () => {
+    expect(toKssRecord(7, { ...ctx, labelTampil: "lelah ringan", pengingat: true })).toEqual({
+      t: ctx.t,
+      hari: "2026-09-23",
+      sesi: 7,
+      kss: 7,
+      label_tampil: "lelah ringan",
+      pengingat: true,
+    });
+  });
+
+  it("exports every store with what the file is", () => {
+    const stores: DayData = { evaluasi: [], jeda: [], rekomendasi: [], koreksi_label: [], kss: [] };
+    const file = toExport(stores, Date.UTC(2026, 8, 23, 7, 0));
+    expect(file).toMatchObject({ format: "equilibre-riwayat", versi: 1, dibuat: "2026-09-23T07:00:00.000Z", hari_disimpan: 30 });
+    expect(Object.keys(file)).toEqual(expect.arrayContaining(["evaluasi", "jeda", "rekomendasi", "koreksi_label", "kss"]));
   });
 });
 

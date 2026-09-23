@@ -10,7 +10,7 @@ import {
   type Baseline,
   type KeyValueStore,
 } from "./calibration.ts";
-import { Dashboard } from "./dashboard.ts";
+import { downloadFile, fileStamp } from "./download.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
   breakEnded,
@@ -22,8 +22,9 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { dayKey, oldestKeptDay, summarizeDay, toBreakRecord, toEvaluationRecord } from "./history.ts";
-import { DB_NAME, openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
+import { toBreakRecord, toEvaluationRecord, toRecommendationRecord } from "./history.ts";
+import { DB_NAME } from "./historyDb.ts";
+import { HistoryPanel } from "./historyPanel.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import {
@@ -42,10 +43,11 @@ import {
   type PowerState,
 } from "./powerSaving.ts";
 import { ADVICE, RULES, SLEEP, type Evaluation } from "./rules.ts";
+import { SelfReport } from "./selfReport.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 
-// ── Config. Dev shortcuts: ?calib=30&window=20&tidur=1&debug=1 ──────────────────
+// ── Config. Dev shortcuts: ?calib=30&window=20&tidur=1&debug=1 · test: ?uji=1&riwayat=uji ──
 
 const params = new URLSearchParams(location.search);
 function numberParam(name: string, fallback: number, min: number, max: number): number {
@@ -69,7 +71,12 @@ const DEBUG = params.get("debug") === "1";
 // ?riwayat=uji keeps the history in its own database (checks, demos), away from the real one.
 const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
 const HISTORY_DB = HISTORY_SUFFIX ? `${DB_NAME}-${HISTORY_SUFFIX}` : DB_NAME;
+// ?uji=1: user test mode (P08), a KSS reminder every 15 minutes.
+const TEST_MODE = params.get("uji") === "1";
+// ?kamera=0: the page without camera and models (automated checks, screenshots of the history).
+const NO_CAMERA = params.get("kamera") === "0";
 const DASHBOARD_REFRESH_MS = 30_000;
+const KSS_CHECK_MS = 15_000;
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
 const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
 
@@ -220,8 +227,6 @@ let breakState: BreakState | null = null;
 // Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock.
 const SESSION = Math.round(performance.timeOrigin);
 const wallClock = (t: number) => Math.round(performance.timeOrigin + t);
-let history: HistoryDb | null = null;
-let historyProblem: string | null = null;
 
 const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
@@ -248,7 +253,7 @@ function onFrame(s: FrameSignal) {
   const prevBreak = breakState;
   breakState = prevBreak ? stepBreak(prevBreak, s.t, s.face) : initialBreakState(s.t);
   const ended = prevBreak && breakEnded(prevBreak, breakState);
-  if (ended) saveRecord("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: wallClock(ended.selesai) }, SESSION));
+  if (ended) panel.save("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: wallClock(ended.selesai) }, SESSION));
 
   if (calibration) {
     const run = calibration;
@@ -277,75 +282,21 @@ function onFrame(s: FrameSignal) {
   }
 }
 
-// ── Local history ───────────────────────────────────────────────────────────────
+// ── Local history + what the user tells back ────────────────────────────────────
 
-function historyFailed(err: unknown) {
-  if (historyProblem === null) console.warn("Riwayat tidak bisa disimpan.", err);
-  historyProblem = `Riwayat tidak bisa disimpan di perangkat ini: ${err instanceof Error ? err.message : String(err)}`;
-}
-
-async function initHistory() {
-  try {
-    history = await openHistory(HISTORY_DB);
-    await history.deleteBefore(oldestKeptDay(Date.now())); // NOTES D-38: 30 days
-  } catch (err) {
-    historyFailed(err);
-  }
-}
-
-// Fire and forget: a failing write must never stop the monitoring.
-function saveRecord<S extends StoreName>(store: S, record: Stores[S]) {
-  history?.add(store, record).catch(historyFailed);
-}
-
-let shownDay: string | null = null; // null: today, and it follows midnight
-const dashboard = new Dashboard(
-  {
-    select: byId<HTMLSelectElement>("day-select"),
-    note: byId("history-note"),
-    stats: byId("day-stats"),
-    figure: byId("day-chart"),
-    legend: byId("chart-legend"),
-    chart: byId("chart-wrap"),
-    tip: byId("chart-tip"),
-    table: byId<HTMLTableElement>("chart-table"),
-  },
-  (day) => {
-    shownDay = day === dayKey(Date.now()) ? null : day;
-    void refreshDashboard();
-  },
-);
-
-async function refreshDashboard() {
-  const today = dayKey(Date.now());
-  const day = shownDay ?? today;
-  const view = { days: [] as string[], day, today, summary: null, problem: historyProblem };
-  if (!history) {
-    dashboard.render({ ...view, problem: historyProblem ?? "Riwayat belum siap." });
-    return;
-  }
-  try {
-    const db = history;
-    const [days, evaluasi, jeda, rekomendasi, koreksi_label, kss] = await Promise.all([
-      db.days(),
-      db.byDay("evaluasi", day),
-      db.byDay("jeda", day),
-      db.byDay("rekomendasi", day),
-      db.byDay("koreksi_label", day),
-      db.byDay("kss", day),
-    ]);
-    const summary = summarizeDay({ evaluasi, jeda, rekomendasi, koreksi_label, kss }, EVAL_INTERVAL_MS);
-    dashboard.render({ ...view, days, summary, problem: historyProblem });
-  } catch (err) {
-    historyFailed(err);
-    dashboard.render({ ...view, problem: historyProblem });
-  }
-}
+const panel = new HistoryPanel(EVAL_INTERVAL_MS);
+const selfReport = new SelfReport({
+  panel,
+  session: SESSION,
+  shown: () => (calibration ? null : (monitor?.labelState.shown ?? null)),
+  testMode: TEST_MODE,
+  beep: reminderBeep,
+});
 
 function recordEvaluation(step: EvaluationStep, t: number) {
   const shown = monitor?.labelState.shown;
   if (!shown || !breakState) return;
-  saveRecord(
+  panel.save(
     "evaluasi",
     toEvaluationRecord(shown, step, {
       t: wallClock(t),
@@ -433,6 +384,7 @@ function renderStatus() {
   longRestNote.hidden = saran === null || calibration !== null;
   longRestNote.textContent = saran ?? "";
   labelMeta.textContent = "";
+  selfReport.renderCorrection(calibration ? null : (monitor?.labelState.shown ?? null));
 
   if (calibration) {
     setLabel("Kalibrasi…");
@@ -719,6 +671,18 @@ function tone(audio: AudioContext, frequency: number, seconds: number) {
   osc.stop(t + seconds);
 }
 
+// KSS reminder in test mode. Before the first click on the page the browser may keep it
+// silent; the highlighted panel is the reminder then.
+function reminderBeep() {
+  try {
+    const audio = new AudioContext();
+    tone(audio, 660, 0.25);
+    setTimeout(() => void audio.close(), 1000);
+  } catch {
+    // no audio output: nothing else to do
+  }
+}
+
 function setCalibStatus(text: string) {
   calibStatus.dataset.state = "";
   calibStatus.textContent = text;
@@ -839,17 +803,7 @@ byId("download-log").addEventListener("click", () => {
     `hemat_daya=${JSON.stringify(powerLog)}`,
     `baseline=${JSON.stringify(baseline)}`,
   ]);
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  const link = document.createElement("a");
-  const now = new Date();
-  const two = (n: number) => String(n).padStart(2, "0");
-  const stamp =
-    `${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}-` +
-    `${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
-  link.href = url;
-  link.download = `equilibre-sesi-${stamp}.csv`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadFile(csv, `equilibre-sesi-${fileStamp(new Date())}.csv`, "text/csv");
 });
 
 function renderAnswer({ text, result }: AnalyzeResponse) {
@@ -864,7 +818,8 @@ function renderAnswer({ text, result }: AnalyzeResponse) {
   answer.replaceChildren(list);
 }
 
-// Manual only: the LLM budget is small, automatic sending comes on 28 Sep.
+// Manual only: the LLM budget is small (NOTES D-19); automatic sending is P06 step 5.
+// A reply is stored with the payload's label, and its feedback buttons appear under it.
 async function sendStatus() {
   const payload = currentPayload();
   if (!payload || notSent(payload)) return;
@@ -872,6 +827,7 @@ async function sendStatus() {
   sending = true;
   sendButton.disabled = true;
   answer.replaceChildren(el("p", "Menunggu jawaban Langflow…", "muted"));
+  selfReport.showRecommendation(null);
   try {
     const res = await fetch("/api/analyze", {
       method: "POST",
@@ -882,7 +838,10 @@ async function sendStatus() {
     if (!res.ok) {
       throw new Error(body.error ?? `Backend tidak menjawab (HTTP ${res.status}). Pastikan server sudah jalan.`);
     }
-    renderAnswer(body as AnalyzeResponse);
+    const reply = body as AnalyzeResponse;
+    renderAnswer(reply);
+    const context = { t: Date.now(), sesi: SESSION, pemicu: "manual" as const, label: payload.label };
+    selfReport.showRecommendation(await panel.add("rekomendasi", toRecommendationRecord(reply, context)));
   } catch (err) {
     const message = err instanceof TypeError ? "Tidak bisa menghubungi backend." : (err as Error).message;
     answer.replaceChildren(el("p", message, "error"));
@@ -904,8 +863,13 @@ async function main() {
   renderPower();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
-  void initHistory().then(refreshDashboard);
-  setInterval(() => void refreshDashboard(), DASHBOARD_REFRESH_MS);
+  void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock());
+  setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
+  if (TEST_MODE) setInterval(() => selfReport.tick(Date.now()), KSS_CHECK_MS);
+  if (NO_CAMERA) {
+    setFaceStatus("error", "Kamera tidak dinyalakan (?kamera=0).");
+    return;
+  }
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {
