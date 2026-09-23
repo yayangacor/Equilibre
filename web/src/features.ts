@@ -153,3 +153,11 @@ export function minutesSinceBreak(state: BreakState, now: number): number {
   if (state.awaySince !== null && now - state.awaySince >= BREAK_MIN_MS) return 0; // on a break right now
   return (now - state.sinceT) / 60_000;
 }
+
+// The break that ended with this step (face back after BREAK_MIN_MS or more away), as
+// start and end in the same clock as t; null for every other step.
+export function breakEnded(prev: BreakState, next: BreakState): { mulai: number; selesai: number } | null {
+  return prev.awaySince !== null && next.awaySince === null && next.sinceT !== prev.sinceT
+    ? { mulai: prev.awaySince, selesai: next.sinceT }
+    : null;
+}

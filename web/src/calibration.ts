@@ -159,7 +159,7 @@ export function computeBaseline(
   };
 }
 
-// ── Persistence (localStorage today, IndexedDB from 28 Sep) ─────────────────────
+// ── Persistence (localStorage; the history lives in IndexedDB, historyDb.ts) ────
 
 export const BASELINE_KEY = "equilibre.baseline.v1";
 

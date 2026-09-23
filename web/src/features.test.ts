@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EyeClosure } from "./blink.ts";
 import type { BodySample } from "./body.ts";
-import { computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
+import { breakEnded, computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
 import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, noFace, repeat } from "./test-helpers.ts";
 import type { YawnEvent } from "./yawn.ts";
@@ -136,5 +136,19 @@ describe("minutes since break", () => {
     expect(minutesSinceBreak(s, 750_000)).toBe(0); // away for 2.5 min: on a break now
     s = stepBreak(s, 750_000, true);
     expect(minutesSinceBreak(s, 750_000 + 5 * 60_000)).toBe(5);
+  });
+
+  it("reports a break once, when the face comes back after 2 minutes or more", () => {
+    const start = initialBreakState(0);
+    const away = stepBreak(start, 60_000, false);
+    expect(breakEnded(start, away)).toBeNull();
+    const short = stepBreak(away, 100_000, true); // 40 s away: not a break
+    expect(breakEnded(away, short)).toBeNull();
+    const gone = stepBreak(short, 200_000, false);
+    const stillGone = stepBreak(gone, 400_000, false);
+    expect(breakEnded(gone, stillGone)).toBeNull(); // not over yet
+    const back = stepBreak(stillGone, 400_000, true);
+    expect(breakEnded(stillGone, back)).toEqual({ mulai: 200_000, selesai: 400_000 });
+    expect(breakEnded(back, stepBreak(back, 400_100, true))).toBeNull(); // reported once
   });
 });

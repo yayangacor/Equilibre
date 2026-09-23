@@ -12,6 +12,7 @@ import {
 } from "./calibration.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
+  breakEnded,
   eyesReadable,
   headDown,
   initialBreakState,
@@ -20,7 +21,9 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { Monitor } from "./monitor.ts";
+import { oldestKeptDay, toBreakRecord, toEvaluationRecord } from "./history.ts";
+import { DB_NAME, openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
+import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import {
   detectIntervalMs,
@@ -62,6 +65,9 @@ const BODY_INTERVAL_MS = 500; // body presence changes slowly; ±2×/second is p
 // Minutes of closed eyes before "tertidur" (twice that with the eyes hidden). ?tidur=1 makes it demo-able.
 const TIDUR_MENIT = numberParam("tidur", SLEEP.eyesClosedMinutes, 0.5, 30);
 const DEBUG = params.get("debug") === "1";
+// ?riwayat=uji keeps the history in its own database (checks, demos), away from the real one.
+const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
+const HISTORY_DB = HISTORY_SUFFIX ? `${DB_NAME}-${HISTORY_SUFFIX}` : DB_NAME;
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
 const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
 
@@ -208,6 +214,13 @@ let batteryLevel: number | null = null; // null = Battery Status API not availab
 const powerLog: { t_ms: number; sebab: PowerReason }[] = [{ t_ms: 0, sebab: powerReason(power) }];
 
 let breakState: BreakState | null = null;
+
+// Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock.
+const SESSION = Math.round(performance.timeOrigin);
+const wallClock = (t: number) => Math.round(performance.timeOrigin + t);
+let history: HistoryDb | null = null;
+let historyProblem: string | null = null;
+
 const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
 let sending = false;
@@ -230,7 +243,10 @@ function resetWindow(t: number) {
 function onFrame(s: FrameSignal) {
   sessionLog.push(s);
   if (sessionLog.length > MAX_LOG_FRAMES + 1000) sessionLog.splice(0, 1000);
-  breakState = breakState ? stepBreak(breakState, s.t, s.face) : initialBreakState(s.t);
+  const prevBreak = breakState;
+  breakState = prevBreak ? stepBreak(prevBreak, s.t, s.face) : initialBreakState(s.t);
+  const ended = prevBreak && breakEnded(prevBreak, breakState);
+  if (ended) saveRecord("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: wallClock(ended.selesai) }, SESSION));
 
   if (calibration) {
     const run = calibration;
@@ -251,10 +267,47 @@ function onFrame(s: FrameSignal) {
   }
   if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
     lastEvalT = s.t;
-    ({ latest, hold, menitLelah, saran } = monitor.evaluate(s.t));
+    const step = monitor.evaluate(s.t);
+    ({ latest, hold, menitLelah, saran } = step);
+    recordEvaluation(step, s.t);
     renderStatus();
     renderPayload();
   }
+}
+
+// ── Local history ───────────────────────────────────────────────────────────────
+
+function historyFailed(err: unknown) {
+  if (historyProblem === null) console.warn("Riwayat tidak bisa disimpan.", err);
+  historyProblem = `Riwayat tidak bisa disimpan di perangkat ini: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+async function initHistory() {
+  try {
+    history = await openHistory(HISTORY_DB);
+    await history.deleteBefore(oldestKeptDay(Date.now())); // NOTES D-38: 30 days
+  } catch (err) {
+    historyFailed(err);
+  }
+}
+
+// Fire and forget: a failing write must never stop the monitoring.
+function saveRecord<S extends StoreName>(store: S, record: Stores[S]) {
+  history?.add(store, record).catch(historyFailed);
+}
+
+function recordEvaluation(step: EvaluationStep, t: number) {
+  const shown = monitor?.labelState.shown;
+  if (!shown || !breakState) return;
+  saveRecord(
+    "evaluasi",
+    toEvaluationRecord(shown, step, {
+      t: wallClock(t),
+      sesi: SESSION,
+      menitSejakJeda: minutesSinceBreak(breakState, t),
+      hematDaya: powerReason(power) !== null,
+    }),
+  );
 }
 
 // Runs in the same tick as onFrame for that frame, just before it.
@@ -804,6 +857,7 @@ async function main() {
   renderCalibrationIdle();
   renderPower();
   void watchBattery();
+  void initHistory();
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {
