@@ -74,9 +74,35 @@ describe("long rest advice on the server", () => {
 
   it("derives the flag for Langflow from menit_lelah_60 alone", () => {
     const at = (menit: number) => toFlowInput({ label: "lelah", menit_lelah_60: menit });
-    expect(at(14.9).saran_istirahat_panjang).toBe(false);
-    expect(at(15).saran_istirahat_panjang).toBe(true);
+    expect(at(14.9)?.saran_istirahat_panjang).toBe(false);
+    expect(at(15)?.saran_istirahat_panjang).toBe(true);
     expect(toFlowInput({ label: "normal" })).not.toHaveProperty("saran_istirahat_panjang");
+  });
+});
+
+describe("status decided on the server", () => {
+  it("maps each label to a fixed status and break length", () => {
+    expect(toFlowInput({ label: "normal" })).toMatchObject({ status: "baik", durasi_jeda_menit: 0 });
+    expect(toFlowInput({ label: "lelah ringan" })).toMatchObject({ status: "perlu jeda singkat", durasi_jeda_menit: 5 });
+    expect(toFlowInput({ label: "lelah", menit_lelah_60: 3 })).toMatchObject({ status: "perlu jeda", durasi_jeda_menit: 10 });
+    expect(toFlowInput({ label: "tertidur" })).toMatchObject({ status: "perlu jeda aktif", durasi_jeda_menit: 10 });
+  });
+
+  it("lets the long rest advice win over any label, as the app does", () => {
+    for (const label of ["normal", "lelah ringan", "lelah", "tertidur"] as const) {
+      expect(toFlowInput({ label, menit_lelah_60: 15 })).toMatchObject({
+        status: "perlu istirahat panjang",
+        durasi_jeda_menit: null,
+        saran_istirahat_panjang: true,
+      });
+    }
+    // Negative control: below the threshold nobody is told to stop working.
+    expect(toFlowInput({ label: "tertidur", menit_lelah_60: 14.9 })?.status).toBe("perlu jeda aktif");
+  });
+
+  it("does not send 'tidak di depan layar' to Langflow", () => {
+    expect(parseFeatures({ label: "tidak di depan layar" }).ok).toBe(true); // still a valid payload
+    expect(toFlowInput({ label: "tidak di depan layar", menit_lelah_60: 30 })).toBeNull();
   });
 
   it("rejects menit_lelah_60 outside the hour", () => {

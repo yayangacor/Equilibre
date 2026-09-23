@@ -17,14 +17,25 @@ app.post("/api/analyze", async (req, res) => {
     res.status(400).json({ error: parsed.error });
     return;
   }
+  const input = toFlowInput(parsed.value);
+  if (!input) {
+    res.status(422).json({ error: `Label "${parsed.value.label}" tidak dikirim ke Langflow.` });
+    return;
+  }
   if (!config.langflowApiKey || !config.langflowFlowId) {
     res.status(503).json({ error: "Server belum dikonfigurasi: isi LANGFLOW_API_KEY dan LANGFLOW_FLOW_ID di .env." });
     return;
   }
 
   try {
-    const text = await runFlow(config.langflowFlowId, JSON.stringify(toFlowInput(parsed.value)));
-    res.json({ text, result: parseJsonReply(text) });
+    const text = await runFlow(config.langflowFlowId, JSON.stringify(input));
+    const reply = parseJsonReply(text);
+    // Status and break length are the server's, whatever the LLM wrote.
+    const result =
+      reply !== null && typeof reply === "object" && !Array.isArray(reply)
+        ? { ...reply, status: input.status, durasi_jeda_menit: input.durasi_jeda_menit }
+        : null;
+    res.json({ text, result });
   } catch (err) {
     if (err instanceof LangflowError) {
       res.status(err.status).json({ error: err.message });

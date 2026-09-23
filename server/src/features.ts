@@ -68,9 +68,30 @@ export function parseFeatures(body: unknown): ParseResult {
   return { ok: true, value };
 }
 
-// What the Langflow flow receives: the validated numbers plus the long-rest flag
-// derived from them.
-export function toFlowInput(f: FatigueFeatures): FatigueFeatures & { saran_istirahat_panjang?: boolean } {
-  if (f.menit_lelah_60 === undefined) return f;
-  return { ...f, saran_istirahat_panjang: f.menit_lelah_60 >= LONG_REST_MINUTES };
+// The status of the answer and the break length, decided here so the same input always
+// gets the same words (the LLM wrote "Perlu jeda", "Lelah" and "perlu jeda" for similar
+// input). The LLM only writes rekomendasi, alasan and sumber around them. The long rest
+// advice wins over any label, as in the app. "tidak di depan layar" is not sent at all.
+// ⚠️ Break lengths: initial values inside the ≤10-minute micro-break range of Albulescu
+// et al. (2022); "tertidur" gets an active break (wake up, stand, drink), user decision 22 Sep.
+export const INTERVENTIONS = {
+  normal: { status: "baik", durasi_jeda_menit: 0 },
+  "lelah ringan": { status: "perlu jeda singkat", durasi_jeda_menit: 5 },
+  lelah: { status: "perlu jeda", durasi_jeda_menit: 10 },
+  tertidur: { status: "perlu jeda aktif", durasi_jeda_menit: 10 },
+} as const;
+export const LONG_REST = { status: "perlu istirahat panjang", durasi_jeda_menit: null } as const;
+
+type Intervention = (typeof INTERVENTIONS)[keyof typeof INTERVENTIONS] | typeof LONG_REST;
+export type Status = Intervention["status"];
+
+// What the Langflow flow receives: the validated numbers plus what was derived from
+// them. null: this label is not sent to Langflow.
+export type FlowInput = FatigueFeatures & Intervention & { saran_istirahat_panjang?: boolean };
+
+export function toFlowInput(f: FatigueFeatures): FlowInput | null {
+  if (f.label === "tidak di depan layar") return null;
+  if (f.menit_lelah_60 === undefined) return { ...f, ...INTERVENTIONS[f.label] };
+  const longRest = f.menit_lelah_60 >= LONG_REST_MINUTES;
+  return { ...f, saran_istirahat_panjang: longRest, ...(longRest ? LONG_REST : INTERVENTIONS[f.label]) };
 }
