@@ -3,6 +3,7 @@ import {
   BASELINE_KEY,
   looksClosed,
   blinkThreshold,
+  closureConfirmThreshold,
   computeBaseline,
   loadBaseline,
   median,
@@ -34,9 +35,10 @@ describe("median / percentile", () => {
 });
 
 describe("thresholds", () => {
-  it("sit at 50% (blink) and 20% (PERCLOS P80) of the personal range", () => {
+  it("sit at 50% (blink), 8% (closed) and 13% (long closure confirmed) of the personal range", () => {
     expect(blinkThreshold(BASELINE)).toBeCloseTo(0.2);
-    expect(perclosThreshold(BASELINE)).toBeCloseTo(0.14);
+    expect(perclosThreshold(BASELINE)).toBeCloseTo(0.116);
+    expect(closureConfirmThreshold(BASELINE)).toBeCloseTo(0.126);
   });
 });
 

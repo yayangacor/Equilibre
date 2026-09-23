@@ -1,6 +1,6 @@
 import { initialBlinkState, stepBlink, type EyeClosure } from "./blink.ts";
 import type { BodySample } from "./body.ts";
-import { blinkThreshold, type Baseline } from "./calibration.ts";
+import { blinkThreshold, closureConfirmThreshold, type Baseline } from "./calibration.ts";
 import { computeWindowFeatures, eyesReadable, type WindowFeatures } from "./features.ts";
 import {
   ADVICE,
@@ -63,7 +63,14 @@ export class Monitor {
 
   pushFrame(s: FrameSignal): { closure: EyeClosure | null; yawn: YawnEvent | null } {
     this.frames.push(s);
-    const blink = stepBlink(this.blinkState, s.t, s.ear, blinkThreshold(this.baseline), eyesReadable(s, this.baseline));
+    const blink = stepBlink(
+      this.blinkState,
+      s.t,
+      s.ear,
+      blinkThreshold(this.baseline),
+      eyesReadable(s, this.baseline),
+      closureConfirmThreshold(this.baseline),
+    );
     this.blinkState = blink.state;
     if (blink.event) this.closures.push(blink.event);
     const yawn = stepYawn(this.yawnState, s.t, s.jawOpen, s.face);

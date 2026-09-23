@@ -20,9 +20,13 @@ export const GRID_COLS = 16;
 export const BODY = {
   minArea: 0.05, // below this there is no person in view at all
   minShareOfBaseline: 0.3, // …or less than 30% of the area seen while working normally during calibration
-  // "tertidur" needs most of the calibrated body in view, so a coat left on the chair
-  // (partly segmented as a person, and perfectly still) does not count.
-  sleepShareOfBaseline: 0.5,
+  // "tertidur" needs the calibrated body in view, so a coat left on the chair (partly
+  // segmented as a person, and perfectly still) does not count. ~~0.5~~ → 0.4 (23 Sep,
+  // user): with the head on the desk the mask can shrink a lot, but a coat filling 37%
+  // of the calibrated area must still be rejected (monitor.test.ts). The 23 Sep
+  // recording cannot settle this: both the coat and the head on the desk read 0.1%
+  // there, because the camera was cropped too tightly.
+  sleepShareOfBaseline: 0.4,
   stillMotion: 0.015, // a sample at or below this counts as still. Scale unknown until the first sleep recording.
 } as const;
 

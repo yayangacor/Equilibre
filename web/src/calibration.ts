@@ -34,8 +34,17 @@ export const MAX_MEDIAN_FRAME_INTERVAL_MS = 250;
 
 // Midpoint of the personal range: below it the eye counts as closed for blink detection.
 export const blinkThreshold = (b: EyeRange) => b.earClosed + 0.5 * (b.earOpen - b.earClosed);
-// PERCLOS P80: eye at least 80% closed.
-export const perclosThreshold = (b: EyeRange) => b.earClosed + 0.2 * (b.earOpen - b.earClosed);
+// Eye counted as closed for PERCLOS. ~~0.2 (P80)~~ → 0.08 (23 Sep, D-33): looking down at
+// a phone or at the lower half of the screen drops EAR to 0.05–0.09 while a truly closed
+// eye sits at 0.02–0.035, so P80 (0.073 in that session) read normal work as "lelah".
+export const PERCLOS_FRACTION = 0.08; // ⚠️ from one recording (23 Sep, 6 scenarios)
+export const perclosThreshold = (b: EyeRange) => b.earClosed + PERCLOS_FRACTION * (b.earOpen - b.earClosed);
+// A closure of MAX_BLINK_MS or longer counts only if its median EAR stays below this, so a
+// half-covered eye (head down over a phone) is not reported as "mata terpejam ≥ 1 detik".
+// 23 Sep recording, median EAR per episode ≥ 1 s: false 0.061–0.111 (16 of 18), real
+// 0.025–0.060 (10 of 14); 0.13 of the range = 0.060 there.
+export const CLOSURE_CONFIRM_FRACTION = 0.13; // ⚠️ from the same recording
+export const closureConfirmThreshold = (b: EyeRange) => b.earClosed + CLOSURE_CONFIRM_FRACTION * (b.earOpen - b.earClosed);
 
 export function median(values: readonly number[]): number {
   if (values.length === 0) return NaN;

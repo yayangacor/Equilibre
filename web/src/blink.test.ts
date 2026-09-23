@@ -27,6 +27,27 @@ describe("blink detection", () => {
     expect(events.map((e) => e.kind)).toEqual(["long"]);
   });
 
+  it("drops a long closure whose eye never really shut (head tilted over a phone)", () => {
+    // HALF is under the blink threshold but above the confirm threshold: the lid only
+    // looks lowered. 23 Sep recording: EAR 0.05–0.09 while looking down, 0.02–0.035 shut.
+    const HALF = 0.15;
+    const events = detectEyeClosures(earSeries([OPEN, ...repeat(HALF, 12), OPEN]), THRESHOLD, (f) => f.face, SHUT + 0.01);
+    expect(events).toEqual([]);
+  });
+
+  it("keeps a long closure once most of its frames are fully shut", () => {
+    const HALF = 0.15;
+    const series = [OPEN, HALF, HALF, ...repeat(SHUT, 10), OPEN];
+    const events = detectEyeClosures(earSeries(series), THRESHOLD, (f) => f.face, SHUT + 0.01);
+    expect(events).toEqual([{ kind: "long", startT: 100, endT: 1300, durationMs: 1200 }]);
+  });
+
+  it("leaves blinks alone, however shallow, so the blink rate keeps its meaning", () => {
+    const HALF = 0.15;
+    const events = detectEyeClosures(earSeries([OPEN, HALF, HALF, OPEN]), THRESHOLD, (f) => f.face, SHUT + 0.01);
+    expect(events).toEqual([{ kind: "blink", startT: 100, endT: 300, durationMs: 200 }]);
+  });
+
   it("cancels a blink when the face disappears in the middle", () => {
     expect(detectEyeClosures(earSeries([OPEN, SHUT, SHUT, null, OPEN, OPEN]), THRESHOLD)).toEqual([]);
   });
