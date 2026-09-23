@@ -24,6 +24,25 @@ cd server && npm install && npm run dev     # http://localhost:8787
 cd web && npm install && npm run dev        # http://localhost:5173
 ```
 
+Parameter URL untuk pengembangan dan uji coba:
+
+| Parameter | Fungsi |
+|---|---|
+| `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
+| `?debug=1` | overlay titik mata dan mask tubuh |
+| `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit |
+| `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
+| `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
+
+## Riwayat dan umpan balik
+
+Riwayat disimpan di IndexedDB browser, **hanya di perangkat**, selama 30 hari: label tiap 10 detik beserta angka
+ringkasannya, jeda (wajah hilang ≥ 2 menit), rekomendasi Langflow dan umpan baliknya ("sudah dilakukan" / "tidak
+relevan"), koreksi label dari pengguna, dan isian Karolinska Sleepiness Scale. Panel "Riwayat" menampilkan satu hari
+per tampilan dengan grafik menit per jam, dan bisa diunduh sebagai JSON atau dihapus seluruhnya.
+`cd web && npm run replay -- <log.csv> --ringkasan --kirim-otomatis` memutar ulang log sesi dan mencetak ringkasan
+harian serta kapan kirim otomatis (toggle di panel Langflow, bawaan mati) akan memanggil Langflow.
+
 ## Atribusi dataset
 
 Classifier kelelahan Equilibre dilatih dengan **UTA Real-Life Drowsiness Dataset (UTA-RLDD)**, digunakan dengan izin dari pembuatnya:
