@@ -10,6 +10,7 @@ import {
   type Baseline,
   type KeyValueStore,
 } from "./calibration.ts";
+import { Dashboard } from "./dashboard.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
   breakEnded,
@@ -21,7 +22,7 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { oldestKeptDay, toBreakRecord, toEvaluationRecord } from "./history.ts";
+import { dayKey, oldestKeptDay, summarizeDay, toBreakRecord, toEvaluationRecord } from "./history.ts";
 import { DB_NAME, openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
@@ -68,6 +69,7 @@ const DEBUG = params.get("debug") === "1";
 // ?riwayat=uji keeps the history in its own database (checks, demos), away from the real one.
 const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
 const HISTORY_DB = HISTORY_SUFFIX ? `${DB_NAME}-${HISTORY_SUFFIX}` : DB_NAME;
+const DASHBOARD_REFRESH_MS = 30_000;
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
 const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
 
@@ -294,6 +296,50 @@ async function initHistory() {
 // Fire and forget: a failing write must never stop the monitoring.
 function saveRecord<S extends StoreName>(store: S, record: Stores[S]) {
   history?.add(store, record).catch(historyFailed);
+}
+
+let shownDay: string | null = null; // null: today, and it follows midnight
+const dashboard = new Dashboard(
+  {
+    select: byId<HTMLSelectElement>("day-select"),
+    note: byId("history-note"),
+    stats: byId("day-stats"),
+    figure: byId("day-chart"),
+    legend: byId("chart-legend"),
+    chart: byId("chart-wrap"),
+    tip: byId("chart-tip"),
+    table: byId<HTMLTableElement>("chart-table"),
+  },
+  (day) => {
+    shownDay = day === dayKey(Date.now()) ? null : day;
+    void refreshDashboard();
+  },
+);
+
+async function refreshDashboard() {
+  const today = dayKey(Date.now());
+  const day = shownDay ?? today;
+  const view = { days: [] as string[], day, today, summary: null, problem: historyProblem };
+  if (!history) {
+    dashboard.render({ ...view, problem: historyProblem ?? "Riwayat belum siap." });
+    return;
+  }
+  try {
+    const db = history;
+    const [days, evaluasi, jeda, rekomendasi, koreksi_label, kss] = await Promise.all([
+      db.days(),
+      db.byDay("evaluasi", day),
+      db.byDay("jeda", day),
+      db.byDay("rekomendasi", day),
+      db.byDay("koreksi_label", day),
+      db.byDay("kss", day),
+    ]);
+    const summary = summarizeDay({ evaluasi, jeda, rekomendasi, koreksi_label, kss }, EVAL_INTERVAL_MS);
+    dashboard.render({ ...view, days, summary, problem: historyProblem });
+  } catch (err) {
+    historyFailed(err);
+    dashboard.render({ ...view, problem: historyProblem });
+  }
 }
 
 function recordEvaluation(step: EvaluationStep, t: number) {
@@ -857,7 +903,9 @@ async function main() {
   renderCalibrationIdle();
   renderPower();
   void watchBattery();
-  void initHistory();
+  // The history shows even when the camera or the model fails below.
+  void initHistory().then(refreshDashboard);
+  setInterval(() => void refreshDashboard(), DASHBOARD_REFRESH_MS);
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {

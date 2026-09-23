@@ -1,11 +1,13 @@
 // Replays a session CSV ("Unduh log sesi") through the app's own pipeline (Monitor),
 // so threshold changes in src/ can be checked against recorded sessions.
 // Run with Node's built-in type stripping:
-//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]]
+//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan]
+// --ringkasan also prints what the dashboard would show for the session (history.ts).
 import { readFileSync } from "node:fs";
 import type { EyeClosure } from "../src/blink.ts";
 import type { BodySample } from "../src/body.ts";
 import { median, type Baseline } from "../src/calibration.ts";
+import { summarizeDay, toEvaluationRecord, type EvaluationRecord } from "../src/history.ts";
 import { Monitor } from "../src/monitor.ts";
 import type { FrameSignal } from "../src/signals.ts";
 import type { YawnEvent } from "../src/yawn.ts";
@@ -54,7 +56,7 @@ function parseCsv(path: string) {
 
 const [path, ...flags] = process.argv.slice(2);
 if (!path) {
-  console.error("Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]]");
+  console.error("Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]] [--ringkasan]");
   process.exit(1);
 }
 const { opened, windowMs, tidurMenit, baseline, frames } = parseCsv(path);
@@ -113,6 +115,7 @@ console.log(
 
 const closures: EyeClosure[] = [];
 const yawns: YawnEvent[] = [];
+const records: EvaluationRecord[] = []; // what the live app would store (--ringkasan)
 let lastEval = live[0].t;
 let nextBody = 0;
 
@@ -131,9 +134,15 @@ for (const f of live) {
 
   if (f.t - lastEval < EVAL_INTERVAL_MS) continue;
   lastEval = f.t;
-  const { features: feat, latest, hold, menitLelah, saran } = monitor.evaluate(f.t);
+  const evaluation = monitor.evaluate(f.t);
+  const { features: feat, latest, hold, menitLelah, saran } = evaluation;
   const fps = feat.durasi_jendela_detik > 0 ? feat.n_frame / feat.durasi_jendela_detik : 0;
   const shown = monitor.labelState.shown;
+  if (shown) {
+    // menit_sejak_jeda is not in the summary, so the break tracking of main.ts is left out.
+    const context = { t: opened + f.t, sesi: opened, menitSejakJeda: 0, hematDaya: fpsFlag !== undefined };
+    records.push(toEvaluationRecord(shown, evaluation, context));
+  }
   console.log(
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
       `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
@@ -155,3 +164,18 @@ for (const c of closures.filter((c) => c.kind === "long")) {
   console.log(`Mata tertutup lama: ${at(c.startT)}, ${Math.round(c.durationMs)} ms`);
 }
 for (const y of yawns) console.log(`Menguap: ${at(y.startT)}, ${Math.round(y.durationMs)} ms`);
+
+if (flags.includes("--ringkasan")) {
+  for (const hari of [...new Set(records.map((r) => r.hari))]) {
+    const evaluasi = records.filter((r) => r.hari === hari);
+    const s = summarizeDay({ evaluasi, jeda: [], rekomendasi: [], koreksi_label: [], kss: [] }, EVAL_INTERVAL_MS);
+    const m = (x: number) => x.toFixed(2);
+    console.log(`\nRingkasan ${hari} (${evaluasi.length} evaluasi dengan label tampil, menit):`);
+    console.log(`  dinilai: ${Object.entries(s.menit).map(([label, x]) => `${label} ${m(x)}`).join(" · ")}`);
+    console.log(`  ditahan: fps ${m(s.ditahan.fps)} · mata ${m(s.ditahan.mata)} · lain ${m(s.ditahan.lain)}`);
+    for (const h of s.perJam) {
+      const parts = Object.entries(h.menit).filter(([, x]) => x > 0).map(([label, x]) => `${label} ${m(x)}`);
+      console.log(`  jam ${String(h.jam).padStart(2, "0")}: ${parts.join(" · ") || "-"}${h.ditahan > 0 ? ` · ditahan ${m(h.ditahan)}` : ""}`);
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
-import { lowFpsNote, type Evaluation, type Label } from "./rules.ts";
+import { LABELS, lowFpsNote, type Evaluation, type Label } from "./rules.ts";
 
 // The local history (IndexedDB, historyDb.ts): what Equilibre saw, what it advised and
 // what the user answered. None of it leaves the device (NOTES D-01); it is kept
@@ -102,5 +102,87 @@ export function toBreakRecord(b: { mulai: number; selesai: number }, sesi: numbe
     mulai: b.mulai,
     selesai: b.selesai,
     menit: Math.round((b.selesai - b.mulai) / 6_000) / 10,
+  };
+}
+
+// ── One day, summed up (dashboard "Riwayat") ────────────────────────────────────
+
+export type DayData = {
+  evaluasi: readonly EvaluationRecord[];
+  jeda: readonly BreakRecord[];
+  rekomendasi: readonly RecommendationRecord[];
+  koreksi_label: readonly LabelCorrectionRecord[];
+  kss: readonly KssRecord[];
+};
+
+export type LabelMinutes = Record<Label, number>;
+
+export type HourSummary = {
+  jam: number; // local hour, 0–23
+  menit: LabelMinutes; // judged minutes by shown label
+  ditahan: number; // minutes not judged
+};
+
+export type DaySummary = {
+  sesi: number;
+  menit: LabelMinutes; // judged evaluations, by the label shown
+  ditahan: Record<HoldCause | "lain", number>; // not judged, in minutes
+  perJam: HourSummary[]; // every hour from the first to the last one with data, gaps as zeros
+  jeda: { jumlah: number; menit: number };
+  rekomendasi: { jumlah: number; otomatis: number; sudahDilakukan: number; tidakRelevan: number; belum: number };
+  koreksi: number;
+  kss: { jumlah: number; rataRata: number | null };
+};
+
+// Bottom to top in the hourly chart: the heaviest state sits on the baseline, so the
+// minutes of fatigue per hour read as one block. "tidak di depan layar" is left out of
+// the chart (it is time away, not a state at the screen) and stays in the numbers.
+export const CHART_LABELS: readonly Label[] = ["tertidur", "lelah", "lelah ringan", "normal"];
+
+const noMinutes = (): LabelMinutes => Object.fromEntries(LABELS.map((l) => [l, 0])) as LabelMinutes;
+
+// Each evaluation stands for evalIntervalMs, as in Monitor.menitLelah, so time with no
+// evaluation at all (page closed, camera stalled) never counts as monitored.
+export function summarizeDay(data: DayData, evalIntervalMs: number): DaySummary {
+  const each = evalIntervalMs / 60_000;
+  const menit = noMinutes();
+  const ditahan = { fps: 0, mata: 0, lain: 0 };
+  const hours = new Map<number, HourSummary>();
+  for (const r of data.evaluasi) {
+    const jam = new Date(r.t).getHours();
+    let hour = hours.get(jam);
+    if (!hour) hours.set(jam, (hour = { jam, menit: noMinutes(), ditahan: 0 }));
+    if (r.dinilai) {
+      menit[r.label] += each;
+      hour.menit[r.label] += each;
+    } else {
+      ditahan[r.sebab_ditahan ?? "lain"] += each;
+      hour.ditahan += each;
+    }
+  }
+  const jams = [...hours.keys()];
+  const first = Math.min(...jams);
+  const perJam =
+    jams.length === 0
+      ? []
+      : Array.from({ length: Math.max(...jams) - first + 1 }, (_, i) => hours.get(first + i) ?? { jam: first + i, menit: noMinutes(), ditahan: 0 });
+
+  const feedback = (f: Feedback | null) => data.rekomendasi.filter((r) => r.feedback === f).length;
+  const kss = data.kss.map((k) => k.kss);
+  return {
+    sesi: new Set(data.evaluasi.map((r) => r.sesi)).size,
+    menit,
+    ditahan,
+    perJam,
+    jeda: { jumlah: data.jeda.length, menit: data.jeda.reduce((sum, b) => sum + b.menit, 0) },
+    rekomendasi: {
+      jumlah: data.rekomendasi.length,
+      otomatis: data.rekomendasi.filter((r) => r.pemicu === "otomatis").length,
+      sudahDilakukan: feedback("sudah dilakukan"),
+      tidakRelevan: feedback("tidak relevan"),
+      belum: feedback(null),
+    },
+    koreksi: data.koreksi_label.length,
+    kss: { jumlah: kss.length, rataRata: kss.length > 0 ? kss.reduce((a, b) => a + b, 0) / kss.length : null },
   };
 }

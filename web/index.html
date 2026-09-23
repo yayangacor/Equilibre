@@ -21,6 +21,29 @@
           <p id="camera-prompt" class="camera-prompt" hidden></p>
         </section>
 
+        <section class="panel" id="riwayat">
+          <div class="panel-head">
+            <h2>Riwayat</h2>
+            <label class="day-pick">Hari <select id="day-select"></select></label>
+          </div>
+          <p id="history-note" class="note" hidden></p>
+          <dl id="day-stats" class="metrics wide" hidden></dl>
+          <figure id="day-chart" class="chart" hidden>
+            <figcaption class="note">
+              Menit per jam saat kamu di depan layar dan dinilai. Arahkan kursor atau Tab ke sebuah jam untuk melihat angkanya.
+            </figcaption>
+            <ul id="chart-legend" class="legend"></ul>
+            <div id="chart-wrap" class="chart-wrap">
+              <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden></div>
+            </div>
+            <details class="chart-table">
+              <summary>Lihat sebagai tabel</summary>
+              <div class="table-scroll"><table id="chart-table"></table></div>
+            </details>
+          </figure>
+          <p class="note">Riwayat hanya disimpan di perangkat ini selama 30 hari dan tidak dikirim ke server.</p>
+        </section>
+
         <section class="panel">
           <h2>Sinyal wajah</h2>
           <dl id="signals" class="metrics"></dl>

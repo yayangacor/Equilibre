@@ -11,6 +11,12 @@
   --idle: #6b7773;
   --sleep: #5b4bb7;
   --on-status: #ffffff;
+  /* Stacked chart fills: the badge hues, lightness/chroma moved until every adjacent pair
+     passes the dataviz validator (CVD ≥ 8, normal vision ≥ 15, ≥ 3:1 on --surface). */
+  --chart-tertidur: #5b4cb5;
+  --chart-lelah: #bd3a2c;
+  --chart-lelah-ringan: #ba7e2c;
+  --chart-normal: #07957f;
 
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
@@ -32,6 +38,10 @@
     --idle: #7d8a86;
     --sleep: #a597f0;
     --on-status: #121615;
+    --chart-tertidur: #9584e5;
+    --chart-lelah: #cf4a3f;
+    --chart-lelah-ringan: #c18921;
+    --chart-normal: #30a88f;
   }
 }
 
@@ -377,4 +387,230 @@ button:disabled {
 
 .progress span {
   transition: width 0.4s linear;
+}
+
+/* ── Riwayat (dashboard.ts) ─────────────────────────────────────────────────── */
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.day-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+select {
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#history-note {
+  margin-bottom: 12px;
+}
+
+.chart {
+  margin: 0 0 12px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch,
+.tip-key {
+  flex: none;
+  background: var(--idle);
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.tip-key {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.tip-key[data-label="ditahan"] {
+  height: 0;
+  background: none;
+  border-top: 2px dotted var(--muted);
+}
+
+[data-label="normal"].swatch,
+[data-label="normal"].tip-key {
+  background: var(--chart-normal);
+}
+
+[data-label="lelah ringan"].swatch,
+[data-label="lelah ringan"].tip-key {
+  background: var(--chart-lelah-ringan);
+}
+
+[data-label="lelah"].swatch,
+[data-label="lelah"].tip-key {
+  background: var(--chart-lelah);
+}
+
+[data-label="tertidur"].swatch,
+[data-label="tertidur"].tip-key {
+  background: var(--chart-tertidur);
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart-svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-svg .grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-svg .axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.chart-svg .tick {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-svg .band {
+  fill: transparent;
+}
+
+.chart-svg .col:hover .band,
+.chart-svg .col:focus-within .band {
+  fill: var(--bg);
+}
+
+.chart-svg .hit {
+  fill: transparent;
+  outline: none;
+}
+
+.chart-svg .hit:focus-visible {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart-svg .seg[data-label="normal"] {
+  fill: var(--chart-normal);
+}
+
+.chart-svg .seg[data-label="lelah ringan"] {
+  fill: var(--chart-lelah-ringan);
+}
+
+.chart-svg .seg[data-label="lelah"] {
+  fill: var(--chart-lelah);
+}
+
+.chart-svg .seg[data-label="tertidur"] {
+  fill: var(--chart-tertidur);
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+}
+
+.chart-tip[hidden] {
+  display: none;
+}
+
+.tip-head {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+.tip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tip-row strong {
+  min-width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-table summary {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.chart-table table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 4px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-table th:first-child,
+.chart-table td:first-child {
+  text-align: left;
+  white-space: nowrap;
 }
