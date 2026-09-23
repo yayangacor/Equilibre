@@ -18,7 +18,11 @@ export const RULES = {
   bodyPresent: 0.5, // …while someone is still in view in this share of body samples: the label is held
   perclosMild: 0.08,
   perclosTired: 0.15,
-  slowBlinkFactor: 1.5,
+  // ~~1.5~~ → 2 (23 Sep, D-35): half-lowered lids over a phone or a document averaged
+  // 364–597 ms against a 235 ms baseline, enough for "lelah ringan" on their own. At 2×
+  // the 23 Sep recording keeps all 7 "lelah" windows of the drowsy scenario and drops
+  // 3 of the 5 remaining false "lelah ringan" windows of normal work.
+  slowBlinkFactor: 2,
   yawns: 1,
   longClosures: 1,
   // Supporting only: counts when another sign is already there. Alone it misfires,
@@ -26,6 +30,9 @@ export const RULES = {
   // (up to 2.6× when acting drowsy).
   fastBlinkFactor: 2,
   headDownNote: 0.3, // explained in catatan, not scored
+  // Below this rate a window is not judged and the label is held: a hidden tab gets ±1 fps
+  // (NOTES G-03), and 1 closed frame in ±10 made "lelah". Power saving (±5 fps) stays above it.
+  minWindowFps: 3, // ⚠️ initial value, user decision 22 Sep
   tiredPoints: 3,
   confirmEvaluations: 2, // hysteresis: a new label must show up this many times in a row
 } as const;
@@ -133,9 +140,20 @@ export function hiddenFaceNote(f: WindowFeatures, sleepMinutes: number = SLEEP.e
   );
 }
 
-// Rules → label. null = not calibrated yet, no frames, or eyes hidden at the desk (hiddenFaceNote).
+export function lowFpsNote(f: WindowFeatures): string | null {
+  if (f.durasi_jendela_detik <= 0) return null;
+  const fps = f.n_frame / f.durasi_jendela_detik;
+  if (fps >= RULES.minWindowFps) return null;
+  return (
+    `Kamera hanya terbaca ±${number.format(fps)} fps dari ${spanOf(f)} (minimal ${RULES.minWindowFps} fps), ` +
+    "biasanya karena tab Equilibre tidak terlihat. Pemantauan dijeda, jadi label terakhir dipertahankan."
+  );
+}
+
+// Rules → label. null = not calibrated yet, no frames, too few frames per second
+// (lowFpsNote), or eyes hidden at the desk (hiddenFaceNote).
 export function classify(f: WindowFeatures, baseline: Baseline | null, lookback: SleepLookback | null = null): Evaluation | null {
-  if (!baseline || f.n_frame === 0) return null;
+  if (!baseline || f.n_frame === 0 || lowFpsNote(f)) return null;
   const span = spanOf(f);
 
   const asleep = sleepReasons(f, lookback);
@@ -211,22 +229,39 @@ export type LabelState = {
   shown: Evaluation | null; // what the UI displays and what gets sent to Langflow
   candidate: Label | null; // a different label waiting for confirmation
   streak: number;
+  pending: Evaluation | null; // the evaluation shown once the candidate is confirmed
 };
 
-export const initialLabelState = (): LabelState => ({ shown: null, candidate: null, streak: 0 });
+export const initialLabelState = (): LabelState => ({ shown: null, candidate: null, streak: 0, pending: null });
+
+const TIRED: readonly Label[] = ["lelah ringan", "lelah"];
 
 // The first label is shown right away (nothing to flicker from). After that a
 // different label replaces it only after RULES.confirmEvaluations evaluations in a row.
+// On the way into "lelah ringan"/"lelah" from any other label the two confirm each
+// other and the lighter one is shown: raw labels alternating between them (21 Sep
+// session) used to keep "normal" on screen for good. Once one of them is shown, a
+// switch to the other still needs that label in a row. User decision 22 Sep.
 export function applyHysteresis(
   state: LabelState,
   next: Evaluation,
   required: number = RULES.confirmEvaluations,
 ): LabelState {
   if (state.shown === null || state.shown.label === next.label) {
-    return { shown: next, candidate: null, streak: 0 };
+    return { shown: next, candidate: null, streak: 0, pending: null };
   }
-  const streak = state.candidate === next.label ? state.streak + 1 : 1;
-  return streak >= required ? { shown: next, candidate: null, streak: 0 } : { ...state, candidate: next.label, streak };
+  const pair =
+    !TIRED.includes(state.shown.label) &&
+    state.candidate !== null &&
+    TIRED.includes(state.candidate) &&
+    TIRED.includes(next.label);
+  const continues = state.candidate === next.label || pair;
+  const streak = continues ? state.streak + 1 : 1;
+  const keepLighter = pair && state.pending?.label === "lelah ringan" && next.label !== "lelah ringan";
+  const pending = keepLighter && state.pending ? state.pending : next;
+  return streak >= required
+    ? { shown: pending, candidate: null, streak: 0, pending: null }
+    : { shown: state.shown, candidate: pending.label, streak, pending };
 }
 
 // hold: the eyes are hidden but the person is still there, so the shown label stays
@@ -240,7 +275,7 @@ export function evaluate(
   const latest = classify(features, baseline, lookback);
   const hold =
     latest === null && baseline !== null && features.n_frame > 0
-      ? hiddenFaceNote(features, lookback?.eyesHiddenMinutes)
+      ? (lowFpsNote(features) ?? hiddenFaceNote(features, lookback?.eyesHiddenMinutes))
       : null;
   return { state: latest ? applyHysteresis(prev, latest) : prev, latest, hold };
 }

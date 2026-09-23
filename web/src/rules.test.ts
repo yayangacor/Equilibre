@@ -37,7 +37,8 @@ describe("classify", () => {
     ["PERCLOS just under 8%", { perclos: 0.079 }, "normal", 0],
     ["PERCLOS exactly 8%", { perclos: 0.08 }, "lelah ringan", 0.25],
     ["one yawn", { menguap: 1 }, "lelah ringan", 0.25],
-    ["slow blinks (1.5× baseline 200 ms)", { durasi_kedip_ms: 300 }, "lelah ringan", 0.25],
+    ["slow blinks (2× baseline 200 ms)", { durasi_kedip_ms: 400 }, "lelah ringan", 0.25],
+    ["blinks just under 2× (lids half down over a phone)", { durasi_kedip_ms: 399 }, "normal", 0],
     ["one eye closure of 1 s or longer", { mata_tertutup_lama: 1 }, "lelah ringan", 0.25],
     ["head down 60% alone (looking at a phone)", { pct_kepala_menunduk: 0.6 }, "normal", 0],
     ["two signals", { menguap: 2, mata_tertutup_lama: 1 }, "lelah ringan", 0.5],
@@ -249,12 +250,59 @@ describe("hysteresis", () => {
 
   it("restarts the count when the candidate changes or the old label returns", () => {
     let s = applyHysteresis(initialLabelState(), ev("normal"));
-    s = applyHysteresis(s, ev("lelah ringan"));
     s = applyHysteresis(s, ev("lelah"));
+    s = applyHysteresis(s, ev("tidak di depan layar"));
     expect(s.shown?.label).toBe("normal");
     s = applyHysteresis(s, ev("normal"));
     s = applyHysteresis(s, ev("lelah"));
     expect(s.shown?.label).toBe("normal");
+  });
+
+  it("lets lelah ringan and lelah confirm each other on the way in, showing the lighter one", () => {
+    // The 21 Sep pattern (NOTES G-31): raw labels alternate, the shown label used to stay "normal".
+    const light = { ...ev("lelah ringan"), alasan: ["Menguap 1×."] };
+    let s = applyHysteresis(initialLabelState(), ev("normal"));
+    s = applyHysteresis(s, light);
+    expect(s.candidate).toBe("lelah ringan");
+    s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown).toBe(light); // the lighter evaluation itself, with its own reasons and score
+    // Same the other way round, and with the heavier one first the candidate reads as the lighter.
+    s = applyHysteresis(applyHysteresis(initialLabelState(), ev("normal")), ev("lelah"));
+    s = applyHysteresis(s, ev("lelah ringan"));
+    expect(s.shown?.label).toBe("lelah ringan");
+    // Two "lelah" in a row still show "lelah".
+    s = applyHysteresis(applyHysteresis(initialLabelState(), ev("normal")), ev("lelah"));
+    s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown?.label).toBe("lelah");
+  });
+
+  it("keeps hysteresis between lelah ringan and lelah once one of them is shown", () => {
+    // Negative control: one lighter evaluation must not pull "lelah" down.
+    let s = applyHysteresis(initialLabelState(), ev("lelah"));
+    s = applyHysteresis(s, ev("lelah ringan"));
+    expect(s.shown?.label).toBe("lelah");
+    s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown?.label).toBe("lelah");
+    // Escalating from "lelah ringan" still needs "lelah" twice in a row.
+    s = applyHysteresis(initialLabelState(), ev("lelah ringan"));
+    s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown?.label).toBe("lelah ringan");
+    s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown?.label).toBe("lelah");
+  });
+
+  it("holds the label when the window has fewer than 3 frames per second", () => {
+    const prev = applyHysteresis(initialLabelState(), ev("normal"));
+    // Hidden tab: ±1 fps and one closed frame in ten would read as tired.
+    const hidden = { ...calm, n_frame: 20, durasi_jendela_detik: 20, perclos: 0.1 };
+    const { state, latest, hold } = evaluate(hidden, BASELINE, prev);
+    expect(latest).toBeNull();
+    expect(state).toBe(prev);
+    expect(hold).toContain("Pemantauan dijeda");
+    // Negative control: power saving (±5 fps) is still judged.
+    const saving = evaluate({ ...hidden, n_frame: 100 }, BASELINE, prev);
+    expect(saving.latest?.label).toBe("lelah ringan");
+    expect(saving.hold).toBeNull();
   });
 
   it("evaluate() leaves the state alone when there is nothing to classify", () => {
