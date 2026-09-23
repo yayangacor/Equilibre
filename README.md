@@ -10,7 +10,8 @@ Equilibre adalah web app pendamping kerja yang membantu pekerja di depan kompute
 |---|---|
 | `web/` | Frontend Vite + TypeScript + `@mediapipe/tasks-vision` |
 | `server/` | Backend perantara Node.js + Express. Menyimpan API key Langflow supaya tidak pernah sampai ke browser |
-| `langflow-flows/` | Ekspor JSON flow Langflow (tanpa API key) |
+| `langflow-flows/` | Ekspor JSON flow Langflow (tanpa API key), draf prompt, 20 skenario uji + pengeceknya (`node langflow-flows/cek-skenario.mts`) |
+| `knowledge/` | Knowledge base RAG: parafrase 9 sumber (WHO, NIOSH, Permenkes 48/2016, Kemenkes, PLOS ONE, SLEEP Advances, AAO, Environ Health Perspect, Regulation (EU) 432/2012) dengan sitasi dan lisensi; daftarnya di `knowledge/README.md` |
 
 ## Menjalankan (development)
 

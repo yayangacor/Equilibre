@@ -22,8 +22,10 @@ CSV sesi **jangan di-commit**, karena berisi data wajah (numerik) milik tester. 
 |---|---|---|
 | `equilibre-sesi-20260921-134148.csv` | Percobaan kalibrasi yang gagal terus | Sebelum perbaikan `d6f46eb`. `baseline=null`, jadi tidak bisa di-replay, tapi berguna untuk melihat pola mata terpejam |
 | `equilibre-sesi-20260921-140729.csv` | Kalibrasi berhasil + skenario "pura-pura mengantuk" (PLAN-2026-09-22 Langkah 6) | `?calib=30&window=20`, kamera sejajar mata |
+| `equilibre-sesi-20260923-075630.csv` | 6 skenario protokol di bawah, 07:23–07:56 | `?debug=1&calib=30&window=20&tidur=1`. **Kamera ter-crop**: saat kepala direbahkan di meja, siluet tubuh hanya 0,1% luas kalibrasi |
 
 Baseline sesi 21 Sep 14:01: EAR terbuka 0,243, EAR terpejam 0,033, kedip 25,8/menit, durasi kedip 223 ms, pitch −5,4°, jawOpen P95 0,03.
+Baseline sesi 23 Sep 07:25: EAR terbuka 0,228, EAR terpejam 0,035, kedip 25,7/menit, durasi kedip 235 ms, pitch −7,8°, jawOpen P95 0,05, luas tubuh 0,273.
 
 ## Hasil uji "pura-pura mengantuk" (21 Sep)
 
@@ -46,7 +48,7 @@ Arah pitch sudah dicek user: `pitch relatif` negatif saat menunduk.
 1. **PERCLOS saat normal sudah 4–7%, karena kedip ikut terhitung.** Tester ini sering berkedip (26–48/menit), dan di 10 fps setiap kedip menyumbang 1–2 frame di bawah batas P80. Akibatnya, setelah kembali normal pun PERCLOS sempat 11–13% dan label jadi "lelah ringan" (14:06:56–14:07:06).
    - Opsi A: frame yang termasuk kedip pendek (< ±500 ms) tidak dihitung ke PERCLOS, jadi hanya penutupan yang lebih lama yang masuk. **Dipakai sejak 21 Sep malam** (`SHORT_BLINK_MS` di `features.ts`), lihat bagian "Aturan tertidur dan lelah, versi 2".
    - Opsi B: batas `perclosMild` personal, misalnya `max(0,08, 2 × PERCLOS saat kalibrasi tahap B)`. Ini perlu field baru di `Baseline`.
-2. **Jendela dengan fps rendah menghasilkan fitur yang tidak bisa dipercaya.** Saat tab tersembunyi (±1–2,5 fps, misalnya 14:01:49–14:02:09 dan 14:04:02–14:05:05), semua kedip dibatalkan (jeda > 500 ms) sehingga kedip/menit = 0, sementara PERCLOS dihitung dari segelintir frame. Pada 14:04:55, 1 dari ±10 frame tertutup langsung menghasilkan label mentah "lelah". Usulan: jangan beri label kalau fps jendela < ±5, dan tampilkan "tidak dipantau". Ini terkait keputusan tab tersembunyi di `IDEA.md` bagian 7.
+2. **Jendela dengan fps rendah menghasilkan fitur yang tidak bisa dipercaya.** Saat tab tersembunyi (±1–2,5 fps, misalnya 14:01:49–14:02:09 dan 14:04:02–14:05:05), semua kedip dibatalkan (jeda > 500 ms) sehingga kedip/menit = 0, sementara PERCLOS dihitung dari segelintir frame. Pada 14:04:55, 1 dari ±10 frame tertutup langsung menghasilkan label mentah "lelah". Usulan: jangan beri label kalau fps jendela < ±5, dan tampilkan "tidak dipantau". → **Dipakai 22 Sep dengan batas 3 fps** (`RULES.minWindowFps`): label terakhir ditahan dengan catatan "Pemantauan dijeda". Batas 5 akan mematikan label di mode hemat daya. Ini terkait keputusan tab tersembunyi di `IDEA.md` bagian 7.
 3. **Menguap: hanya 1 dari beberapa percobaan yang terhitung** (6,8 detik, 14:02:54). Percobaan 14:02:26 hanya 0,9 detik di atas `jawOpen` 0,5 (minimum 1,5 detik). Percobaan 14:02:17 terjadi saat kepala menunduk, dan wajah sempat hilang dari deteksi. Sebelum menurunkan durasi minimum, rekam dulu sesi **berbicara** supaya bicara tidak ikut terhitung menguap.
 4. **EAR terbuka bergantung pada posisi kamera**: ±0,30 saat kamera di bawah wajah, 0,243 saat sejajar mata. Kalibrasi personal menangani ini, tapi user perlu kalibrasi ulang kalau kamera dipindah. Pesan di panel kalibrasi sudah menyebut hal ini.
 5. **Kalibrasi tahap A (sudah diperbaiki di `d6f46eb`).** Landmark mata terpejam sesekali "meloncat" terbuka, dan 3 detik rekaman sering tidak bersamaan dengan saat mata benar-benar terpejam. Sekarang tahap A menunggu mata terdeteksi terpejam, cukup ≥30% frame terbaca tertutup, dan `eyeBlink` dipakai sebagai cadangan.
@@ -128,3 +130,87 @@ Buka `?debug=1&calib=30&window=20&tidur=1` (jalur tertidur jadi 1 menit mata ter
 6. Tinggalkan kursi 1 menit → "tidak di depan layar". Lalu gantungkan jaket di sandaran kursi dan pergi 3 menit → tidak boleh `tertidur`.
 
 Yang dicek dari CSV: `body_area` saat duduk / kepala di meja / kursi kosong / jaket di kursi, `body_motion` saat bekerja, menggulir HP, dan tidur, serta `look_down` saat melihat HP vs mata terpejam. Replay: `npm run replay -- <file.csv> --tidur=1 [--window=60]`.
+
+## Hemat daya: deteksi ±5 fps (22 Sep)
+
+Toggle "Hemat daya" di panel Sinyal wajah menurunkan loop deteksi dari 100 ms ke 200 ms (`web/src/powerSaving.ts`). Kalibrasi selalu berjalan ±10 fps, jadi satu baseline dipakai di kedua mode. Pilihan diingat di perangkat, dan mode ini menyala sendiri saat baterai di bawah 20% dan tidak diisi (Battery Status API, hanya Chromium). Header CSV mencatat kapan mode berubah: `hemat_daya=[{"t_ms":…,"sebab":"pilihan"|"baterai"|null}]`.
+
+Biayanya diukur sebelum toggle ditulis, dengan memutar ulang sesi 21 Sep seolah direkam di 5 fps:
+
+```bash
+npm run replay -- "<csv>" --fps=5 --phase=0   # --phase=1: jam 5 fps digeser satu frame rekaman
+```
+
+| Sesi 21 Sep 14:07, jendela 20 detik | 10 fps | 5 fps fase 0 | 5 fps fase 1 |
+|---|---|---|---|
+| Kedip total | 118 | 93 (−21%) | 100 (−15%) |
+| Mata terpejam ≥ 1 detik | 2 | 3 | 2 |
+| Kedip/menit saat tab terlihat | 24–67 | 15–48 | 18–64 |
+| Durasi kedip rata-rata saat tab terlihat | 137–269 ms | 205–333 ms | 208–296 ms |
+| Label tampil berbeda dari 10 fps (jendela 20 / 60 detik) | — | 0 / 1 dari 37 | 2 / 0 dari 37 |
+
+- Segmen normal memberi label yang sama di ketiga versi. Semua perbedaan label ada di segmen pura-pura mengantuk.
+- Penutupan ≥ 1 detik tambahan di fase 0 (14:03:09) sebenarnya tiga kedip beruntun yang dipisah satu frame mata terbuka. Di 5 fps frame terbuka itu terlewat. Kedip beruntun seperti ini bisa menambah satu poin lelah palsu.
+- Karena baseline kedip dari kalibrasi 10 fps, poin "kedip ≥ 2× baseline" jadi kurang peka saat hemat daya aktif.
+- Usulan poin 2 di atas ("jangan beri label kalau fps jendela < ±5") akan mematikan label di mode ini, karena fps jendelanya 4,9–5,0. Kalau usulan itu dikerjakan, batasnya harus di bawah 5 (mis. ±3).
+- Hanya satu sesi, satu tester. Belum dicoba dengan wajah di 5 fps sungguhan.
+
+## Rekaman 6 skenario (23 Sep): ambang mata disetel dari data
+
+`equilibre-sesi-20260923-075630.csv`, 07:23–07:56, `?debug=1&calib=30&window=20&tidur=1`. Catatan tester: skenario 1
+sesuai, 2 melihat HP terbaca `lelah`/`lelah ringan`, 3 sesuai, 4 `tertidur` muncul, 5 terbaca "tidak di depan layar"
+(kamera ter-crop), 6 jaket tidak terbaca sebagai tubuh. Sesi berbicara: metrik menguap tidak bertambah. Wi-Fi mati: sesuai.
+
+### Kenapa membaca layar dan melihat HP terbaca lelah
+
+| Segmen | EAR median | Frame < 0,073 (ambang lama) | Pitch relatif | Label lama |
+|---|---|---|---|---|
+| Kerja normal / baca layar | 0,258 | 6,6% | −2,7° | `lelah` 9 jendela (palsu) |
+| HP di tangan | 0,207 | 42,2% | −1,4° | `lelah ringan` (palsu) |
+| HP di pangkuan | 0,065 | 70,9% | −18,0° | menunduk → mata tidak dinilai |
+| Pura-pura mengantuk | 0,143 | 30,1% | −7,9° | `lelah` (benar) |
+| Mata terpejam / tertidur | 0,025 | 99,6% | −4,9° | `tertidur` (benar) |
+
+Pita EAR "menunduk ringan" (0,05–0,09) dan "mata terpejam" (0,02–0,035) sebenarnya terpisah, tetapi **kedua ambang
+lama jatuh di dalam pita menunduk**: frame tertutup 0,073 (0,2 rentang) dan episode kedip 0,131 (0,5 rentang). Kepala
+turun 5–6° saja sudah cukup; batas "menunduk" (−15°) tidak tercapai, jadi mata tetap dinilai.
+
+Yang tidak memisahkan: blendshape `eyeBlink` (0,65–0,75 di semua kondisi) dan `eyeLookDown` (0,63–0,79 pada frame
+tertutup di semua kondisi). Yang memisahkan: **median EAR per episode ≥ 1 detik** — palsu 0,061–0,111 (16 dari 18),
+asli 0,025–0,060 (10 dari 14).
+
+### Perubahan
+
+| Nilai | Lama | Baru | Berkas |
+|---|---|---|---|
+| Ambang frame mata tertutup | 0,2 rentang (P80) | **0,08 rentang** | `calibration.ts` `PERCLOS_FRACTION` |
+| Pejaman ≥ 1 detik | cukup melewati titik tengah | **mayoritas frame di bawah 0,13 rentang** | `calibration.ts` + `blink.ts` |
+| Luas tubuh untuk `tertidur` | 50% luas kalibrasi | **40%** | `body.ts` `sleepShareOfBaseline` |
+| Batas kedipan lambat | 1,5× baseline | **2× baseline** | `rules.ts` `slowBlinkFactor` |
+
+Kedip < 1 detik sengaja tidak ikut dikonfirmasi kedalamannya, supaya laju kedip dan baseline-nya tetap sebanding.
+
+### Hasil replay rekaman yang sama
+
+| Segmen | Sebelum | Sesudah |
+|---|---|---|
+| 1 kerja normal / baca layar (33 jendela) | normal 21, **lelah 9**, lelah ringan 3 | normal 31, lelah ringan 2 |
+| 2a HP di tangan (5) | lelah ringan 5 | lelah ringan 3, normal 2 |
+| 2b HP di pangkuan (7) | lelah ringan 7 | normal 5, lelah ringan 2 |
+| 2c HP di tangan lagi (6) | lelah ringan 4, normal 2 | normal 6 |
+| 3 pura-pura mengantuk (14) | lelah 7 | lelah 7 |
+| 4 mata terpejam / tertidur (26) | tertidur 6, lelah 12 | tertidur 4, lelah 8 |
+| 6 pergi + jaket (38) | tidak di depan layar 19, lelah ringan 8 | tidak di depan layar 18, normal 20 |
+
+"Mata terpejam ≥ 1 detik" se-sesi: 44 → 25 kejadian. `tertidur` muncul 20 detik lebih lambat dari sebelumnya.
+
+### Yang masih tersisa
+
+- **Skenario 5 belum terjawab.** Kepala di meja memberi luas siluet 0,1% dari kalibrasi, sama dengan jaket di kursi,
+  jadi jalur `tertidur` lewat tubuh tidak teruji. Rekam ulang skenario 5 saja, dengan kamera memuat kepala sampai
+  bahu/dada.
+- **Kedip < 1 detik yang dangkal** masih menaikkan rata-rata durasi kedip: sisa 2 jendela `lelah ringan` palsu di
+  skenario 1 (07:28:47–58) memakai rata-rata 587–597 ms. Aturan kedalaman untuk kedip perlu rekaman + kalibrasi baru,
+  karena `blinkPerMin`/`blinkDurationMs` di baseline lama dihitung dengan aturan lama.
+- **HP di tangan 07:30:58–07:31:18** masih `lelah ringan` (mata tertutup 9–14% + satu pejaman ≥ 1 detik). Di segmen itu
+  mata memang terbaca benar-benar terpejam (15% frame di bawah 0,044), jadi bukan lagi kasus kelopak setengah turun.
