@@ -231,9 +231,27 @@ Kontrol ambang: dengan ambang "terbuka" jauh lebih ketat (EAR ≥ 50% rentang da
 terbuka, jadi yang menggagalkan bukan ambang PERCLOS yang rendah. Sebagai pembanding, tes mata terpejam 21:51–21:55
 (wajah terlihat) terbaca EAR median 0,018 dan skor kedip 0,766, dan `tertidur` muncul.
 
-Kesimpulan: aturan bekerja sesuai rancangan (mata yang terlihat terbuka menggugurkan `tertidur`). Yang salah adalah pesan
-penahanan, yang selama 10 menit menjanjikan "kalau tubuh tetap diam 2 menit, statusnya menjadi tertidur". Sekarang pesan
-menyebut porsi mata terbuka kalau melewati 10%. Ini juga ukuran pertama untuk `BODY.stillMotion` dan
-`BODY.sleepShareOfBaseline` dengan kepala bersandar: keduanya jauh di sisi aman untuk posisi ini (posisi kepala di meja
-dengan kamera lebih rendah belum terekam). Belum terjawab: apakah mata user benar-benar terbuka, atau model salah membaca
-wajah yang setengah terlihat.
+~~Kesimpulan: aturan bekerja sesuai rancangan (mata yang terlihat terbuka menggugurkan `tertidur`).~~ → **keliru** (koreksi
+malam yang sama, setelah user mengirim foto posisinya: kepala di meja, puncak kepala menghadap kamera, wajah tidak mungkin
+terlihat). "Wajah" di 26% frame itu **deteksi palsu** di rambut/lengan: 284 run dalam 9 menit, 78% hanya 1–2 frame, sudut
+kepala melompat 6,5° per frame (p90 26,6°) dan menengadah sampai +67°; wajah asli di sesi yang sama bertahan ratusan frame
+dengan lompatan ≤ 0,5°. EAR dan skor kedip "sepakat terbuka" karena keduanya berasal dari deteksi palsu yang sama, bukan
+dua bukti independen.
+
+Perbaikan (`STEADY_FACE` di `features.ts`, ⚠️ nilai awal): frame wajah hanya dihitung di dalam run ≥ 1 detik (boleh putus
+1 frame) dengan lompatan pitch median ≤ 3°. Diukur pada 4 log:
+
+| Log | Frame wajah yang tetap dipakai | Segmen kepala di meja, "mata terbuka" |
+|---|---|---|
+| 26 Sep | 77,6% (yang dibuang: flicker + transisi 21:39:25–21:40:20) | 25,9% → 0,6% |
+| 23 Sep (6 skenario, termasuk HP) | 99,9% | — |
+| 21 Sep (dua sesi) | 99,7% dan 99,7% | — |
+
+Replay: 26 Sep → `tertidur` mulai 21:41:29 (±2 menit setelah bersandar, `tidur=1`) sampai 21:50; tes mata terpejam tidak
+berubah. 21 Sep tidak berubah; 23 Sep 1 baris berubah (evaluasi terakhir, 0 fps). Varian yang ditolak: run ≥ 5 frame saja
+(bersandar masih 10,5%), celah dalam milidetik (tidak menyambung apa pun di 5 fps, dan menurunkan 21 Sep ke 94–95%).
+
+Pesan penahanan tetap diperbaiki (menyebut porsi mata terbuka kalau > 10%), karena berguna saat mata memang terbuka. Ini
+juga ukuran pertama `BODY.stillMotion` dan `BODY.sleepShareOfBaseline` dengan kepala di meja: keduanya jauh di sisi aman.
+Belum terverifikasi: filter ini di app live dengan posisi yang sama, dan apakah flicker juga memotong deteksi jeda
+(`stepBreak` di `main.ts` masih memakai `face` mentah per frame).
