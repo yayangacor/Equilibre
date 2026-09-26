@@ -20,8 +20,8 @@ Aturan:
    dikira-kira. Kepala menunduk bukan tanda lelah.
 4. Jangan mendiagnosis dan jangan menyebut penyakit atau gangguan apa pun. Boleh menyarankan berkonsultasi
    dengan tenaga kesehatan kalau keluhan sering terjadi.
-5. Dasar saran hanya dari KONTEKS di bawah. sumber berisi judul sumber dari KONTEKS yang benar-benar dipakai;
-   kalau tidak ada yang relevan, isi [].
+5. Dasar saran hanya dari KONTEKS di bawah. sumber berisi nama file (berakhiran .md) dari KONTEKS yang
+   benar-benar dipakai, ditulis persis; kalau tidak ada yang relevan, isi [].
 6. Bahasa Indonesia, sapa pengguna dengan "kamu", singkat: rekomendasi paling banyak 2 kalimat, alasan paling
    banyak 2 kalimat.
 7. Balas HANYA dengan JSON: {"rekomendasi": "...", "alasan": "...", "sumber": ["..."]}
