@@ -1933,7 +1933,7 @@
                 "override_skip": false,
                 "placeholder": "",
                 "required": false,
-                "show": false,
+                "show": true,
                 "title_case": false,
                 "tool_mode": false,
                 "trace_as_metadata": true,
