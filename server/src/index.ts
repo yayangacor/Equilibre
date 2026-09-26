@@ -1,7 +1,9 @@
 import express, { type ErrorRequestHandler } from "express";
 import { config } from "./config.ts";
-import { panduanTweaks, parseFeatures, toFlowInput } from "./features.ts";
-import { LangflowError, parseJsonReply, runFlow } from "./langflow.ts";
+import { analyze } from "./analyze.ts";
+import { parseFeatures, toFlowInput } from "./features.ts";
+import { runFlow } from "./langflow.ts";
+import { LangflowError } from "./reply.ts";
 
 const app = express();
 app.disable("x-powered-by");
@@ -28,14 +30,8 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    const text = await runFlow(config.langflowFlowId, JSON.stringify(input), panduanTweaks(input.status));
-    const reply = parseJsonReply(text);
-    // Status and break length are the server's, whatever the LLM wrote.
-    const result =
-      reply !== null && typeof reply === "object" && !Array.isArray(reply)
-        ? { ...reply, status: input.status, durasi_jeda_menit: input.durasi_jeda_menit }
-        : null;
-    res.json({ text, result });
+    const flowId = config.langflowFlowId;
+    res.json(await analyze(input, (inputValue, tweaks) => runFlow(flowId, inputValue, tweaks)));
   } catch (err) {
     if (err instanceof LangflowError) {
       res.status(err.status).json({ error: err.message });
