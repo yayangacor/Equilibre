@@ -1,11 +1,13 @@
 import type { WindowFeatures } from "./features.ts";
-import type { Evaluation, Label } from "./rules.ts";
+import type { Evaluation, Label, Tanda } from "./rules.ts";
 
-// The only data that leaves the device: a label and a few aggregate numbers.
-// Must match the whitelist in server/src/features.ts exactly (payload.test.ts checks it).
+// The only data that leaves the device: a label, a few aggregate numbers and the names of
+// the rules that fired (NOTES D-01, D-41). Must match the whitelist in server/src/features.ts
+// exactly (payload.test.ts checks it).
 export type AnalyzePayload = {
   label: Label;
   skor: number;
+  tanda: Tanda[];
   perclos?: number;
   kedip_per_menit?: number;
   durasi_kedip_ms?: number;
@@ -32,6 +34,7 @@ export function toAnalyzePayload(
   return {
     label: evaluation.label,
     skor: round(evaluation.skor, 2),
+    tanda: [...evaluation.tanda],
     ...optional("perclos", f.perclos, 3),
     ...optional("kedip_per_menit", f.kedip_per_menit, 1, 200),
     ...optional("durasi_kedip_ms", f.durasi_kedip_ms, 0, 5000),

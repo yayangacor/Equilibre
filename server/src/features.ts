@@ -2,9 +2,23 @@ export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di 
 
 export type Label = (typeof LABELS)[number];
 
+// Names of the app's rules that fired (NOTES D-41), same list as web/src/rules.ts. Only these
+// names pass, so the field cannot carry free text off the device.
+export const TANDA = [
+  "mata_sering_tertutup",
+  "kedipan_lambat",
+  "menguap",
+  "mata_terpejam_lama",
+  "kedipan_sering",
+  "tertidur_mata_terpejam",
+  "tertidur_mata_tak_terlihat",
+] as const;
+export type Tanda = (typeof TANDA)[number];
+
 export type FatigueFeatures = {
   label: Label;
   skor?: number;
+  tanda?: Tanda[];
   perclos?: number;
   kedip_per_menit?: number;
   durasi_kedip_ms?: number;
@@ -46,7 +60,7 @@ export function parseFeatures(body: unknown): ParseResult {
   }
   const input = body as Record<string, unknown>;
 
-  const unknownKeys = Object.keys(input).filter((key) => key !== "label" && !(key in NUMERIC_FIELDS));
+  const unknownKeys = Object.keys(input).filter((key) => key !== "label" && key !== "tanda" && !(key in NUMERIC_FIELDS));
   if (unknownKeys.length > 0) {
     return { ok: false, error: `Field tidak dikenal: ${unknownKeys.join(", ")}.` };
   }
@@ -55,6 +69,18 @@ export function parseFeatures(body: unknown): ParseResult {
     return { ok: false, error: `label harus salah satu dari: ${LABELS.join(", ")}.` };
   }
   const value: FatigueFeatures = { label: input.label as Label };
+
+  if (input.tanda !== undefined) {
+    const tanda = input.tanda;
+    if (
+      !Array.isArray(tanda) ||
+      !tanda.every((t) => TANDA.includes(t as Tanda)) ||
+      new Set(tanda).size !== tanda.length
+    ) {
+      return { ok: false, error: `tanda harus berupa daftar tanpa duplikat dari: ${TANDA.join(", ")}.` };
+    }
+    value.tanda = tanda as Tanda[];
+  }
 
   for (const [key, [min, max]] of Object.entries(NUMERIC_FIELDS)) {
     const v = input[key];

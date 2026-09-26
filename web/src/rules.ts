@@ -5,6 +5,20 @@ import type { WindowFeatures } from "./features.ts";
 export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di depan layar"] as const;
 export type Label = (typeof LABELS)[number];
 
+// The rules behind a label, by name, one per alasan sentence. Sent with the payload (NOTES D-41)
+// so the LLM names the signs that counted: slow or fast blinks are judged against the baseline,
+// which never leaves the device. Same list as server/src/features.ts.
+export const TANDA = [
+  "mata_sering_tertutup",
+  "kedipan_lambat",
+  "menguap",
+  "mata_terpejam_lama",
+  "kedipan_sering",
+  "tertidur_mata_terpejam",
+  "tertidur_mata_tak_terlihat",
+] as const;
+export type Tanda = (typeof TANDA)[number];
+
 // ⚠️ Initial values (PLAN-2026-09-22), tuned on 23 Sep from recorded sessions.
 // PERCLOS 0.15 is a common literature cut-off (range ±0.12–0.2), not yet checked
 // against a primary source. Blink rate alone is ambiguous (it drops when focusing
@@ -82,6 +96,7 @@ export type Evaluation = {
   skor: number; // 0–1, temporary until the RLDD classifier gives probabilities (24–26 Sep)
   poin: number;
   alasan: string[]; // one Indonesian sentence per triggered rule: the explainability part
+  tanda: Tanda[]; // the same triggered rules by name, in the same order
   catatan: string[]; // context that did not count toward the label (e.g. head down)
 };
 
@@ -104,7 +119,7 @@ function looksAsleep(f: WindowFeatures, minutes?: number): boolean {
   );
 }
 
-function sleepReasons(f: WindowFeatures, lookback: SleepLookback | null): string[] | null {
+function sleepReasons(f: WindowFeatures, lookback: SleepLookback | null): { alasan: string[]; tanda: Tanda } | null {
   if (!lookback || !looksAsleep(f)) return null;
   const reasons = (eyes: string, w: WindowFeatures, minutes: number) => [
     `${eyes} selama ${minutes} menit terakhir, dan hanya terlihat terbuka ${pct(w.pct_mata_terbuka ?? 0)} ` +
@@ -114,10 +129,16 @@ function sleepReasons(f: WindowFeatures, lookback: SleepLookback | null): string
   const { eyesClosed: closed, eyesHidden: hidden } = lookback;
   const closedShare = closed.pct_mata_tertutup ?? 0;
   if (looksAsleep(closed, lookback.eyesClosedMinutes) && closedShare >= SLEEP.minEyesClosed) {
-    return reasons(`Mata terlihat terpejam ${pct(closedShare)}`, closed, lookback.eyesClosedMinutes);
+    return {
+      alasan: reasons(`Mata terlihat terpejam ${pct(closedShare)}`, closed, lookback.eyesClosedMinutes),
+      tanda: "tertidur_mata_terpejam",
+    };
   }
   if (looksAsleep(hidden, lookback.eyesHiddenMinutes)) {
-    return reasons("Mata tidak terlihat (wajah tersembunyi atau kepala tertunduk)", hidden, lookback.eyesHiddenMinutes);
+    return {
+      alasan: reasons("Mata tidak terlihat (wajah tersembunyi atau kepala tertunduk)", hidden, lookback.eyesHiddenMinutes),
+      tanda: "tertidur_mata_tak_terlihat",
+    };
   }
   return null;
 }
@@ -157,7 +178,7 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
   const span = spanOf(f);
 
   const asleep = sleepReasons(f, lookback);
-  if (asleep) return { label: "tertidur", skor: 1, poin: 0, alasan: asleep, catatan: [] };
+  if (asleep) return { label: "tertidur", skor: 1, poin: 0, alasan: asleep.alasan, tanda: [asleep.tanda], catatan: [] };
   if (hiddenFaceNote(f)) return null;
 
   if (f.pct_wajah_hilang !== null && f.pct_wajah_hilang >= RULES.awayFaceMissing) {
@@ -166,47 +187,48 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
       skor: 0,
       poin: 0,
       alasan: [`Wajah tidak terdeteksi ${pct(f.pct_wajah_hilang)} dari ${span} (batas ${pct(RULES.awayFaceMissing)}).`],
+      tanda: [],
       catatan: [],
     };
   }
 
   const alasan: string[] = [];
+  const tanda: Tanda[] = [];
   const catatan: string[] = [];
-  let poin = 0;
+  const point = (name: Tanda, sentence: string) => {
+    tanda.push(name);
+    alasan.push(sentence);
+  };
   const perclosTired = f.perclos !== null && f.perclos >= RULES.perclosTired;
 
   if (f.perclos !== null && f.perclos >= RULES.perclosMild) {
-    poin++;
     const limit = perclosTired ? RULES.perclosTired : RULES.perclosMild;
-    alasan.push(`Mata tertutup ${pct(f.perclos)} dari ${span} (batas ${pct(limit)}).`);
+    point("mata_sering_tertutup", `Mata tertutup ${pct(f.perclos)} dari ${span} (batas ${pct(limit)}).`);
   }
   if (
     f.durasi_kedip_ms !== null &&
     baseline.blinkDurationMs !== null &&
     f.durasi_kedip_ms >= RULES.slowBlinkFactor * baseline.blinkDurationMs
   ) {
-    poin++;
-    alasan.push(
+    point(
+      "kedipan_lambat",
       `Kedipan rata-rata ${ms(f.durasi_kedip_ms)}, lebih lambat dari biasanya ` +
         `(${ms(baseline.blinkDurationMs)}; batas ${ms(RULES.slowBlinkFactor * baseline.blinkDurationMs)}).`,
     );
   }
   if (f.menguap >= RULES.yawns) {
-    poin++;
-    alasan.push(`Menguap ${f.menguap}× dalam ${span}.`);
+    point("menguap", `Menguap ${f.menguap}× dalam ${span}.`);
   }
   if (f.mata_tertutup_lama >= RULES.longClosures) {
-    poin++;
-    alasan.push(`Mata terpejam 1 detik atau lebih sebanyak ${f.mata_tertutup_lama}× dalam ${span}.`);
+    point("mata_terpejam_lama", `Mata terpejam 1 detik atau lebih sebanyak ${f.mata_tertutup_lama}× dalam ${span}.`);
   }
   const fastBlinkLimit = RULES.fastBlinkFactor * baseline.blinkPerMin;
   if (f.kedip_per_menit !== null && baseline.blinkPerMin > 0 && f.kedip_per_menit >= fastBlinkLimit) {
     const blinks =
       `Berkedip ${number.format(f.kedip_per_menit)}×/menit, lebih sering dari biasanya ` +
       `(${number.format(baseline.blinkPerMin)}; batas ${number.format(fastBlinkLimit)})`;
-    if (poin > 0) {
-      poin++;
-      alasan.push(`${blinks}.`);
+    if (tanda.length > 0) {
+      point("kedipan_sering", `${blinks}.`);
     } else {
       catatan.push(`${blinks}, tapi tidak dihitung karena tidak ada tanda lelah lain.`);
     }
@@ -218,9 +240,10 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
     );
   }
 
+  const poin = tanda.length;
   const label: Label = perclosTired || poin >= RULES.tiredPoints ? "lelah" : poin >= 1 ? "lelah ringan" : "normal";
   const skor = Math.max(Math.min(1, poin / 4), perclosTired ? 0.75 : 0);
-  return { label, skor, poin, alasan, catatan };
+  return { label, skor, poin, alasan, tanda, catatan };
 }
 
 // ── Hysteresis ──────────────────────────────────────────────────────────────────

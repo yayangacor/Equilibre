@@ -7,13 +7,21 @@ import {
   panduanTweaks,
   PANDUAN_QUERIES,
   parseFeatures,
+  TANDA as SERVER_TANDA,
   toFlowInput,
 } from "../../server/src/features.ts";
 import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload } from "./payload.ts";
-import { ADVICE, type Evaluation } from "./rules.ts";
+import { ADVICE, TANDA as WEB_TANDA, type Evaluation } from "./rules.ts";
 
-const evaluation: Evaluation = { label: "lelah", skor: 0.754321, poin: 2, alasan: ["Mata tertutup 18% …"], catatan: [] };
+const evaluation: Evaluation = {
+  label: "lelah",
+  skor: 0.754321,
+  poin: 2,
+  alasan: ["Mata tertutup 18% …", "Menguap 2× …"],
+  tanda: ["mata_sering_tertutup", "menguap"],
+  catatan: [],
+};
 const features: WindowFeatures = {
   perclos: 0.18234,
   kedip_per_menit: 9.87,
@@ -39,6 +47,7 @@ describe("toAnalyzePayload", () => {
     expect(payload).toEqual({
       label: "lelah",
       skor: 0.75,
+      tanda: ["mata_sering_tertutup", "menguap"],
       perclos: 0.182,
       kedip_per_menit: 9.9,
       durasi_kedip_ms: 312,
@@ -73,6 +82,32 @@ describe("toAnalyzePayload", () => {
     expect(payload.menit_sejak_jeda).toBe(1440);
     expect(payload.menit_lelah_60).toBe(60);
     expect(parseFeatures(payload).ok).toBe(true);
+  });
+});
+
+describe("tanda: names of the rules that fired (D-41)", () => {
+  it("uses the same names on the app and the server", () => {
+    expect([...WEB_TANDA]).toEqual([...SERVER_TANDA]);
+  });
+
+  it("sends a copy of the evaluation's tanda", () => {
+    const payload = toAnalyzePayload(evaluation, features, 1, 0);
+    expect(payload.tanda).toEqual(evaluation.tanda);
+    expect(payload.tanda).not.toBe(evaluation.tanda);
+    expect(parseFeatures({ label: "normal", tanda: [] })).toEqual({ ok: true, value: { label: "normal", tanda: [] } });
+  });
+
+  it("rejects anything but known names without duplicates (negative control)", () => {
+    for (const tanda of [["wajah pucat"], ["menguap", "menguap"], "menguap", [1], null, { 0: "menguap" }]) {
+      expect(parseFeatures({ label: "lelah ringan", tanda }).ok).toBe(false);
+    }
+  });
+
+  it("passes tanda on to Langflow", () => {
+    expect(toFlowInput({ label: "lelah ringan", tanda: ["kedipan_lambat", "menguap"] })).toMatchObject({
+      tanda: ["kedipan_lambat", "menguap"],
+      status: "perlu jeda singkat",
+    });
   });
 });
 

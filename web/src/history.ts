@@ -22,7 +22,9 @@ export type HoldCause = "fps" | "mata";
 // One per evaluation (every EVAL_INTERVAL_MS) while a label is shown: the payload of
 // that moment plus whether the window was judged at all.
 export type EvaluationRecord = Stamp &
-  AnalyzePayload & {
+  Omit<AnalyzePayload, "tanda"> &
+  Partial<Pick<AnalyzePayload, "tanda">> & {
+    // tanda: absent in records stored before 26 Sep (NOTES D-41)
     t: number; // end of the evaluated window
     dinilai: boolean; // false: not judged, the shown label was carried over
     sebab_ditahan: HoldCause | null;

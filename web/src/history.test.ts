@@ -36,7 +36,7 @@ const features = (n_frame: number, seconds: number): WindowFeatures => ({
   n_frame,
   durasi_jendela_detik: seconds,
 });
-const shown: Evaluation = { label: "lelah ringan", skor: 0.25, poin: 1, alasan: ["Menguap 1× …"], catatan: [] };
+const shown: Evaluation = { label: "lelah ringan", skor: 0.25, poin: 1, alasan: ["Menguap 1× …"], tanda: ["menguap"], catatan: [] };
 const context = { t: local(2026, 9, 23, 14, 5), sesi: local(2026, 9, 23, 13, 0), menitSejakJeda: 42.4, hematDaya: true };
 
 describe("dayKey / oldestKeptDay", () => {
@@ -62,6 +62,7 @@ describe("toEvaluationRecord", () => {
     expect(record).toEqual({
       label: "lelah ringan",
       skor: 0.25,
+      tanda: ["menguap"],
       perclos: 0.051,
       kedip_per_menit: 14.3,
       durasi_kedip_ms: 231,
@@ -222,7 +223,7 @@ describe("feedback records", () => {
   });
 
   it("copies the reasons the user disagreed with", () => {
-    const shown: Evaluation = { label: "lelah", skor: 0.75, poin: 3, alasan: ["Menguap 2× …"], catatan: [] };
+    const shown: Evaluation = { label: "lelah", skor: 0.75, poin: 3, alasan: ["Menguap 2× …"], tanda: ["menguap"], catatan: [] };
     const record = toLabelCorrection(shown, "normal", ctx);
     expect(record).toEqual({ t: ctx.t, hari: "2026-09-23", sesi: 7, label_tampil: "lelah", label_koreksi: "normal", skor: 0.75, alasan: ["Menguap 2× …"] });
     expect(record.alasan).not.toBe(shown.alasan);

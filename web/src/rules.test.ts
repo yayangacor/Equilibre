@@ -68,6 +68,19 @@ describe("classify", () => {
     expect(result?.label).toBe(label);
     expect(result?.skor).toBeCloseTo(skor);
     expect(result?.alasan).toHaveLength(result?.label === "tidak di depan layar" ? 1 : (result?.poin ?? -1));
+    expect(result?.tanda).toHaveLength(result?.poin ?? -1);
+  });
+
+  it("names each triggered rule in tanda, in the order of alasan (D-41)", () => {
+    const all = classify(
+      { ...calm, perclos: 0.18, durasi_kedip_ms: 900, menguap: 1, mata_tertutup_lama: 2, kedip_per_menit: 31 },
+      BASELINE,
+    );
+    expect(all?.tanda).toEqual(["mata_sering_tertutup", "kedipan_lambat", "menguap", "mata_terpejam_lama", "kedipan_sering"]);
+    expect(all?.alasan).toHaveLength(5);
+    // Negative control: fast blinks alone are a note, not a sign sent to the server.
+    expect(classify({ ...calm, kedip_per_menit: 31 }, BASELINE)?.tanda).toEqual([]);
+    expect(classify({ ...calm, pct_kepala_menunduk: 0.6 }, BASELINE)?.tanda).toEqual([]);
   });
 
   it("explains head down as context, not as a fatigue sign", () => {
@@ -149,6 +162,7 @@ describe("tertidur and hidden eyes", () => {
     const result = classify(asleep, BASELINE, lookback(over(5, asleep), over(10, asleep)));
     expect(result?.label).toBe("tertidur");
     expect(result?.skor).toBe(1);
+    expect(result?.tanda).toEqual(["tertidur_mata_tak_terlihat"]);
     expect(result?.alasan).toEqual([
       "Mata tidak terlihat (wajah tersembunyi atau kepala tertunduk) selama 10 menit terakhir, dan hanya terlihat terbuka 0% (batas 10%).",
       "Tubuh tetap di depan kamera dan diam 97% dari waktu itu (batas 90%).",
@@ -162,6 +176,7 @@ describe("tertidur and hidden eyes", () => {
     expect(result?.alasan[0]).toBe(
       "Mata terlihat terpejam 100% selama 5 menit terakhir, dan hanya terlihat terbuka 0% (batas 10%).",
     );
+    expect(result?.tanda).toEqual(["tertidur_mata_terpejam"]);
     // Before that, closed eyes are "lelah" (PERCLOS), not yet "tertidur".
     expect(classify(slumped, BASELINE, lookback(over(4, slumped), over(4, slumped)))?.label).toBe("lelah");
   });
@@ -231,7 +246,7 @@ describe("long rest advice", () => {
   });
 });
 
-const ev = (label: Label): Evaluation => ({ label, skor: 0, poin: 0, alasan: [], catatan: [] });
+const ev = (label: Label): Evaluation => ({ label, skor: 0, poin: 0, alasan: [], tanda: [], catatan: [] });
 
 describe("hysteresis", () => {
   it("shows the first label right away", () => {
