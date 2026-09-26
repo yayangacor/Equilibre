@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { LONG_REST_MINUTES, parseFeatures, toFlowInput } from "../../server/src/features.ts";
+import {
+  INTERVENTIONS,
+  KNOWLEDGE_NODE_ID,
+  LONG_REST,
+  LONG_REST_MINUTES,
+  panduanTweaks,
+  PANDUAN_QUERIES,
+  parseFeatures,
+  toFlowInput,
+} from "../../server/src/features.ts";
 import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload } from "./payload.ts";
 import { ADVICE, type Evaluation } from "./rules.ts";
@@ -77,6 +86,22 @@ describe("long rest advice on the server", () => {
     expect(at(14.9)?.saran_istirahat_panjang).toBe(false);
     expect(at(15)?.saran_istirahat_panjang).toBe(true);
     expect(toFlowInput({ label: "normal" })).not.toHaveProperty("saran_istirahat_panjang");
+  });
+});
+
+describe("knowledge base query (RAG, D-39)", () => {
+  it("has one fixed query for every status the server can decide", () => {
+    const statuses = [...Object.values(INTERVENTIONS).map((i) => i.status), LONG_REST.status];
+    expect(Object.keys(PANDUAN_QUERIES).sort()).toEqual([...statuses].sort());
+    for (const q of Object.values(PANDUAN_QUERIES)) expect(q.trim().length).toBeGreaterThan(10);
+  });
+
+  it("sends only the status-derived query, never payload values", () => {
+    const input = toFlowInput({ label: "tertidur", perclos: 0.42, menit_sejak_jeda: 77 })!;
+    const tweaks = panduanTweaks(input.status);
+    expect(tweaks).toEqual({ [KNOWLEDGE_NODE_ID]: { search_query: PANDUAN_QUERIES["perlu jeda aktif"], top_k: 3 } });
+    // Negative control: no number from the payload ends up in the search query.
+    expect(JSON.stringify(tweaks)).not.toMatch(/0\.42|77/);
   });
 });
 

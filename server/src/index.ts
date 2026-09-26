@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler } from "express";
 import { config } from "./config.ts";
-import { parseFeatures, toFlowInput } from "./features.ts";
+import { panduanTweaks, parseFeatures, toFlowInput } from "./features.ts";
 import { LangflowError, parseJsonReply, runFlow } from "./langflow.ts";
 
 const app = express();
@@ -28,7 +28,7 @@ app.post("/api/analyze", async (req, res) => {
   }
 
   try {
-    const text = await runFlow(config.langflowFlowId, JSON.stringify(input));
+    const text = await runFlow(config.langflowFlowId, JSON.stringify(input), panduanTweaks(input.status));
     const reply = parseJsonReply(text);
     // Status and break length are the server's, whatever the LLM wrote.
     const result =

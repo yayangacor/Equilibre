@@ -85,6 +85,25 @@ export const LONG_REST = { status: "perlu istirahat panjang", durasi_jeda_menit:
 type Intervention = (typeof INTERVENTIONS)[keyof typeof INTERVENTIONS] | typeof LONG_REST;
 export type Status = Intervention["status"];
 
+// RAG (NOTES D-39): the flow's Knowledge node searches the knowledge base with a fixed
+// query per status instead of the JSON payload, so retrieval is predictable and nothing
+// beyond the status leaves the server. Sent as a tweak to the node with this id.
+export const KNOWLEDGE_NODE_ID = "Knowledge-panduan";
+// One chunk per note (knowledge base equilibre_panduan_v2, chunk 2400): the top 3 notes hold
+// what each status needs, e.g. NIOSH + drinking water for "perlu jeda aktif" (checked 26 Sep).
+export const PANDUAN_TOP_K = 3;
+export const PANDUAN_QUERIES: Record<Status, string> = {
+  baik: "istirahat mata saat bekerja lama di depan layar komputer",
+  "perlu jeda singkat": "jeda singkat untuk mengurangi lelah saat bekerja di depan komputer",
+  "perlu jeda": "istirahat dan peregangan saat lelah bekerja di depan komputer",
+  "perlu jeda aktif": "cara tetap waspada saat mengantuk: bergerak, cahaya terang, minum air, udara segar",
+  "perlu istirahat panjang": "kelelahan berulang saat bekerja: berhenti, istirahat yang cukup, cuti, kesehatan pekerja",
+};
+
+export function panduanTweaks(status: Status) {
+  return { [KNOWLEDGE_NODE_ID]: { search_query: PANDUAN_QUERIES[status], top_k: PANDUAN_TOP_K } };
+}
+
 // What the Langflow flow receives: the validated numbers plus what was derived from
 // them. null: this label is not sent to Langflow.
 export type FlowInput = FatigueFeatures & Intervention & { saran_istirahat_panjang?: boolean };

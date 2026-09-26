@@ -14,8 +14,15 @@ type RunResponse = {
   outputs?: { outputs?: { results?: { message?: { text?: unknown } } }[] }[];
 };
 
-/** Runs a chat flow via POST /api/v1/run/{flowId} and returns the Chat Output text. */
-export async function runFlow(flowId: string, inputValue: string): Promise<string> {
+/**
+ * Runs a chat flow via POST /api/v1/run/{flowId} and returns the Chat Output text.
+ * `tweaks` override node fields for this run only, keyed by node id.
+ */
+export async function runFlow(
+  flowId: string,
+  inputValue: string,
+  tweaks?: Record<string, Record<string, unknown>>,
+): Promise<string> {
   const url = `${config.langflowUrl}/api/v1/run/${encodeURIComponent(flowId)}`;
 
   let res: Response;
@@ -23,7 +30,7 @@ export async function runFlow(flowId: string, inputValue: string): Promise<strin
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": config.langflowApiKey },
-      body: JSON.stringify({ input_value: inputValue, input_type: "chat", output_type: "chat" }),
+      body: JSON.stringify({ input_value: inputValue, input_type: "chat", output_type: "chat", ...(tweaks && { tweaks }) }),
       signal: AbortSignal.timeout(config.langflowTimeoutMs),
     });
   } catch (err) {
