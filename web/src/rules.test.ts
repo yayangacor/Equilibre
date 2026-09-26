@@ -193,7 +193,17 @@ describe("tertidur and hidden eyes", () => {
     expect(latest).toBeNull();
     expect(state).toBe(prev);
     expect(hold).toMatch(/^Mata tidak terlihat 100% dari 60 detik terakhir \(wajah tersembunyi atau menunduk\)/);
-    expect(hold).toMatch(/Kalau tubuh tetap diam 10 menit, statusnya menjadi "tertidur"\.$/);
+    expect(hold).toMatch(/Kalau tubuh tetap diam dan mata tidak terlihat terbuka selama 10 menit, statusnya menjadi "tertidur"\.$/);
+  });
+
+  it("says open eyes are what keeps it from tertidur, instead of promising it (26 Sep)", () => {
+    // The 26 Sep recording: head resting, face seen in a quarter of the frames, eyes open in all of them.
+    const resting = { ...asleep, pct_wajah_hilang: 0.74, pct_mata_terbuka: 0.26, pct_mata_tertutup: 0 };
+    const note = hiddenFaceNote(resting, 2);
+    expect(note).toMatch(/Mata masih sempat terlihat terbuka 26% \(batas 10%\), jadi belum dianggap tertidur\.$/);
+    expect(note).not.toMatch(/statusnya menjadi "tertidur"/);
+    // Negative control: at the limit the note still explains how tertidur can follow.
+    expect(hiddenFaceNote({ ...resting, pct_mata_terbuka: 0.1 }, 2)).toMatch(/statusnya menjadi "tertidur"\.$/);
   });
 
   it.each<[string, Partial<WindowFeatures>, Partial<WindowFeatures>]>([

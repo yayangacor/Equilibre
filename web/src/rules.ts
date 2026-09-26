@@ -154,10 +154,17 @@ export function hiddenFaceNote(f: WindowFeatures, sleepMinutes: number = SLEEP.e
   const unseen = eyesUnseen(f);
   if (unseen === null || unseen < RULES.eyesUnseen) return null;
   if (f.pct_tubuh_ada === null || f.pct_tubuh_ada < RULES.bodyPresent) return null;
+  // Open eyes rule out "tertidur" whatever the body does (26 Sep: resting the head for 10 minutes
+  // with the eyes seen open 15–44% of each minute, while this note kept promising "tertidur").
+  const open = f.pct_mata_terbuka ?? 0;
+  const next =
+    open > SLEEP.maxEyesOpen
+      ? `Mata masih sempat terlihat terbuka ${pct(open)} (batas ${pct(SLEEP.maxEyesOpen)}), jadi belum dianggap tertidur.`
+      : `Kalau tubuh tetap diam dan mata tidak terlihat terbuka selama ${sleepMinutes} menit, statusnya menjadi "tertidur".`;
   return (
     `Mata tidak terlihat ${pct(unseen)} dari ${spanOf(f)} (wajah tersembunyi atau menunduk), tapi tubuhmu masih ` +
     "terdeteksi, mungkin sedang melihat HP atau dokumen. Mata tidak bisa dinilai, jadi label terakhir dipertahankan. " +
-    `Kalau tubuh tetap diam ${sleepMinutes} menit, statusnya menjadi "tertidur".`
+    next
   );
 }
 

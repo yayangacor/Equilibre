@@ -27,7 +27,9 @@ export const BODY = {
   // recording cannot settle this: both the coat and the head on the desk read 0.1%
   // there, because the camera was cropped too tightly.
   sleepShareOfBaseline: 0.4,
-  stillMotion: 0.015, // a sample at or below this counts as still. Scale unknown until the first sleep recording.
+  // A sample at or below this counts as still. First resting-head recording (26 Sep, docs/tuning-notes.md): median
+  // 0.0006 and per-minute p90 up to 0.0146 while still, 0.06–0.29 p90 while moving.
+  stillMotion: 0.015,
 } as const;
 
 // Averages a confidence mask (row-major, width × height) into GRID_COLS columns and

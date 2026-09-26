@@ -91,7 +91,7 @@ Setiap frame, mata dinilai **terlihat terbuka**, **terlihat terpejam**, atau **t
 | mata terlihat terpejam | 5 menit | mata terlihat terpejam ≥ 50% frame |
 | mata tidak terlihat | 10 menit | – |
 
-Syarat "terlihat tidur" di tiap jendela: mata terlihat terbuka ≤ 10% frame, tubuh ≥ 50% luas kalibrasi di ≥ 80% sampel (jaket di kursi tidak cukup), tubuh diam (gerak ≤ 0,015) di ≥ 90% sampel, dan data jendela panjang mencakup ≥ 90% durasinya. Karena toleransi 10% ini, "5 menit" bisa tercapai sejak ±4,5 menit dan "10 menit" sejak ±9 menit. Jendela sekarang membuat label keluar dari `tertidur` dalam ±20 detik setelah bangun.
+Syarat "terlihat tidur" di tiap jendela: mata terlihat terbuka ≤ 10% frame, tubuh ≥ ~~50%~~ → 40% (D-34, 23 Sep) luas kalibrasi di ≥ 80% sampel (jaket di kursi tidak cukup), tubuh diam (gerak ≤ 0,015) di ≥ 90% sampel, dan data jendela panjang mencakup ≥ 90% durasinya. Karena toleransi 10% ini, "5 menit" bisa tercapai sejak ±4,5 menit dan "10 menit" sejak ±9 menit. Jendela sekarang membuat label keluar dari `tertidur` dalam ±20 detik setelah bangun.
 
 Perubahan lain di versi yang sama:
 
@@ -214,3 +214,26 @@ Kedip < 1 detik sengaja tidak ikut dikonfirmasi kedalamannya, supaya laju kedip 
   karena `blinkPerMin`/`blinkDurationMs` di baseline lama dihitung dengan aturan lama.
 - **HP di tangan 07:30:58–07:31:18** masih `lelah ringan` (mata tertutup 9–14% + satu pejaman ≥ 1 detik). Di segmen itu
   mata memang terbaca benar-benar terpejam (15% frame di bawah 0,044), jadi bukan lagi kasus kelopak setengah turun.
+
+## Kepala bersandar, wajah tersembunyi (26 Sep)
+
+Laporan user: kepala bersandar ±10 menit dengan wajah tidak terlihat, tetapi tidak terbaca `tertidur`. Log
+`equilibre-sesi-20260926-220519.csv` (`tidur_menit=1`, jadi jalur mata tidak terlihat cukup 2 menit; hemat daya ±5 fps;
+`bodyArea` kalibrasi 0,433). Segmen 21:40:30–21:49:30, 2.660 frame:
+
+| Syarat tertidur | Ukuran | Hasil |
+|---|---|---|
+| tubuh ≥ 40% luas kalibrasi di ≥ 80% sampel | luas median ±0,60 (ambang 0,173), 100% sampel | lolos |
+| tubuh diam (gerak ≤ 0,015) di ≥ 90% sampel | gerak median 0,0006, p90 ≤ 0,0146 per menit; 92–100% sampel | lolos |
+| mata terlihat terbuka ≤ 10% frame | wajah tetap terdeteksi di 26% frame (15–44% per menit), dan di **semua** frame itu mata terbuka: EAR median 0,308 (baseline terbuka 0,287), skor kedip model median 0,013, pandangan ke bawah 0,90 | **gagal** |
+
+Kontrol ambang: dengan ambang "terbuka" jauh lebih ketat (EAR ≥ 50% rentang dan skor kedip < 0,5) segmen ini tetap 25,9%
+terbuka, jadi yang menggagalkan bukan ambang PERCLOS yang rendah. Sebagai pembanding, tes mata terpejam 21:51–21:55
+(wajah terlihat) terbaca EAR median 0,018 dan skor kedip 0,766, dan `tertidur` muncul.
+
+Kesimpulan: aturan bekerja sesuai rancangan (mata yang terlihat terbuka menggugurkan `tertidur`). Yang salah adalah pesan
+penahanan, yang selama 10 menit menjanjikan "kalau tubuh tetap diam 2 menit, statusnya menjadi tertidur". Sekarang pesan
+menyebut porsi mata terbuka kalau melewati 10%. Ini juga ukuran pertama untuk `BODY.stillMotion` dan
+`BODY.sleepShareOfBaseline` dengan kepala bersandar: keduanya jauh di sisi aman untuk posisi ini (posisi kepala di meja
+dengan kamera lebih rendah belum terekam). Belum terjawab: apakah mata user benar-benar terbuka, atau model salah membaca
+wajah yang setengah terlihat.
