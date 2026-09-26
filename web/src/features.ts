@@ -71,11 +71,56 @@ function inShortBlink(frames: readonly FrameSignal[], closures: readonly EyeClos
   });
 }
 
-// Everything with t (or endT) in (now − windowMs, now] belongs to the window.
+// ⚠️ A detected face counts only inside a steady run (26 Sep, NOTES G-45). With the head on the
+// desk the landmarker kept "finding" a face on hair or arms: 284 runs in 9 minutes, 78% of them
+// 1–2 frames, the pitch jumping 6.5° per frame (p90 26.6°), and those junk eyes read as open,
+// which ruled out "tertidur". A real face stays found for seconds with the pitch moving ≤0.5°
+// per frame. On the 21, 23 and 26 Sep logs these values keep 99.7–99.9% of the face frames of
+// work and phone reading, and cut the open-eye share of the head-on-desk segment from 25.9% to 0.6%.
+export const STEADY_FACE = {
+  minRunMs: 1000,
+  maxPitchJumpDeg: 3, // median change between consecutive face frames of the run
+  maxMissingFrames: 1, // a single dropped frame does not end a run
+} as const;
+
+// true for the face frames that belong to a steady run. A run still going at the end of the
+// frames is judged on what is there so far.
+export function steadyFace(frames: readonly FrameSignal[]): boolean[] {
+  const steady = frames.map(() => false);
+  let i = 0;
+  while (i < frames.length) {
+    if (!frames[i].face) {
+      i++;
+      continue;
+    }
+    const run = [i];
+    let missing = 0;
+    for (let j = i + 1; j < frames.length; j++) {
+      if (frames[j].face) {
+        run.push(j);
+        missing = 0;
+      } else if (++missing > STEADY_FACE.maxMissingFrames) break;
+    }
+    const jumps: number[] = [];
+    for (let k = 1; k < run.length; k++) {
+      const jump = Math.abs(frames[run[k]].pitchDeg - frames[run[k - 1]].pitchDeg);
+      if (Number.isFinite(jump)) jumps.push(jump);
+    }
+    const long = frames[run[run.length - 1]].t - frames[run[0]].t >= STEADY_FACE.minRunMs;
+    const calm = jumps.length === 0 || median(jumps) <= STEADY_FACE.maxPitchJumpDeg;
+    if (long && calm) for (const k of run) steady[k] = true;
+    i = run[run.length - 1] + 1;
+  }
+  return steady;
+}
+
+// Everything with t (or endT) in (now − windowMs, now] belongs to the window. Steadiness is
+// judged on all kept frames first, so a run that started before the window is not cut short.
 export function computeWindowFeatures(data: WindowData, baseline: Baseline, now: number, windowMs: number): WindowFeatures {
   const from = now - windowMs;
   const inWindow = (t: number) => t > from && t <= now;
-  const all = data.frames.filter((f) => inWindow(f.t));
+  const steady = steadyFace(data.frames);
+  const all = data.frames.map((f, i) => (f.face && !steady[i] ? { ...f, face: false } : f)).filter((f) => inWindow(f.t));
   const menguap = data.yawns.filter((y) => inWindow(y.endT)).length;
   const closures = data.closures.filter((c) => inWindow(c.endT));
   const bodies = data.bodies.filter((b) => inWindow(b.t));

@@ -41,11 +41,34 @@ describe("computeWindowFeatures", () => {
   });
 
   it("uses only face frames for ratios but all frames for pct_wajah_hilang", () => {
-    const f = compute(tenFps((t, i) => (i % 4 === 0 ? noFace(t) : frame(t, { pitchDeg: i % 2 ? -25 : -5 }))));
+    // Every 4th frame dropped (one missing frame keeps a steady run going); head down from frame 200.
+    const f = compute(tenFps((t, i) => (i % 4 === 0 ? noFace(t) : frame(t, { pitchDeg: i < 200 ? -5 : -25 }))));
     expect(f.pct_wajah_hilang).toBeCloseTo(0.25);
-    // Odd frames are head-down (−25 − (−5) = −20° ≤ −15°); they are 2/3 of the face frames.
+    // Head-down frames (−25 − (−5) = −20° ≤ −15°) are 300 of the 450 face frames.
     expect(f.pct_kepala_menunduk).toBeCloseTo(2 / 3);
     expect(f.perclos).toBe(0);
+  });
+
+  it("ignores face flickers on hair or arms (26 Sep, NOTES G-45)", () => {
+    // Head on the desk: every 1.5 s a 2-frame "face" with the pitch jumping and the eyes read open.
+    const f = compute(tenFps((t, i) => (i % 15 < 2 ? frame(t, { pitchDeg: i % 2 ? 40 : 5, ear: 0.3 }) : noFace(t))));
+    expect(f.pct_wajah_hilang).toBe(1);
+    expect(f.pct_mata_terbuka).toBe(0);
+  });
+
+  it("ignores a long run whose pitch keeps jumping, but keeps a steady face (negative control)", () => {
+    const jumpy = compute(tenFps((t, i) => frame(t, { pitchDeg: i % 2 ? 30 : 0 })));
+    expect(jumpy.pct_wajah_hilang).toBe(1);
+    const steady = compute(tenFps((t, i) => frame(t, { pitchDeg: (i % 3) * 0.5 })));
+    expect(steady.pct_wajah_hilang).toBe(0);
+    expect(steady.pct_mata_terbuka).toBe(1);
+  });
+
+  it("needs a face for about a second before it counts", () => {
+    const tail = (seconds: number) =>
+      compute(tenFps((t, i) => (i >= 600 - seconds * 10 ? frame(t) : noFace(t)))).pct_wajah_hilang;
+    expect(tail(0.5)).toBe(1); // 5 frames, 0.4 s apart first to last
+    expect(tail(1.2)).toBeCloseTo(1 - 12 / 600); // 12 frames, 1.1 s
   });
 
   it("does not judge the eyes while the head is down (looking at a phone)", () => {
