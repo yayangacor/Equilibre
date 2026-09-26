@@ -3,7 +3,8 @@
 // server decides (toFlowInput). Also checks that it catches broken scenarios.
 // Usage (from equilibre/): node langflow-flows/cek-skenario.mts
 import { readFileSync } from "node:fs";
-import { parseFeatures, toFlowInput } from "../server/src/features.ts";
+import { parseFeatures, toFlowInput, type FatigueFeatures } from "../server/src/features.ts";
+import { RULES } from "../web/src/rules.ts";
 
 type Scenario = {
   id: string;
@@ -14,7 +15,7 @@ type Scenario = {
 type File = { aturan_umum: { dilarang_pola: string[] }; skenario: Scenario[] };
 
 // Fields toAnalyzePayload() always sends (web/src/payload.ts, the non-optional ones).
-const ALWAYS_SENT = ["label", "skor", "mata_tertutup_lama", "menguap", "menit_sejak_jeda", "menit_lelah_60"];
+const ALWAYS_SENT = ["label", "skor", "tanda", "mata_tertutup_lama", "menguap", "menit_sejak_jeda", "menit_lelah_60"];
 // skor per label as rules.ts computes it: poin / 4, at least 0.75 with PERCLOS ≥ 15%, 1 for "tertidur".
 const SKOR_RANGE: Record<string, [number, number]> = {
   normal: [0, 0],
@@ -23,6 +24,38 @@ const SKOR_RANGE: Record<string, [number, number]> = {
   tertidur: [1, 1],
   "tidak di depan layar": [0, 0],
 };
+
+// tanda (NOTES D-41) against the numbers and the label, as classify() in web/src/rules.ts
+// would give them. Slow and fast blinks need the baseline, so only their count is checked.
+function checkTanda(p: FatigueFeatures): string[] {
+  const errors: string[] = [];
+  const tanda = p.tanda ?? [];
+  const asleep = tanda.filter((t) => t.startsWith("tertidur_"));
+  if (p.label === "tertidur") {
+    if (tanda.length !== 1 || asleep.length !== 1) errors.push(`tertidur butuh tepat satu tanda tertidur_*, ada: ${tanda.join(", ")}`);
+    return errors;
+  }
+  if (asleep.length > 0) errors.push(`tanda tertidur_* pada label "${p.label}"`);
+  if (p.label === "tidak di depan layar") {
+    if (tanda.length > 0) errors.push("tanda pada label tidak di depan layar");
+    return errors;
+  }
+  const fromNumbers: [string, boolean][] = [
+    ["mata_sering_tertutup", (p.perclos ?? 0) >= RULES.perclosMild],
+    ["menguap", (p.menguap ?? 0) >= RULES.yawns],
+    ["mata_terpejam_lama", (p.mata_tertutup_lama ?? 0) >= RULES.longClosures],
+  ];
+  for (const [name, expected] of fromNumbers) {
+    if (tanda.includes(name as never) !== expected) errors.push(`tanda ${name} ${expected ? "hilang" : "tidak sesuai angka"}`);
+  }
+  if (tanda.includes("kedipan_sering") && tanda.length === 1) errors.push("kedipan_sering tanpa tanda lain");
+  const perclosTired = (p.perclos ?? 0) >= RULES.perclosTired;
+  const label = perclosTired || tanda.length >= RULES.tiredPoints ? "lelah" : tanda.length >= 1 ? "lelah ringan" : "normal";
+  if (label !== p.label) errors.push(`label "${p.label}", dari tanda: "${label}"`);
+  const skor = Math.max(Math.min(1, tanda.length / 4), perclosTired ? 0.75 : 0);
+  if (p.skor !== skor) errors.push(`skor ${p.skor}, dari tanda: ${skor}`);
+  return errors;
+}
 
 function check(s: Scenario, globalPatterns: readonly string[]): string[] {
   const errors: string[] = [];
@@ -35,6 +68,8 @@ function check(s: Scenario, globalPatterns: readonly string[]): string[] {
   const [lo, hi] = SKOR_RANGE[parsed.value.label];
   const skor = parsed.value.skor;
   if (skor === undefined || skor < lo || skor > hi) errors.push(`skor ${skor} tidak mungkin untuk "${parsed.value.label}" (${lo}–${hi})`);
+
+  errors.push(...checkTanda(parsed.value));
 
   const input = toFlowInput(parsed.value);
   if ((input !== null) !== s.harapan.dikirim) errors.push(`dikirim ${s.harapan.dikirim}, server: ${input !== null}`);
@@ -82,6 +117,8 @@ const broken: [string, Scenario][] = [
   ["status salah", { ...base, harapan: { ...base.harapan, status: "perlu jeda" } }],
   ["skor tidak cocok label", { ...base, payload: { ...base.payload, skor: 0.25 } }],
   ["escape hilang", { ...base, harapan: { ...base.harapan, dilarang_pola: ["\bizin\b"] } }],
+  ["tanda tidak cocok angka", { ...base, payload: { ...base.payload, tanda: ["mata_sering_tertutup"] } }],
+  ["tanda asing", { ...base, payload: { ...base.payload, tanda: ["wajah_pucat"] } }],
 ];
 const caught = broken.filter(([, s]) => check(s, globalPatterns).length > 0);
 console.log(`kontrol negatif: ${caught.length}/${broken.length} tertolak (${broken.map(([name]) => name).join(", ")})`);
