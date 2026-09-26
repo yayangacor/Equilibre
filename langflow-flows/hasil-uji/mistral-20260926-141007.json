@@ -1,0 +1,472 @@
+{
+  "model": "mistralai/mistral-small-3-1-24b-instruct-2503",
+  "waktu_utc": "2026-09-26T14:12:12.327Z",
+  "prompt_sha256": "7f1252b48609",
+  "dipanggil": 10,
+  "berhasil": 10,
+  "hasil": [
+    {
+      "id": "S03",
+      "judul": "normal, sering menunduk melihat HP",
+      "status": "baik",
+      "durasi_jeda_menit": 0,
+      "http": 200,
+      "latency_ms": 14812,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.2349078506231308
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28949394822120667
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.31904494762420654
+        }
+      ],
+      "usage": {
+        "input_tokens": 2394,
+        "output_tokens": 108,
+        "total_tokens": 2502
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu tidak perlu jeda. Kalau menit_sejak_jeda sudah lama, istirahatkan mata sebentar.\",\n  \"alasan\": \"Kamu tidak menunjukkan tanda-tanda lelah. Kamu sudah 40 menit tidak jeda.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyebut user lelah atau mengantuk; menunduk bukan tanda lelah (D-16)"
+      ]
+    },
+    {
+      "id": "S05",
+      "judul": "lelah ringan, PERCLOS sedikit di atas batas",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 10596,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2404,
+        "output_tokens": 111,
+        "total_tokens": 2515
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu bisa istirahat 5 menit dengan mengistirahatkan mata dan peregangan.\",\n  \"alasan\": \"Kamu terlihat lelah ringan karena mata kamu lebih sering berkedip. Kamu sudah 55 menit tidak jeda.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 1,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "jeda singkat ±5 menit",
+        "alasan menyebut mata lebih sering tertutup"
+      ]
+    },
+    {
+      "id": "S06",
+      "judul": "lelah ringan, satu kali menguap",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 10557,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2404,
+        "output_tokens": 105,
+        "total_tokens": 2509
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda singkat. Coba mengistirahatkan mata dengan melihat benda jauh dan peregangan selama 5 menit.\",\n  \"alasan\": \"Kamu menguap dan kedipanmu lebih sering dari biasanya.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut menguap"
+      ]
+    },
+    {
+      "id": "S07",
+      "judul": "lelah ringan, dua tanda dan 140 menit tanpa jeda",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 11371,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2405,
+        "output_tokens": 118,
+        "total_tokens": 2523
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda singkat selama 5 menit. Cobalah mengistirahatkan mata dengan melihat benda jauh dan peregangan.\",\n  \"alasan\": \"Kamu terlihat lelah ringan. Mata kamu sering tertutup dan kedipan kamu lebih lambat dari biasanya.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "menyambungkan dengan lama bekerja tanpa jeda"
+      ]
+    },
+    {
+      "id": "S08",
+      "judul": "lelah ringan, PERCLOS dan kedip tidak terukur",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 11649,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2374,
+        "output_tokens": 102,
+        "total_tokens": 2476
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda singkat. Istirahatkan mata dengan melihat benda jauh dan lakukan peregangan.\",\n  \"alasan\": \"Kamu menguap. Kamu sudah 30 menit tidak jeda.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": false,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak mengarang angka untuk field yang tidak ada"
+      ]
+    },
+    {
+      "id": "S09",
+      "judul": "lelah ringan tepat setelah kembali dari jeda",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 10366,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2404,
+        "output_tokens": 117,
+        "total_tokens": 2521
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda singkat selama 5 menit. Coba mengistirahatkan mata dengan melihat benda jauh dan peregangan.\",\n  \"alasan\": \"Kamu terlihat lelah ringan karena perclos 0,09. Kedipanmu lebih sering dari biasanya.\",\n  \"sumber\": [\"aao-20-20-20.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyalahkan user karena baru saja jeda"
+      ]
+    },
+    {
+      "id": "S10",
+      "judul": "lelah, PERCLOS tinggi + pejam lama + menguap",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11088,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2402,
+        "output_tokens": 130,
+        "total_tokens": 2532
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda selama 10 menit. Coba istirahatkan mata dengan melihat benda jauh dan peregangan.\",\n  \"alasan\": \"Kamu sering menguap dan mata terpejam 1 kali. Kedipan kamu juga lebih lambat dari biasanya.\",\n  \"sumber\": [\"permenkes-48-2016-k3-perkantoran.md\", \"aao-20-20-20.md\", \"albulescu-2022-micro-break.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "jeda ±10 menit",
+        "alasan menyebut tanda yang terdeteksi"
+      ]
+    },
+    {
+      "id": "S11",
+      "judul": "lelah dari kedip lambat dan sering",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 9918,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2402,
+        "output_tokens": 131,
+        "total_tokens": 2533
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda 10 menit. Istirahatkan mata dengan melihat benda jauh dan lakukan peregangan.\",\n  \"alasan\": \"Kamu sering mengedip dan perclos kamu 0,09. Kamu sudah 60 menit tidak jeda.\",\n  \"sumber\": [\"permenkes-48-2016-k3-perkantoran.md\", \"aao-20-20-20.md\", \"albulescu-2022-micro-break.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut kedipan"
+      ]
+    },
+    {
+      "id": "S12",
+      "judul": "lelah, 14,9 menit lelah per jam (tepat di bawah batas istirahat panjang)",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11204,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2405,
+        "output_tokens": 127,
+        "total_tokens": 2532
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda 10 menit. Coba lihat benda jauh dan peregangan.\",\n  \"alasan\": \"Kamu sering mengedip lambat dan mata terpejam 1 kali. Kamu sudah 50 menit tidak jeda.\",\n  \"sumber\": [\"permenkes-48-2016-k3-perkantoran.md\", \"aao-20-20-20.md\", \"albulescu-2022-micro-break.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "kontrol negatif: belum menyarankan berhenti/izin"
+      ]
+    },
+    {
+      "id": "S20",
+      "judul": "lelah dengan nilai di batas rentang",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 13271,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2396,
+        "output_tokens": 139,
+        "total_tokens": 2535
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu perlu jeda selama 10 menit. Cobalah mengistirahatkan mata dengan melihat benda jauh dan peregangan.\",\n  \"alasan\": \"Kamu sering menguap dan mata terpejam lebih dari 1 detik. Kamu juga sudah 1440 menit tidak jeda.\",\n  \"sumber\": [\"permenkes-48-2016-k3-perkantoran.md\", \"aao-20-20-20.md\", \"albulescu-2022-micro-break.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tetap tenang dan tidak mendiagnosis walau angka ekstrem",
+        "boleh menyarankan konsultasi tenaga kesehatan"
+      ]
+    }
+  ]
+}

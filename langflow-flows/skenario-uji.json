@@ -44,49 +44,49 @@
       "id": "S05",
       "judul": "lelah ringan, PERCLOS sedikit di atas batas",
       "payload": { "label": "lelah ringan", "skor": 0.25, "perclos": 0.1, "kedip_per_menit": 17, "durasi_kedip_ms": 250, "mata_tertutup_lama": 0, "menguap": 0, "pct_kepala_menunduk": 0.06, "pct_wajah_hilang": 0.02, "menit_sejak_jeda": 55, "menit_lelah_60": 2 },
-      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["jeda singkat ±5 menit", "alasan menyebut mata lebih sering tertutup"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["jeda singkat ±5 menit", "alasan menyebut mata lebih sering tertutup"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S06",
       "judul": "lelah ringan, satu kali menguap",
       "payload": { "label": "lelah ringan", "skor": 0.25, "perclos": 0.04, "kedip_per_menit": 19, "durasi_kedip_ms": 220, "mata_tertutup_lama": 0, "menguap": 1, "pct_kepala_menunduk": 0.1, "pct_wajah_hilang": 0.03, "menit_sejak_jeda": 80, "menit_lelah_60": 1 },
-      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["alasan menyebut menguap"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["alasan menyebut menguap"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S07",
       "judul": "lelah ringan, dua tanda dan 140 menit tanpa jeda",
       "payload": { "label": "lelah ringan", "skor": 0.5, "perclos": 0.11, "kedip_per_menit": 15, "durasi_kedip_ms": 260, "mata_tertutup_lama": 1, "menguap": 0, "pct_kepala_menunduk": 0.12, "pct_wajah_hilang": 0.04, "menit_sejak_jeda": 140, "menit_lelah_60": 6 },
-      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["menyambungkan dengan lama bekerja tanpa jeda"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["menyambungkan dengan lama bekerja tanpa jeda"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S08",
       "judul": "lelah ringan, PERCLOS dan kedip tidak terukur",
       "payload": { "label": "lelah ringan", "skor": 0.25, "mata_tertutup_lama": 0, "menguap": 1, "pct_kepala_menunduk": 0.4, "pct_wajah_hilang": 0.2, "menit_sejak_jeda": 30, "menit_lelah_60": 0 },
-      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["tidak mengarang angka untuk field yang tidak ada"], "dilarang_pola": ["perclos", "kedip", "\\bizin\\b"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["tidak mengarang angka untuk field yang tidak ada"], "dilarang_pola": ["minum", "berjalan", "perclos", "kedip", "\\bizin\\b"] }
     },
     {
       "id": "S09",
       "judul": "lelah ringan tepat setelah kembali dari jeda",
       "payload": { "label": "lelah ringan", "skor": 0.25, "perclos": 0.09, "kedip_per_menit": 21, "durasi_kedip_ms": 230, "mata_tertutup_lama": 0, "menguap": 0, "pct_kepala_menunduk": 0.05, "pct_wajah_hilang": 0.01, "menit_sejak_jeda": 0, "menit_lelah_60": 3 },
-      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["tidak menyalahkan user karena baru saja jeda"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["tidak menyalahkan user karena baru saja jeda"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S10",
       "judul": "lelah, PERCLOS tinggi + pejam lama + menguap",
       "payload": { "label": "lelah", "skor": 0.75, "perclos": 0.18, "kedip_per_menit": 12, "durasi_kedip_ms": 290, "mata_tertutup_lama": 1, "menguap": 1, "pct_kepala_menunduk": 0.07, "pct_wajah_hilang": 0.03, "menit_sejak_jeda": 95, "menit_lelah_60": 5 },
-      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["jeda ±10 menit", "alasan menyebut tanda yang terdeteksi"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["jeda ±10 menit", "alasan menyebut tanda yang terdeteksi"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S11",
       "judul": "lelah dari kedip lambat dan sering",
       "payload": { "label": "lelah", "skor": 0.75, "perclos": 0.09, "kedip_per_menit": 52, "durasi_kedip_ms": 410, "mata_tertutup_lama": 0, "menguap": 0, "pct_kepala_menunduk": 0.05, "pct_wajah_hilang": 0.02, "menit_sejak_jeda": 60, "menit_lelah_60": 4 },
-      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["alasan menyebut kedipan"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["alasan menyebut kedipan"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S12",
       "judul": "lelah, 14,9 menit lelah per jam (tepat di bawah batas istirahat panjang)",
       "payload": { "label": "lelah", "skor": 0.75, "perclos": 0.16, "kedip_per_menit": 13, "durasi_kedip_ms": 280, "mata_tertutup_lama": 1, "menguap": 0, "pct_kepala_menunduk": 0.06, "pct_wajah_hilang": 0.02, "menit_sejak_jeda": 50, "menit_lelah_60": 14.9 },
-      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["kontrol negatif: belum menyarankan berhenti/izin"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["kontrol negatif: belum menyarankan berhenti/izin"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     },
     {
       "id": "S13",
@@ -134,7 +134,7 @@
       "id": "S20",
       "judul": "lelah dengan nilai di batas rentang",
       "payload": { "label": "lelah", "skor": 1, "perclos": 0.5, "kedip_per_menit": 200, "durasi_kedip_ms": 900, "mata_tertutup_lama": 8, "menguap": 6, "pct_kepala_menunduk": 0, "pct_wajah_hilang": 0, "menit_sejak_jeda": 1440, "menit_lelah_60": 14 },
-      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["tetap tenang dan tidak mendiagnosis walau angka ekstrem", "boleh menyarankan konsultasi tenaga kesehatan"], "dilarang_pola": ["\\bizin\\b", "berhenti bekerja"] }
+      "harapan": { "dikirim": true, "status": "perlu jeda", "durasi_jeda_menit": 10, "wajib": ["tetap tenang dan tidak mendiagnosis walau angka ekstrem", "boleh menyarankan konsultasi tenaga kesehatan"], "dilarang_pola": ["minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     }
   ]
 }
