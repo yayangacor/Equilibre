@@ -1,0 +1,893 @@
+{
+  "model": "ibm/granite-4-h-small",
+  "waktu_utc": "2026-09-26T12:21:49.348Z",
+  "prompt_sha256": "c4b7ffee64b8",
+  "dipanggil": 19,
+  "berhasil": 19,
+  "hasil": [
+    {
+      "id": "S01",
+      "judul": "normal, baru mulai bekerja",
+      "status": "baik",
+      "durasi_jeda_menit": 0,
+      "http": 200,
+      "latency_ms": 12040,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.2349078506231308
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28949394822120667
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.31904494762420654
+        }
+      ],
+      "usage": {
+        "input_tokens": 2288,
+        "output_tokens": 119,
+        "total_tokens": 2407
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Kamu sudah lama menatap layar, sebaiknya setiap 20 menit, lihat benda di jarak 6 meter selama 20 detik (aturan 20-20-20).\",\"alasan\":\"Menatap layar terus menerus bisa membuat mata kering dan lelah. Melakukan jeda singkat dengan melihat objek jauh membantu mata beristirahat dan tetap nyaman.\",\"sumber\":[\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 1,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyuruh jeda; paling jauh pengingat ringan"
+      ]
+    },
+    {
+      "id": "S02",
+      "judul": "normal, hampir 2 jam tanpa jeda",
+      "status": "baik",
+      "durasi_jeda_menit": 0,
+      "http": 200,
+      "latency_ms": 12530,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.2349078506231308
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28949394822120667
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.31904494762420654
+        }
+      ],
+      "usage": {
+        "input_tokens": 2288,
+        "output_tokens": 222,
+        "total_tokens": 2510
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Terus kerja dengan hati-hati, tapi setiap 20 menit sebentar-sebentar lihat ke jauh (±6 m) selama 20 detik, dan jangan lupa berkedip. Jika mata mulai merasa berair atau berdebar, ambil jeda ringan 1‑2 menit.\", \"alasan\":\"Skor lelah rendah, tapi sudah 115 menit sejak jeda terakhir – mata bisa mulai merasa berair. Aturan 20‑20‑20 (aao-20-20-20.md) dan rekomendasi peregangan tiap 2 jam (permenkes-48-2016-k3-perkantoran.md) menyarankan jeda ringan setiap 20 menit.\", \"sumber\":[\"aao-20-20-20.md\",\"permenkes-48-2016-k3-perkantoran.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "boleh mengingatkan jeda mata/peregangan karena 115 menit tanpa jeda, dengan sumber"
+      ]
+    },
+    {
+      "id": "S03",
+      "judul": "normal, sering menunduk melihat HP",
+      "status": "baik",
+      "durasi_jeda_menit": 0,
+      "http": 200,
+      "latency_ms": 13490,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.2349078506231308
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28949394822120667
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.31904494762420654
+        }
+      ],
+      "usage": {
+        "input_tokens": 2288,
+        "output_tokens": 118,
+        "total_tokens": 2406
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Jaga mata dengan melihat benda jauh ±6 meter selama 20 detik setiap 20 menit kerja (aturan 20‑20‑20).\",\"alasan\":\"Menit sejak jeda sudah 40, jadi waktu yang tepat untuk mengingat melihat benda jauh agar mata tetap segar. Jangan lupa berkedip saat melihat benda jauh.\",\"sumber\":[\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 1,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyebut user lelah atau mengantuk; menunduk bukan tanda lelah (D-16)"
+      ]
+    },
+    {
+      "id": "S04",
+      "judul": "normal sekarang, tapi 16 menit lelah dalam 1 jam terakhir",
+      "status": "perlu istirahat panjang",
+      "durasi_jeda_menit": null,
+      "http": 200,
+      "latency_ms": 12217,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.29767045378685
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.3198713958263397
+        },
+        {
+          "file": "who-2022-mental-health-at-work.md",
+          "skor": -0.32633548974990845
+        }
+      ],
+      "usage": {
+        "input_tokens": 2463,
+        "output_tokens": 127,
+        "total_tokens": 2590
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berhenti bekerja sekarang dan ambil istirahat yang cukup. Jika badan masih merasa kurang fit, pertimbangkan untuk minta izin atau pulang dini hari.\", \"alasan\":\"Pengguna sudah 70 menit tanpa jeda, dan 16 menit terakhir dalam kondisi lelah. Istirahat panjang diperlukan untuk pulih.\", \"sumber\":[\"permenkes-48-2016-k3-perkantoran.md\",\"who-2022-mental-health-at-work.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut akumulasi 16 menit dalam 1 jam, bukan kondisi saat ini",
+        "berhenti dulu dan istirahat cukup; pertimbangkan izin kalau kurang fit"
+      ]
+    },
+    {
+      "id": "S05",
+      "judul": "lelah ringan, PERCLOS sedikit di atas batas",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 11942,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2297,
+        "output_tokens": 163,
+        "total_tokens": 2460
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Ambil jeda 5 menit sekarang. Bangkit, berdiri, lakukan peregangan ringan (misalnya menggerakkan leher, bahu, dan kaki), dan minum segelas air.\", \"alasan\":\"Skor lelah 0.25 menunjukkan kondisi ringan, tetapi menit_sejak_jeda sudah 55 menit, jadi tubuh sudah mulai merasa lelah. Jeda singkat 5 menit membantu memulihkan kejayaan dan mengurangi risiko kelelahan lebih lanjut.\", \"sumber\":[\"aao-20-20-20.md\",\"albulescu-2022-micro-break.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "jeda singkat ±5 menit",
+        "alasan menyebut mata lebih sering tertutup"
+      ]
+    },
+    {
+      "id": "S06",
+      "judul": "lelah ringan, satu kali menguap",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 13341,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2297,
+        "output_tokens": 180,
+        "total_tokens": 2477
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berdiri, lakukan gerakan peregangan ringan tubuh selama 5 menit, misalnya menggerakkan leher, bahu, dan kaki, kemudian minum sebotol air. Jangan terus duduk di depan layar.\",\"alasan\":\"Skor lelah 0.25 dan mata sudah kurang kedip (19 kali/menit) menunjukkan mata mulai merasa lelah. Menit sejak jeda sudah 80 menit, jadi waktunya untuk jeda singkat. Minum air dan peregangan cepat akan membantu mata dan tubuh pulih sejenak.\", \"sumber\":[\"aao-20-20-20.md\",\"permenkes-48-2016-k3-perkantoran.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 3,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut menguap"
+      ]
+    },
+    {
+      "id": "S07",
+      "judul": "lelah ringan, dua tanda dan 140 menit tanpa jeda",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 13131,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2297,
+        "output_tokens": 161,
+        "total_tokens": 2458
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Silakan ambil jeda 5 menit sekarang. Gunakan waktu itu untuk berdiri, berjalan sejauh 10 langkah, lalu lakukan peregangan leher dan bahu selama 1 menit.\", \"alasan\":\"Pengguna sudah 2 jam tanpa jeda, mata tertutup lama (1 menit) dan kelelahan mata menurut skor 0.5. Micro‑break sepanjang 5 menit membantu mengurangi rasa lelah dan meningkatkan semangat.\", \"sumber\":[\"albulescu-2022-micro-break.md\",\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "menyambungkan dengan lama bekerja tanpa jeda"
+      ]
+    },
+    {
+      "id": "S08",
+      "judul": "lelah ringan, PERCLOS dan kedip tidak terukur",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 11542,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2272,
+        "output_tokens": 141,
+        "total_tokens": 2413
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangun sebentar, lakukan gerakan ringan seperti berjalan cepat atau naik tangga selama 5 menit. Minum sebotol air sebelum kembali ke tugas.\", \"alasan\":\"Skor lelah ringan menunjukkan tubuh sudah mulai merasa penat, dan mata tertutup lama nol menunjukkan kamu belum banyak berkedip. Jeda singkat ini membantu memulihkan energi dan mengurangi rasa lelah.\", \"sumber\":[\"aao-20-20-20.md\",\"albulescu-2022-micro-break.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": [
+          "kedip"
+        ]
+      },
+      "wajib": [
+        "tidak mengarang angka untuk field yang tidak ada"
+      ]
+    },
+    {
+      "id": "S09",
+      "judul": "lelah ringan tepat setelah kembali dari jeda",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 13230,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.2777658700942993
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.28311675786972046
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.309319406747818
+        }
+      ],
+      "usage": {
+        "input_tokens": 2297,
+        "output_tokens": 214,
+        "total_tokens": 2511
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berdiri, lakukan peregangan ringan tubuh selama 5 menit, misalnya sentap pergelangan tangan, gerakan\nlekuk badan, dan berjalan sejauh 20 langkah. Jangan lupa berkedip beberapa kali saat melihat jauh.\", \"alasan\":\"Skor\nlelah 0.25 dan mata tertutup sebentar (0.09) menunjukkan mata mulai merasa berat. Kedipan 21 kali/menit dan\ndurasi 230 ms masih dalam batas normal, tetapi menit_sejak_jeda 0 menunjukkan kamu belum istirahat sejak\nbeberapa saat. Jeda 5 menit membantu mata dan tubuh pulih sebelum kembali bekerja.\", \"sumber\":[\"aao-20-20-20.md\",\"permenkes-48-2016-k3-perkantoran.md\"]}",
+      "cek": {
+        "json": false,
+        "dibungkus_fence": false,
+        "format_lengkap": false,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": null,
+        "kalimat_alasan": null,
+        "menyebut_durasi": false,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyalahkan user karena baru saja jeda"
+      ]
+    },
+    {
+      "id": "S10",
+      "judul": "lelah, PERCLOS tinggi + pejam lama + menguap",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 13005,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2293,
+        "output_tokens": 178,
+        "total_tokens": 2471
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangun sebentar, lakukan gerakan ringan seperti jalan cepat atau naik tangga selama 10 menit. Minum air putih sekitar 200 ml dan, kalau bisa, pindah ke ruangan yang lebih terang atau berudara segar.\", \"alasan\":\"Skor lelah tinggi (0.75) dan mata sudah lama tertutup (1 menit) menunjukkan tubuh membutuhkan istirahat. Menit_sejak_jeda 95 menit melebihi batas yang sehat, jadi sebaiknya jeda sekarang.\", \"sumber\":[\"permenkes-48-2016-k3-perkantoran.md\",\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "jeda ±10 menit",
+        "alasan menyebut tanda yang terdeteksi"
+      ]
+    },
+    {
+      "id": "S11",
+      "judul": "lelah dari kedip lambat dan sering",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11428,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2293,
+        "output_tokens": 141,
+        "total_tokens": 2434
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangun sebentar, lakukan jalan ringan atau naik tangga selama 10 menit. Minum segelas air sejuk sebelum kembali ke kerjaan.\", \"alasan\":\"Skor lelah tinggi (0.75) dan sudah 60 menit sejak jeda terakhir menunjukkan mata dan tubuh sudah merasakan ketegangan. Jeda 10 menit ini membantu memulihkan ketegangan mata dan meningkatkan semangat.\", \"sumber\":[\"aao-20-20-20.md\",\"albulescu-2022-micro-break.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut kedipan"
+      ]
+    },
+    {
+      "id": "S12",
+      "judul": "lelah, 14,9 menit lelah per jam (tepat di bawah batas istirahat panjang)",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11529,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2295,
+        "output_tokens": 140,
+        "total_tokens": 2435
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangun sebentar, lakukan gerakan ringan seperti jalan cepat atau naik tangga selama 10 menit. Minum sebotol air sejuk sebelum kembali ke kerjaan.\", \"alasan\":\"Skor lelah tinggi (0.75) dan mata sudah lama tertutup (1 detik) menunjukkan tubuh membutuhkan istirahat. Durasi jeda 10 menit sudah disarankan server.\", \"sumber\":[\"permenkes-48-2016-k3-perkantoran.md\",\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "kontrol negatif: belum menyarankan berhenti/izin"
+      ]
+    },
+    {
+      "id": "S13",
+      "judul": "lelah, tepat 15 menit lelah per jam",
+      "status": "perlu istirahat panjang",
+      "durasi_jeda_menit": null,
+      "http": 200,
+      "latency_ms": 13188,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.29799026250839233
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.32005956768989563
+        },
+        {
+          "file": "who-2022-mental-health-at-work.md",
+          "skor": -0.32663723826408386
+        }
+      ],
+      "usage": {
+        "input_tokens": 2466,
+        "output_tokens": 153,
+        "total_tokens": 2619
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berhenti bekerja sekarang dan ambil istirahat yang cukup. Jika badan masih merasa kurang fit, pertimbangkan untuk minta izin atau pulang dulu.\", \"alasan\":\"Kamu sudah lelah berat (skor 0.75) dan telah menghabiskan 15 menit dalam kondisi lelah dalam 1 jam terakhir. Durasi mata tertutup lama (1 detik) dan waktu sejak jeda terakhir (50 menit) menunjukkan tubuh sudah sangat membutuhkan istirahat.\", \"sumber\":[\"who-2022-mental-health-at-work.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "berhenti dulu dan istirahat cukup; pertimbangkan izin"
+      ]
+    },
+    {
+      "id": "S14",
+      "judul": "lelah berat, 45 menit lelah per jam",
+      "status": "perlu istirahat panjang",
+      "durasi_jeda_menit": null,
+      "http": 200,
+      "latency_ms": 11504,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.29799026250839233
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.32005956768989563
+        },
+        {
+          "file": "who-2022-mental-health-at-work.md",
+          "skor": -0.32663723826408386
+        }
+      ],
+      "usage": {
+        "input_tokens": 2464,
+        "output_tokens": 117,
+        "total_tokens": 2581
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berhenti sekarang dan ambil istirahat yang cukup. Jika badan masih merasa kurang fit, pertimbangkan untuk minta cuti atau libur sejenak.\", \"alasan\":\"Kamu sudah lelah selama 45 menit terakhir dan telah menutup mata lama 3 menit. Menjeda 180 menit tanpa jeda yang cukup membuat tubuh terasa lelah.\", \"sumber\":[\"who-2022-mental-health-at-work.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "menyarankan berhenti/izin tanpa menakut-nakuti",
+        "boleh menyarankan konsultasi tenaga kesehatan kalau sering terjadi"
+      ]
+    },
+    {
+      "id": "S15",
+      "judul": "tertidur pertama kali (mata terpejam, kepala tegak)",
+      "status": "perlu jeda aktif",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11653,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.2545102834701538
+        },
+        {
+          "file": "abe-2023-perclos.md",
+          "skor": -0.30882367491722107
+        },
+        {
+          "file": "eu-432-2012-air-minum.md",
+          "skor": -0.3103652894496918
+        }
+      ],
+      "usage": {
+        "input_tokens": 2541,
+        "output_tokens": 177,
+        "total_tokens": 2718
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangunlah, lakukan gerakan ringan seperti jalan cepat atau naik 1-2 lantai tangga selama 10 menit, minum sebotol air, dan pindah ke tempat yang lebih terang atau berudara segar. Jangan tidur lagi, meskipun mata masih tertutup sering.\",\"alasan\":\"Mata tertutup lebih dari 80% waktu (PERCLOS 0.82) dan sudah 100 menit sejak jeda terakhir, menunjukkan kamu merasa sangat lelah. Cahaya terang dan gerakan singkat membantu meningkatkan kewaspadaan (NIOSH).\",\"sumber\":[\"niosh-kewaspadaan-kerja.md\",\"abe-2023-perclos.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "ajak bangun",
+        "bergerak / minum air / cahaya atau udara segar (D-27)"
+      ]
+    },
+    {
+      "id": "S16",
+      "judul": "tertidur, kepala di meja (mata tidak terlihat)",
+      "status": "perlu jeda aktif",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 11935,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.2545102834701538
+        },
+        {
+          "file": "abe-2023-perclos.md",
+          "skor": -0.30882367491722107
+        },
+        {
+          "file": "eu-432-2012-air-minum.md",
+          "skor": -0.3103652894496918
+        }
+      ],
+      "usage": {
+        "input_tokens": 2525,
+        "output_tokens": 181,
+        "total_tokens": 2706
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangkit, lakukan gerakan ringan seperti jalan cepat atau naik tangga selama 10 menit, minum sebotol air, dan pindah ke ruangan yang lebih terang atau berudara segar. Jangan tidur lagi, hanya jeda singkat saja.\",\"alasan\":\"Mata sudah tertutup lebih lama dari biasanya dan kamera melihat wajah hampir tidak terlihat, menunjukkan kamu mengantuk. Selain itu, kamu sudah lelah selama 6 jam dalam 1 jam terakhir, jadi tubuh membutuhkan jeda aktif sekarang.\",\"sumber\":[\"abe-2023-perclos.md\",\"eu-432-2012-air-minum.md\",\"niosh-kewaspadaan-kerja.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "ajak bangun dan jeda aktif",
+        "tidak mengarang angka mata"
+      ]
+    },
+    {
+      "id": "S17",
+      "judul": "tertidur berulang, 22 menit lelah/tertidur per jam",
+      "status": "perlu istirahat panjang",
+      "durasi_jeda_menit": null,
+      "http": 200,
+      "latency_ms": 14600,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.29799026250839233
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.32005956768989563
+        },
+        {
+          "file": "who-2022-mental-health-at-work.md",
+          "skor": -0.32663723826408386
+        }
+      ],
+      "usage": {
+        "input_tokens": 2456,
+        "output_tokens": 148,
+        "total_tokens": 2604
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Berhenti bekerja sekarang dan ambil istirahat yang cukup. Jika badan masih merasa kurang fit, pertimbangkan untuk minta izin atau pulang lebih awal.\", \"alasan\":\"Kamu sudah 2,5 jam tanpa jeda, dan dalam 1 jam terakhir sudah 22 menit dalam kondisi lelah atau tertidur. Tanda mata tertutup lama, menguap, dan kepala menunduk menunjukkan kelelahan yang parah.\", \"sumber\":[\"who-2022-mental-health-at-work.md\",\"albulescu-2022-micro-break.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 2,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "berhenti dulu; pertimbangkan izin kalau kurang fit"
+      ]
+    },
+    {
+      "id": "S18",
+      "judul": "tertidur setelah 4 jam tanpa jeda, 12 menit lelah per jam",
+      "status": "perlu jeda aktif",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 14688,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.2545102834701538
+        },
+        {
+          "file": "abe-2023-perclos.md",
+          "skor": -0.30882367491722107
+        },
+        {
+          "file": "eu-432-2012-air-minum.md",
+          "skor": -0.3103652894496918
+        }
+      ],
+      "usage": {
+        "input_tokens": 2541,
+        "output_tokens": 201,
+        "total_tokens": 2742
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangunlah sekarang, lalu bergerak sebentar (jalan cepat atau naik tangga) selama 10 menit. Minumlah\nsekitar 1 gelas air untuk membantu tubuh tetap berfungsi normal.\", \"alasan\":\"Kamera melihat mata tertutup lama\n3 detik dan kepala menunduk 15% waktu, sementara PERCLOS 0.7 menunjukkan mata sering tertutup lebih dari 80%.\nIni menunjukkan kamu sedang kantuk. Selain itu, kamu sudah 4 jam tanpa jeda dan 12 menit terakhir banyak\nmenyentuh wajah, tanda kelelahan.\", \"sumber\":[\"abe-2023-perclos.md\",\"eu-432-2012-air-minum.md\",\"niosh-kewaspadaan-kerja.md\"]}",
+      "cek": {
+        "json": false,
+        "dibungkus_fence": false,
+        "format_lengkap": false,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": null,
+        "kalimat_alasan": null,
+        "menyebut_durasi": false,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "ajak bangun dan jeda aktif",
+        "menyinggung 4 jam tanpa jeda"
+      ]
+    },
+    {
+      "id": "S20",
+      "judul": "lelah dengan nilai di batas rentang",
+      "status": "perlu jeda",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 13065,
+      "model_dipakai": "ibm/granite-4-h-small",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.28221380710601807
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.3034588098526001
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.3239360451698303
+        }
+      ],
+      "usage": {
+        "input_tokens": 2288,
+        "output_tokens": 150,
+        "total_tokens": 2438
+      },
+      "error": null,
+      "teks": "{\"rekomendasi\":\"Bangun sebentar, lakukan jalan ringan atau naik tangga selama 10 menit. Minum segelas air sebelum kembali ke kerjaan.\", \"alasan\":\"Menit sejak jeda sudah 1440 (24 jam), jadi kamu belum istirahat sehari-hari. Skor lelah tinggi (1) menunjukkan tubuh sudah merasa lelah. Jeda 10 menit ini membantu memulihkan energi dan mengurangi rasa lelah.\", \"sumber\":[\"permenkes-48-2016-k3-perkantoran.md\",\"aao-20-20-20.md\"]}",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": false,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 3,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tetap tenang dan tidak mendiagnosis walau angka ekstrem",
+        "boleh menyarankan konsultasi tenaga kesehatan"
+      ]
+    }
+  ]
+}
