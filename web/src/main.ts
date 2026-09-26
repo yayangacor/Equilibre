@@ -1,5 +1,6 @@
 import "./style.css";
 import type { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+import { toAnswerView, type AnalyzeResponse } from "./answer.ts";
 import {
   afterFailedSend,
   AUTO_SEND,
@@ -93,7 +94,6 @@ const MAX_LOG_BODIES = MAX_LOG_FRAMES / 5;
 // ── DOM ─────────────────────────────────────────────────────────────────────────
 
 type FaceState = "loading" | "found" | "missing" | "error";
-type AnalyzeResponse = { text: string; result: unknown };
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const video = byId<HTMLVideoElement>("video");
@@ -834,16 +834,28 @@ byId("download-log").addEventListener("click", () => {
   downloadFile(csv, `equilibre-sesi-${fileStamp(new Date())}.csv`, "text/csv");
 });
 
-function renderAnswer({ text, result }: AnalyzeResponse) {
-  if (result === null || typeof result !== "object") {
-    answer.replaceChildren(el("p", text));
-    return;
+function renderAnswer(reply: AnalyzeResponse) {
+  const view = toAnswerView(reply);
+  const parts: HTMLElement[] = [];
+  if (view.kind === "text") parts.push(el("p", view.text));
+  else {
+    const list = document.createElement("dl");
+    for (const [name, value] of view.rows) list.append(el("dt", name), el("dd", value));
+    if (view.sumber) {
+      const sources = document.createElement("dd");
+      if (view.sumber.length === 0) sources.textContent = "tidak ada sumber yang dipakai";
+      else {
+        const items = document.createElement("ul");
+        items.className = "sources";
+        items.append(...view.sumber.map((s) => el("li", s.text, s.known ? undefined : "error")));
+        sources.append(items);
+      }
+      list.append(el("dt", "Sumber"), sources);
+    }
+    parts.push(list);
   }
-  const list = document.createElement("dl");
-  for (const [key, value] of Object.entries(result)) {
-    list.append(el("dt", key), el("dd", typeof value === "string" ? value : JSON.stringify(value)));
-  }
-  answer.replaceChildren(list);
+  if (view.cadangan) parts.push(el("p", "Dijawab model cadangan karena model utama gagal.", "note"));
+  answer.replaceChildren(...parts);
 }
 
 // ── Automatic sending (NOTES D-37) ──────────────────────────────────────────────

@@ -303,11 +303,15 @@ button:disabled {
 
 .answer dt {
   font-weight: 600;
-  text-transform: capitalize;
 }
 
 .answer dd {
   margin: 0 0 8px;
+}
+
+.answer .sources {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .answer p {
