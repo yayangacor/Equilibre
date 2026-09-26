@@ -854,7 +854,8 @@ function renderAutoSend() {
   autoSendToggle.checked = autoSendOn;
   const rule =
     "saat label menjadi lelah ringan, lelah, atau tertidur, atau saat saran istirahat panjang muncul, " +
-    `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit. Tiap kiriman memakai satu panggilan LLM.`;
+    `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit; tertidur dan saran istirahat panjang boleh ` +
+    "menyela sekali. Tiap kiriman memakai satu panggilan LLM.";
   if (!autoSendOn) {
     autoSendNote.textContent = `Mati: status hanya dikirim lewat tombol di bawah. Kalau dinyalakan, status dikirim sendiri ${rule}`;
     return;

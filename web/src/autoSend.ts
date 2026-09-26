@@ -9,9 +9,13 @@ import type { Label } from "./rules.ts";
 // if it still holds; the same condition is not sent twice in a row; back to "normal" or
 // away from the screen ends the episode; a failed send still starts the gap, then the
 // same condition is tried again after it.
+// Q-14 (user 26 Sep): the heaviest conditions (AUTO_SEND.urgent) may break through the gap,
+// so "tertidur" right after a "lelah ringan" send is not lost. Only one break-through until a
+// send outside the gap, so at most 2 calls in any 10 minutes, even if the label flickers.
 
 export const AUTO_SEND = {
   labels: ["lelah ringan", "lelah", "tertidur"] as readonly Label[],
+  urgent: ["tertidur", "istirahat panjang"] as readonly AutoTarget[],
   minGapMs: 10 * 60_000,
 } as const;
 
@@ -21,9 +25,10 @@ export type AutoTarget = Label | "istirahat panjang";
 export type AutoSendState = {
   lastT: number | null; // last attempt (wall clock), successful or not
   sentFor: AutoTarget | null; // the condition of the current episode already sent
+  brokeGap: boolean; // the one send inside the gap is used; freed by the next send outside it
 };
 
-export const initialAutoSendState = (): AutoSendState => ({ lastT: null, sentFor: null });
+export const initialAutoSendState = (): AutoSendState => ({ lastT: null, sentFor: null, brokeGap: false });
 
 export function autoTarget(shown: Label | null, longRest: boolean): AutoTarget | null {
   if (longRest) return "istirahat panjang";
@@ -39,8 +44,11 @@ export function stepAutoSend(
 ): { send: boolean; state: AutoSendState } {
   if (target === null) return { send: false, state: { ...state, sentFor: null } }; // the episode is over
   if (!enabled || target === state.sentFor) return { send: false, state };
-  if (state.lastT !== null && now - state.lastT < AUTO_SEND.minGapMs) return { send: false, state }; // waits for the gap
-  return { send: true, state: { lastT: now, sentFor: target } };
+  if (state.lastT !== null && now - state.lastT < AUTO_SEND.minGapMs) {
+    if (!AUTO_SEND.urgent.includes(target) || state.brokeGap) return { send: false, state }; // waits for the gap
+    return { send: true, state: { lastT: now, sentFor: target, brokeGap: true } };
+  }
+  return { send: true, state: { lastT: now, sentFor: target, brokeGap: false } };
 }
 
 // The send failed: keep the gap, but let the same condition be tried again after it.

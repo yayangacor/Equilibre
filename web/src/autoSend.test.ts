@@ -113,6 +113,59 @@ describe("stepAutoSend", () => {
     expect(on.sent).toEqual([[21, "tertidur"]]);
   });
 
+  it("lets tertidur break through the gap once (Q-14: 23 Sep recording, 07:39 lelah ringan then 07:40 tertidur)", () => {
+    const { sent } = run([
+      [0, "lelah ringan"],
+      [1.5, "tertidur"], // inside the gap, but the heaviest condition: sent now
+      [3, "tertidur"],
+    ]);
+    expect(sent).toEqual([
+      [0, "lelah ringan"],
+      [1.5, "tertidur"],
+    ]);
+  });
+
+  it("lets the long rest advice break through too", () => {
+    const { sent } = run([
+      [0, "lelah"],
+      [4, "lelah", true],
+    ]);
+    expect(sent).toEqual([
+      [0, "lelah"],
+      [4, "istirahat panjang"],
+    ]);
+  });
+
+  it("allows one break-through per gap, even when tertidur flickers (negative control)", () => {
+    const { sent } = run([
+      [0, "lelah ringan"],
+      [1, "tertidur"], // break-through
+      [2, "normal"],
+      [3, "tertidur"], // new episode, but the break-through is used: waits
+      [4, "lelah", true], // waits too
+      [8, "normal"],
+      [11, "tertidur"], // gap after 1 min is over: regular send, frees the break-through
+      [12, "lelah", true], // break-through again
+    ]);
+    expect(sent).toEqual([
+      [0, "lelah ringan"],
+      [1, "tertidur"],
+      [11, "tertidur"],
+      [12, "istirahat panjang"],
+    ]);
+    // Never more than 2 sends in any 10 minutes.
+    for (const [t] of sent) expect(sent.filter(([u]) => u >= t && u < t + 10).length).toBeLessThanOrEqual(2);
+  });
+
+  it("does not let lelah ringan or lelah break through (negative control)", () => {
+    const { sent } = run([
+      [0, "lelah ringan"],
+      [2, "lelah"],
+      [9, "lelah"],
+    ]);
+    expect(sent).toEqual([[0, "lelah ringan"]]);
+  });
+
   it("does not call a failing server every evaluation, but tries again after the gap", () => {
     let { state } = run([[0, "lelah"]]);
     state = afterFailedSend(state); // Langflow down
