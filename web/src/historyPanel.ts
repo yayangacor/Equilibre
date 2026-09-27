@@ -1,6 +1,6 @@
 import { Dashboard } from "./dashboard.ts";
 import { downloadFile, fileStamp } from "./download.ts";
-import { dayKey, oldestKeptDay, summarizeDay, toExport, type Feedback } from "./history.ts";
+import { dayKey, oldestKeptDay, summarizeDay, toExport, type DayData, type DaySummary, type Feedback } from "./history.ts";
 import { openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
 
 // The local history as the page uses it: opening it (days past the retention go, NOTES
@@ -111,21 +111,35 @@ export class HistoryPanel {
       return;
     }
     try {
-      const db = this.db;
-      const [days, evaluasi, jeda, rekomendasi, koreksi_label, kss] = await Promise.all([
-        db.days(),
-        db.byDay("evaluasi", day),
-        db.byDay("jeda", day),
-        db.byDay("rekomendasi", day),
-        db.byDay("koreksi_label", day),
-        db.byDay("kss", day),
-      ]);
-      const summary = summarizeDay({ evaluasi, jeda, rekomendasi, koreksi_label, kss }, this.evalIntervalMs);
-      this.dashboard.render({ ...view, days, summary, rekomendasi, problem: this.problem });
+      const [days, data] = await Promise.all([this.db.days(), this.loadDay(this.db, day)]);
+      const summary = summarizeDay(data, this.evalIntervalMs);
+      this.dashboard.render({ ...view, days, summary, rekomendasi: data.rekomendasi, problem: this.problem });
     } catch (err) {
       this.failed(err);
       this.dashboard.render({ ...view, problem: this.problem });
     }
+  }
+
+  // Today's numbers for "Tanya Equilibre" (tanya.ts); null when the history is not available.
+  async todaySummary(): Promise<DaySummary | null> {
+    if (!this.db) return null;
+    try {
+      return summarizeDay(await this.loadDay(this.db, dayKey(Date.now())), this.evalIntervalMs);
+    } catch (err) {
+      this.failed(err);
+      return null;
+    }
+  }
+
+  private async loadDay(db: HistoryDb, day: string): Promise<DayData> {
+    const [evaluasi, jeda, rekomendasi, koreksi_label, kss] = await Promise.all([
+      db.byDay("evaluasi", day),
+      db.byDay("jeda", day),
+      db.byDay("rekomendasi", day),
+      db.byDay("koreksi_label", day),
+      db.byDay("kss", day),
+    ]);
+    return { evaluasi, jeda, rekomendasi, koreksi_label, kss };
   }
 
   private async exportFile() {

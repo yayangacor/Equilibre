@@ -56,6 +56,7 @@ import {
 } from "./powerSaving.ts";
 import { ADVICE, RULES, SLEEP, type Evaluation } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
+import { TanyaPanel } from "./tanyaPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 
@@ -332,6 +333,15 @@ const selfReport = new SelfReport({
     breakState = initialBreakState(performance.now());
     renderPayload();
   },
+});
+
+// "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
+new TanyaPanel({
+  context: () => {
+    const shown = calibration ? null : (monitor?.labelState.shown ?? null);
+    return { label: shown?.label ?? null, menitLelah60: shown ? menitLelah : null };
+  },
+  todaySummary: () => panel.todaySummary(),
 });
 
 function recordEvaluation(step: EvaluationStep, t: number) {

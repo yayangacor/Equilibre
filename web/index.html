@@ -101,6 +101,22 @@
           </div>
         </section>
 
+        <section class="panel" id="tanya-panel">
+          <h2>Tanya Equilibre</h2>
+          <p class="note">
+            Tanyakan kondisimu hari ini atau hal seputar jeda dan kelelahan kerja. Dijawab IBM Bob lewat flow Langflow.
+          </p>
+          <label class="tanya-label" for="tanya-input">Pertanyaan</label>
+          <textarea id="tanya-input" class="tanya-input" rows="2" placeholder="Misalnya: gimana kondisiku hari ini?"></textarea>
+          <button id="tanya-send" type="button">Tanya</button>
+          <p id="tanya-status" class="note" aria-live="polite"></p>
+          <div id="tanya-answer" class="answer" aria-live="polite"></div>
+          <p class="note fine">
+            Yang dikirim ke server: teks pertanyaan, label terakhir, dan angka ringkasan hari ini (menit per label, jumlah jeda,
+            rata-rata KSS). Video dan wajah tidak pernah dikirim.
+          </p>
+        </section>
+
         <section class="panel kss" id="kss-panel">
           <h2>Cek kantuk (KSS)</h2>
           <p id="kss-prompt" class="note">Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.</p>
