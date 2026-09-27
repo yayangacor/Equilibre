@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import flowPrompt from "../../langflow-flows/prompt-cari_panduan.txt?raw";
+import summaryPrompt from "../../langflow-flows/prompt-ringkasan_harian.txt?raw";
 import { LangflowError } from "../../server/src/reply.ts";
 import {
   BOB_DISABLED_GROUPS,
   BOB_LIMITS,
   bobArgs,
+  NO_HISTORY,
   NOT_COVERED,
   parseBobOutput,
   parseTanya,
@@ -152,5 +154,20 @@ describe("tanya: one run per question", () => {
     expect(calls[0].at(-1)).toBe(tanyaPrompt(input));
     expect(out).toMatchObject({ jawaban: "Supaya matamu pulih.", format_bebas: false });
     expect(out.detik).toBeGreaterThanOrEqual(0);
+  });
+
+  it("drops the 'no history' sentences when today's numbers were sent (G-51)", async () => {
+    const answer = (jawaban: string) => async () => result(JSON.stringify({ jawaban, sumber: [] }));
+    const summary = "Kamu terpantau normal selama 30 menit, lelah ringan selama 6 menit, dan lelah selama 4 menit.";
+    // 27 Sep 04:13Z and 04:14Z: status null, numbers present, the flow still told the user to calibrate.
+    const leaked = [`${summary} Mulai kalibrasi dan bekerja seperti biasa.`, `${summary} ${NO_HISTORY}`];
+    const withNumbers = { pertanyaan: "Gimana kondisiku hari ini?", label: null, status: null, hari_ini: HARI_INI };
+    for (const text of leaked) expect((await tanya(withNumbers, answer(text))).jawaban).toBe(summary);
+    await expect(tanya(withNumbers, answer(NO_HISTORY))).rejects.toThrow(/tidak sesuai dengan angka/);
+    const noNumbers = { ...withNumbers, hari_ini: null };
+    expect((await tanya(noNumbers, answer(NO_HISTORY))).jawaban).toBe(NO_HISTORY); // control: true when nothing was sent
+    const plain = `${summary}\nRata-rata rasa kantuk (KSS) 6,5 dari 9.`;
+    expect((await tanya(withNumbers, answer(plain))).jawaban).toBe(plain); // control: untouched, line break kept
+    expect(summaryPrompt.replace(/\s+/g, " ")).toContain(NO_HISTORY); // the flow's fixed sentence, word for word
   });
 });

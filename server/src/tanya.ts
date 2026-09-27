@@ -171,7 +171,22 @@ export type RunBob = (args: string[]) => Promise<string>; // resolves with stdou
 export async function tanya(input: TanyaInput, run: RunBob): Promise<TanyaAnswer & { detik: number }> {
   const start = Date.now();
   const answer = parseBobOutput(await run(bobArgs(tanyaPrompt(input))));
-  return { ...answer, detik: Math.round((Date.now() - start) / 100) / 10 };
+  const jawaban = input.hari_ini ? withoutNoHistory(answer.jawaban) : answer.jawaban;
+  return { ...answer, jawaban, detik: Math.round((Date.now() - start) / 100) / 10 };
+}
+
+// The ringkasan_harian flow's fixed answer when the app has no history for today. With today's numbers
+// present and status null the flow still ended 2 of 4 summaries with "Mulai kalibrasi …" (27 Sep, NOTES
+// G-51), and Bob copies the flow word for word. When numbers were sent, these sentences are false.
+export const NO_HISTORY = "Belum ada riwayat hari ini. Mulai kalibrasi dan bekerja seperti biasa, lalu tanya lagi nanti.";
+const NO_HISTORY_SENTENCE = /^(Belum ada riwayat hari ini|Mulai kalibrasi)\b/;
+
+export function withoutNoHistory(jawaban: string): string {
+  const sentences = jawaban.split(/(?<=[.!?])\s+/);
+  const kept = sentences.filter((s) => !NO_HISTORY_SENTENCE.test(s));
+  if (kept.length === sentences.length) return jawaban;
+  if (kept.length === 0) throw new LangflowError("Ringkasan tidak sesuai dengan angka hari ini. Coba tanya lagi.", 502);
+  return kept.join(" ");
 }
 
 export type TanyaAnswer = {
