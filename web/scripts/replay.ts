@@ -9,7 +9,8 @@ import { autoTarget, initialAutoSendState, stepAutoSend } from "../src/autoSend.
 import type { EyeClosure } from "../src/blink.ts";
 import type { BodySample } from "../src/body.ts";
 import { median, type Baseline } from "../src/calibration.ts";
-import { summarizeDay, toEvaluationRecord, type EvaluationRecord } from "../src/history.ts";
+import { atScreen, breakEnded, initialBreakState, minutesSinceBreak, stepBreak } from "../src/features.ts";
+import { summarizeDay, toBreakRecord, toEvaluationRecord, type BreakRecord, type EvaluationRecord } from "../src/history.ts";
 import { Monitor } from "../src/monitor.ts";
 import type { FrameSignal } from "../src/signals.ts";
 import type { YawnEvent } from "../src/yawn.ts";
@@ -124,6 +125,10 @@ let autoState = initialAutoSendState(); // --kirim-otomatis, as if the toggle we
 const autoSends: string[] = [];
 let lastEval = live[0].t;
 let nextBody = 0;
+// Break tracking as in main.ts onFrame (NOTES D-42), starting after calibration instead of at page load.
+const recent: Row[] = [];
+let breakState = initialBreakState(live[0].t);
+const breaks: BreakRecord[] = [];
 
 const pct = (x: number | null) => (x === null ? "   -" : `${(x * 100).toFixed(0).padStart(3)}%`);
 const fixed = (x: number | null, width: number) => (x === null ? "-" : x.toFixed(0)).padStart(width);
@@ -134,6 +139,12 @@ console.log(
 );
 for (const f of live) {
   while (nextBody < liveBodies.length && liveBodies[nextBody].t <= f.t) monitor.pushBody(liveBodies[nextBody++]);
+  recent.push(f);
+  if (recent.length > 60) recent.shift();
+  const prevBreak = breakState;
+  breakState = stepBreak(prevBreak, f.t, atScreen(recent, liveBodies[nextBody - 1] ?? null, baseline.bodyArea));
+  const ended = breakEnded(prevBreak, breakState);
+  if (ended) breaks.push(toBreakRecord({ mulai: opened + ended.mulai, selesai: opened + ended.selesai }, opened));
   const step = monitor.pushFrame(f);
   if (step.closure) closures.push(step.closure);
   if (step.yawn) yawns.push(step.yawn);
@@ -145,8 +156,8 @@ for (const f of live) {
   const fps = feat.durasi_jendela_detik > 0 ? feat.n_frame / feat.durasi_jendela_detik : 0;
   const shown = monitor.labelState.shown;
   if (shown) {
-    // menit_sejak_jeda is not in the summary, so the break tracking of main.ts is left out.
-    const context = { t: opened + f.t, sesi: opened, menitSejakJeda: 0, hematDaya: fpsFlag !== undefined };
+    const menitSejakJeda = minutesSinceBreak(breakState, f.t);
+    const context = { t: opened + f.t, sesi: opened, menitSejakJeda, hematDaya: fpsFlag !== undefined };
     records.push(toEvaluationRecord(shown, evaluation, context));
   }
   const target = autoTarget(shown?.label ?? null, saran !== null);
@@ -174,6 +185,9 @@ for (const c of closures.filter((c) => c.kind === "long")) {
   console.log(`Mata tertutup lama: ${at(c.startT)}, ${Math.round(c.durationMs)} ms`);
 }
 for (const y of yawns) console.log(`Menguap: ${at(y.startT)}, ${Math.round(y.durationMs)} ms`);
+console.log(`Jeda (wajah stabil dan tubuh tidak terlihat ≥ 2 menit): ${breaks.length}`);
+for (const b of breaks) console.log(`  ${at(b.mulai - opened)} → ${at(b.selesai - opened)}, ${b.menit} menit`);
+console.log(`Menit sejak jeda di akhir rekaman: ${minutesSinceBreak(breakState, live[live.length - 1].t).toFixed(1)}`);
 
 if (flags.includes("--kirim-otomatis")) {
   console.log(`\nKirim otomatis (toggle menyala): ${autoSends.length} panggilan Langflow`);
@@ -183,11 +197,13 @@ if (flags.includes("--kirim-otomatis")) {
 if (flags.includes("--ringkasan")) {
   for (const hari of [...new Set(records.map((r) => r.hari))]) {
     const evaluasi = records.filter((r) => r.hari === hari);
-    const s = summarizeDay({ evaluasi, jeda: [], rekomendasi: [], koreksi_label: [], kss: [] }, EVAL_INTERVAL_MS);
+    const jeda = breaks.filter((b) => b.hari === hari);
+    const s = summarizeDay({ evaluasi, jeda, rekomendasi: [], koreksi_label: [], kss: [] }, EVAL_INTERVAL_MS);
     const m = (x: number) => x.toFixed(2);
     console.log(`\nRingkasan ${hari} (${evaluasi.length} evaluasi dengan label tampil, menit):`);
     console.log(`  dinilai: ${Object.entries(s.menit).map(([label, x]) => `${label} ${m(x)}`).join(" · ")}`);
     console.log(`  ditahan: fps ${m(s.ditahan.fps)} · mata ${m(s.ditahan.mata)} · lain ${m(s.ditahan.lain)}`);
+    console.log(`  jeda: ${s.jeda.jumlah}× · ${m(s.jeda.menit)}`);
     for (const h of s.perJam) {
       const parts = Object.entries(h.menit).filter(([, x]) => x > 0).map(([label, x]) => `${label} ${m(x)}`);
       console.log(`  jam ${String(h.jam).padStart(2, "0")}: ${parts.join(" · ") || "-"}${h.ditahan > 0 ? ` · ditahan ${m(h.ditahan)}` : ""}`);

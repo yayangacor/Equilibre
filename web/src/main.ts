@@ -29,6 +29,7 @@ import {
   headDown,
   initialBreakState,
   minutesSinceBreak,
+  atScreen,
   stepBreak,
   type BreakState,
   type WindowFeatures,
@@ -268,7 +269,8 @@ function onFrame(s: FrameSignal) {
   sessionLog.push(s);
   if (sessionLog.length > MAX_LOG_FRAMES + 1000) sessionLog.splice(0, 1000);
   const prevBreak = breakState;
-  breakState = prevBreak ? stepBreak(prevBreak, s.t, s.face) : initialBreakState(s.t);
+  const present = atScreen(sessionLog.slice(-60), bodyLog.at(-1) ?? null, baseline?.bodyArea ?? null);
+  breakState = prevBreak ? stepBreak(prevBreak, s.t, present) : initialBreakState(s.t);
   const ended = prevBreak && breakEnded(prevBreak, breakState);
   if (ended) panel.save("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: wallClock(ended.selesai) }, SESSION));
 

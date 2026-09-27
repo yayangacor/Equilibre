@@ -33,7 +33,8 @@ export type EvaluationRecord = Stamp &
     hemat_daya: boolean;
   };
 
-// Face gone for BREAK_MIN_MS or more (features.ts), the definition behind menit_sejak_jeda.
+// Nobody at the screen for BREAK_MIN_MS or more (features.ts atScreen), the definition behind
+// menit_sejak_jeda.
 export type BreakRecord = Stamp & { mulai: number; selesai: number; menit: number };
 
 export type Feedback = "sudah dilakukan" | "tidak relevan";

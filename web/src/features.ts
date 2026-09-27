@@ -179,8 +179,8 @@ export function computeWindowFeatures(data: WindowData, baseline: Baseline, now:
 }
 
 // ── Minutes since the last break ────────────────────────────────────────────────
-// A break = face absent for at least BREAK_MIN_MS in a row. Until the first one,
-// the count starts at the beginning of the session.
+// A break = nobody at the screen (atScreen below) for at least BREAK_MIN_MS in a row, or a
+// break the user marks by hand. Until the first one, the count starts at the beginning of the session.
 
 export const BREAK_MIN_MS = 2 * 60_000;
 
@@ -192,6 +192,21 @@ export function stepBreak(state: BreakState, t: number, face: boolean): BreakSta
   if (!face) return state.awaySince === null ? { ...state, awaySince: t } : state;
   if (state.awaySince === null) return state;
   return t - state.awaySince >= BREAK_MIN_MS ? { sinceT: t, awaySince: null } : { ...state, awaySince: null };
+}
+
+// Someone at the screen, for the break count (NOTES D-42, 27 Sep): a face in a steady run, or a body
+// in view. A break = neither for BREAK_MIN_MS, the same "away" as "tidak di depan layar", so a nap on
+// the desk or a phone in the lap is not a break. Flickers of a false face on hair (G-45) never count:
+// a run is only steady after STEADY_FACE.minRunMs, judged on the recent frames. No fresh body sample
+// (no body detection) → the face alone decides, as before.
+export const PRESENCE_LOOKBACK_MS = 3000;
+export const BODY_FRESH_MS = 5000;
+
+export function atScreen(recent: readonly FrameSignal[], body: BodySample | null, bodyArea: number | null): boolean {
+  const last = recent.at(-1);
+  if (!last) return false;
+  if (last.face && steadyFace(recent.filter((f) => f.t > last.t - PRESENCE_LOOKBACK_MS)).at(-1)) return true;
+  return body !== null && last.t - body.t <= BODY_FRESH_MS && bodyPresent(body, bodyArea);
 }
 
 export function minutesSinceBreak(state: BreakState, now: number): number {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EyeClosure } from "./blink.ts";
 import type { BodySample } from "./body.ts";
-import { breakEnded, computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
+import { atScreen, breakEnded, computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
 import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, noFace, repeat } from "./test-helpers.ts";
 import type { YawnEvent } from "./yawn.ts";
@@ -159,6 +159,17 @@ describe("minutes since break", () => {
     expect(minutesSinceBreak(s, 750_000)).toBe(0); // away for 2.5 min: on a break now
     s = stepBreak(s, 750_000, true);
     expect(minutesSinceBreak(s, 750_000 + 5 * 60_000)).toBe(5);
+  });
+
+  it("counts a steady face or a fresh body in view as at the screen, not a flicker", () => {
+    const flicker = [noFace(0), frame(100), frame(200, { pitchDeg: 20 }), noFace(300), noFace(400)].concat(frame(500));
+    expect(atScreen(flicker, null, BASELINE.bodyArea)).toBe(false); // 1–2 frame runs on hair (G-45)
+    const steady = Array.from({ length: 15 }, (_, i) => frame(i * 100));
+    expect(atScreen(steady, null, BASELINE.bodyArea)).toBe(true);
+    const gone = [noFace(1000)];
+    expect(atScreen(gone, { t: 900, area: 0.3, motion: 0 }, BASELINE.bodyArea)).toBe(true); // head on the desk
+    expect(atScreen(gone, { t: 900, area: 0.01, motion: 0 }, BASELINE.bodyArea)).toBe(false); // left the chair
+    expect(atScreen(gone, { t: -9000, area: 0.3, motion: 0 }, BASELINE.bodyArea)).toBe(false); // stale sample
   });
 
   it("reports a break once, when the face comes back after 2 minutes or more", () => {
