@@ -26,7 +26,7 @@ if (!res.ok) {
   process.exit(1);
 }
 const messages = (await res.json()).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
-for (const m of messages.slice(-n)) {
+for (const m of n > 0 ? messages.slice(-n) : []) { // slice(-0) would be every message
   const session = m.session_id === id ? " (sesi = id flow)" : "";
   console.log(`--- ${m.timestamp} ${m.sender}${session}\n${m.text}`);
 }
