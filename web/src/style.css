@@ -429,6 +429,34 @@ select {
   margin-bottom: 12px;
 }
 
+.tanya-label {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tanya-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+#tanya-answer .sources {
+  margin-bottom: 4px;
+}
+
+#tanya-answer p + p {
+  margin-top: 6px;
+}
+
 .chart {
   margin: 0 0 12px;
 }
@@ -656,6 +684,12 @@ button.danger {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+/* display: flex above would otherwise win over the hidden attribute. */
+.choices[hidden],
+.feedback[hidden] {
+  display: none;
 }
 
 .correction .note {
