@@ -30,4 +30,6 @@ for (const m of messages.slice(-n)) {
   const session = m.session_id === id ? " (sesi = id flow)" : "";
   console.log(`--- ${m.timestamp} ${m.sender}${session}\n${m.text}`);
 }
-console.log(`\n${messages.length} pesan total untuk ${name}`);
+// Langflow 1.12 returns only the newest window (default 100 messages, max 200), so this is not a total;
+// monitor/transactions has the total.
+console.log(`\n${messages.length} pesan terbaru dibaca untuk ${name} (Langflow membatasi ke 100 terbaru)`);
