@@ -34,11 +34,13 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
+import { initialGreetingState, moodFor, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord } from "./history.ts";
 import { DB_NAME } from "./historyDb.ts";
 import { HistoryPanel } from "./historyPanel.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
+import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import {
   detectIntervalMs,
   initialPowerState,
@@ -121,6 +123,8 @@ const powerToggle = byId<HTMLInputElement>("power-saving");
 const powerNote = byId("power-note");
 const autoSendToggle = byId<HTMLInputElement>("auto-send");
 const autoSendNote = byId("auto-send-note");
+const pipButton = byId<HTMLButtonElement>("pip-open");
+const pipNote = byId("pip-note");
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -344,6 +348,72 @@ new TanyaPanel({
   todaySummary: () => panel.todaySummary(),
 });
 
+// ── Picture-in-Picture companion (plan P13, D-24) ───────────────────────────────
+
+let greeting = initialGreetingState();
+
+const companion = new PipCompanion({
+  debug: DEBUG,
+  onChange: (open) => {
+    renderPipButton();
+    if (open) renderStatus();
+  },
+  onSnooze: () => {
+    greeting = snoozeGreeting(greeting, Date.now());
+    renderPipButton();
+  },
+});
+
+function renderPipButton() {
+  if (!PipCompanion.supported()) {
+    pipButton.disabled = true;
+    pipNote.textContent =
+      "Browser ini belum mendukung jendela pendamping (Document Picture-in-Picture, ada di Chrome dan Edge versi baru).";
+    return;
+  }
+  pipButton.textContent = companion.isOpen ? "Tutup pendamping" : "Buka pendamping";
+  const snoozed =
+    greeting.snoozeUntil > Date.now() ? ` Sapaan ditunda sampai ${clock(new Date(greeting.snoozeUntil))}.` : "";
+  pipNote.textContent =
+    (companion.isOpen
+      ? "Pendamping tetap terlihat di atas jendela lain, dan pemantauan tetap berjalan saat kamu bekerja di aplikasi lain."
+      : "Jendela kecil berisi beruang yang ikut menunjukkan status. Buka sebelum pindah ke aplikasi lain supaya pemantauan tidak melambat.") +
+    snoozed;
+}
+
+pipButton.addEventListener("click", () => {
+  if (companion.isOpen) {
+    companion.close();
+    return;
+  }
+  companion.open().catch((err) => {
+    console.error(err);
+    pipNote.textContent = "Jendela pendamping tidak bisa dibuka.";
+  });
+});
+
+function companionView(): CompanionView {
+  if (calibration) return { mood: "menunggu", label: "Kalibrasi…", note: "Lihat ke layar seperti biasa." };
+  if (!baseline) return { mood: "menunggu", label: "Belum dikalibrasi", note: "Kalibrasi dulu di tab Equilibre." };
+  const shown = monitor?.labelState.shown;
+  if (!shown) return { mood: "menunggu", label: "Menganalisis…", note: "Label pertama muncul sebentar lagi." };
+  return {
+    mood: moodFor(shown.label),
+    label: shown.label,
+    note: hold ? "Label terakhir ditahan sebentar." : `Dievaluasi ${clock(new Date())}`,
+  };
+}
+
+// Before the window opens the greeting state still follows the label, so opening it later does
+// not replay an old change.
+function renderCompanion() {
+  const shown = calibration || !baseline ? null : (monitor?.labelState.shown?.label ?? null);
+  const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now());
+  greeting = step.state;
+  companion.render(companionView());
+  if (step.say) companion.say(step.say);
+}
+
 function recordEvaluation(step: EvaluationStep, t: number) {
   const shown = monitor?.labelState.shown;
   if (!shown || !breakState) return;
@@ -430,6 +500,7 @@ function setLabel(text: string, label = "none") {
 }
 
 function renderStatus() {
+  renderCompanion();
   reasonList.replaceChildren();
   pendingNote.hidden = true;
   longRestNote.hidden = saran === null || calibration !== null;
@@ -620,6 +691,21 @@ function runDetection({ landmarker, segmenter }: Detectors) {
   let fpsWindowStart = performance.now();
   let lastBodyT = -Infinity;
   let grid: BodyGrid | null = null;
+  // Each tick is scheduled on the page and, while the companion is open, on the PiP window too;
+  // whichever timer fires first runs it and cancels the other (plan P13). A hidden tab is throttled
+  // to ±1 fps (G-03), and a PiP window the browser counts as hidden is throttled as well (G-56), so
+  // neither window alone can be trusted. Closing the PiP window cannot stop the loop: the page's
+  // timer is always pending too.
+  let pending: Array<[Window, number]> = [];
+  const schedule = (delay: number) => {
+    const fire = () => {
+      for (const [win, id] of pending) win.clearTimeout(id);
+      pending = [];
+      tick();
+    };
+    const pip = companion.pipWindow;
+    pending = (pip ? [window, pip] : [window]).map((win) => [win, win.setTimeout(fire, delay)]);
+  };
 
   const tick = () => {
     const now = performance.now();
@@ -644,10 +730,11 @@ function runDetection({ landmarker, segmenter }: Detectors) {
     }
     if (now - fpsWindowStart >= 1000) {
       fpsOutput.textContent = ((fpsFrames * 1000) / (now - fpsWindowStart)).toFixed(1);
+      companion.setFps(fpsOutput.textContent);
       fpsFrames = 0;
       fpsWindowStart = now;
     }
-    setTimeout(tick, Math.max(0, detectIntervalMs(power, calibration !== null) - (performance.now() - now)));
+    schedule(Math.max(0, detectIntervalMs(power, calibration !== null) - (performance.now() - now)));
   };
   tick();
 }
@@ -968,6 +1055,7 @@ async function main() {
   renderCalibrationIdle();
   renderPower();
   renderAutoSend();
+  renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
   void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock());
