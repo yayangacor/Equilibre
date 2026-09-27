@@ -139,7 +139,12 @@ export class Dashboard {
           ? minutes(0)
           : `${minutes(notJudged)} (tab tidak terlihat ${one.format(s.ditahan.fps)}, mata tidak terlihat ${one.format(s.ditahan.mata)})`,
       ],
-      ["Jeda ≥ 2 menit", s.jeda.jumlah === 0 ? "belum ada" : `${s.jeda.jumlah}× · ${minutes(s.jeda.menit)}`],
+      [
+        "Jeda ≥ 2 menit",
+        s.jeda.jumlah === 0
+          ? "belum ada"
+          : `${s.jeda.jumlah}× · ${minutes(s.jeda.menit)}${s.jeda.manual > 0 ? ` (${s.jeda.manual} ditandai sendiri)` : ""}`,
+      ],
       [
         "Rekomendasi",
         s.rekomendasi.jumlah === 0

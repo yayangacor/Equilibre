@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WindowFeatures } from "./features.ts";
 import {
+  cameraJustCountedBreak,
   correctionChoices,
   dayKey,
   oldestKeptDay,
@@ -10,6 +11,7 @@ import {
   toExport,
   toKssRecord,
   toLabelCorrection,
+  toManualBreakRecord,
   toRecommendationRecord,
   type DayData,
   type EvaluationRecord,
@@ -165,7 +167,7 @@ describe("summarizeDay", () => {
         evaluasi: [ev(at(9, 0), "normal"), ev(at(10, 0), "normal", { sesi: 2 })],
         jeda: [
           { hari: "2026-09-23", sesi: 1, mulai: 0, selesai: 150_000, menit: 2.5 },
-          { hari: "2026-09-23", sesi: 1, mulai: 0, selesai: 600_000, menit: 10 },
+          { hari: "2026-09-23", sesi: 1, mulai: 0, selesai: 600_000, menit: 10, pemicu: "manual" },
         ],
         rekomendasi: [rec("sudah dilakukan", "otomatis"), rec("tidak relevan", "manual"), rec(null, "otomatis")],
         koreksi_label: [{ hari: "2026-09-23", sesi: 1, t: at(10, 0), label_tampil: "lelah", label_koreksi: "normal", skor: 0.75, alasan: [] }],
@@ -174,7 +176,7 @@ describe("summarizeDay", () => {
       10_000,
     );
     expect(s.sesi).toBe(2);
-    expect(s.jeda).toEqual({ jumlah: 2, menit: 12.5 });
+    expect(s.jeda).toEqual({ jumlah: 2, menit: 12.5, manual: 1 });
     expect(s.rekomendasi).toEqual({ jumlah: 3, otomatis: 2, sudahDilakukan: 1, tidakRelevan: 1, belum: 1 });
     expect(s.koreksi).toBe(1);
     expect(s.kss).toEqual({ jumlah: 3, rataRata: 6 });
@@ -251,7 +253,15 @@ describe("feedback records", () => {
 describe("toBreakRecord", () => {
   it("files the break under the day it started, in minutes", () => {
     const b = toBreakRecord({ mulai: local(2026, 9, 23, 23, 58), selesai: local(2026, 9, 24, 0, 5) }, 1);
-    expect(b).toEqual({ hari: "2026-09-23", sesi: 1, mulai: b.mulai, selesai: b.selesai, menit: 7 });
+    expect(b).toEqual({ hari: "2026-09-23", sesi: 1, mulai: b.mulai, selesai: b.selesai, menit: 7, pemicu: "kamera" });
     expect(toBreakRecord({ mulai: 0, selesai: 150_000 }, 1).menit).toBe(2.5);
+  });
+
+  it("marks a break by hand as ending now, and not right after one the camera counted", () => {
+    const t = local(2026, 9, 27, 10, 0);
+    expect(toManualBreakRecord(10, t, 3)).toEqual({ hari: "2026-09-27", sesi: 3, mulai: t - 600_000, selesai: t, menit: 10, pemicu: "manual" });
+    expect(cameraJustCountedBreak(null, t)).toBe(false);
+    expect(cameraJustCountedBreak(t - 4 * 60_000, t)).toBe(true);
+    expect(cameraJustCountedBreak(t - 5 * 60_000, t)).toBe(false);
   });
 });

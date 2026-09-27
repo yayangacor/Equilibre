@@ -236,6 +236,7 @@ let batteryLevel: number | null = null; // null = Battery Status API not availab
 const powerLog: { t_ms: number; sebab: PowerReason }[] = [{ t_ms: 0, sebab: powerReason(power) }];
 
 let breakState: BreakState | null = null;
+let lastCameraBreak: number | null = null; // wall clock end of the last break counted from the camera
 
 // Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock.
 const SESSION = Math.round(performance.timeOrigin);
@@ -272,7 +273,10 @@ function onFrame(s: FrameSignal) {
   const present = atScreen(sessionLog.slice(-60), bodyLog.at(-1) ?? null, baseline?.bodyArea ?? null);
   breakState = prevBreak ? stepBreak(prevBreak, s.t, present) : initialBreakState(s.t);
   const ended = prevBreak && breakEnded(prevBreak, breakState);
-  if (ended) panel.save("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: wallClock(ended.selesai) }, SESSION));
+  if (ended) {
+    lastCameraBreak = wallClock(ended.selesai);
+    panel.save("jeda", toBreakRecord({ mulai: wallClock(ended.mulai), selesai: lastCameraBreak }, SESSION));
+  }
 
   if (calibration) {
     const run = calibration;
@@ -321,6 +325,13 @@ const selfReport = new SelfReport({
   shown: () => (calibration ? null : (monitor?.labelState.shown ?? null)),
   testMode: TEST_MODE,
   beep: reminderBeep,
+  lastCameraBreak: () => lastCameraBreak,
+  // Before the first frame there is nothing to restart: the count starts at that frame anyway.
+  breakTaken: () => {
+    if (!breakState) return;
+    breakState = initialBreakState(performance.now());
+    renderPayload();
+  },
 });
 
 function recordEvaluation(step: EvaluationStep, t: number) {

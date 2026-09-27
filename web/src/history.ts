@@ -34,8 +34,14 @@ export type EvaluationRecord = Stamp &
   };
 
 // Nobody at the screen for BREAK_MIN_MS or more (features.ts atScreen), the definition behind
-// menit_sejak_jeda.
-export type BreakRecord = Stamp & { mulai: number; selesai: number; menit: number };
+// menit_sejak_jeda, or a break the user marked by hand because the camera missed it (NOTES D-42).
+// pemicu: absent in records stored before 27 Sep (all of them from the camera).
+export type BreakRecord = Stamp & { mulai: number; selesai: number; menit: number; pemicu?: "kamera" | "manual" };
+
+// "Saya sudah jeda": the choices of how long, in minutes. A mark this soon after a break the
+// camera already counted is not stored again.
+export const MANUAL_BREAK_MINUTES = [5, 10, 15, 30] as const;
+export const MANUAL_BREAK_AFTER_CAMERA_MS = 5 * 60_000;
 
 export type Feedback = "sudah dilakukan" | "tidak relevan";
 
@@ -98,15 +104,28 @@ export function toEvaluationRecord(
   };
 }
 
-export function toBreakRecord(b: { mulai: number; selesai: number }, sesi: number): BreakRecord {
+export function toBreakRecord(
+  b: { mulai: number; selesai: number },
+  sesi: number,
+  pemicu: NonNullable<BreakRecord["pemicu"]> = "kamera",
+): BreakRecord {
   return {
     hari: dayKey(b.mulai),
     sesi,
     mulai: b.mulai,
     selesai: b.selesai,
     menit: Math.round((b.selesai - b.mulai) / 6_000) / 10,
+    pemicu,
   };
 }
+
+// lastCameraBreak = when the last break the camera counted ended (wall clock), null for none yet.
+export const cameraJustCountedBreak = (lastCameraBreak: number | null, t: number) =>
+  lastCameraBreak !== null && t - lastCameraBreak < MANUAL_BREAK_AFTER_CAMERA_MS;
+
+// A break marked by hand at t, ending now and lasting the chosen minutes.
+export const toManualBreakRecord = (menit: number, t: number, sesi: number): BreakRecord =>
+  toBreakRecord({ mulai: t - menit * 60_000, selesai: t }, sesi, "manual");
 
 type Context = { t: number; sesi: number };
 
@@ -194,7 +213,7 @@ export type DaySummary = {
   menit: LabelMinutes; // judged evaluations, by the label shown
   ditahan: Record<HoldCause | "lain", number>; // not judged, in minutes
   perJam: HourSummary[]; // every hour from the first to the last one with data, gaps as zeros
-  jeda: { jumlah: number; menit: number };
+  jeda: { jumlah: number; menit: number; manual: number };
   rekomendasi: { jumlah: number; otomatis: number; sudahDilakukan: number; tidakRelevan: number; belum: number };
   koreksi: number;
   kss: { jumlah: number; rataRata: number | null };
@@ -240,7 +259,11 @@ export function summarizeDay(data: DayData, evalIntervalMs: number): DaySummary 
     menit,
     ditahan,
     perJam,
-    jeda: { jumlah: data.jeda.length, menit: data.jeda.reduce((sum, b) => sum + b.menit, 0) },
+    jeda: {
+      jumlah: data.jeda.length,
+      menit: data.jeda.reduce((sum, b) => sum + b.menit, 0),
+      manual: data.jeda.filter((b) => b.pemicu === "manual").length,
+    },
     rekomendasi: {
       jumlah: data.rekomendasi.length,
       otomatis: data.rekomendasi.filter((r) => r.pemicu === "otomatis").length,
