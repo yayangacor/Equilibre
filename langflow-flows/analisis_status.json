@@ -467,7 +467,7 @@
         "type": "genericNode",
         "measured": {
           "width": 320,
-          "height": 265
+          "height": 347
         }
       },
       {
@@ -780,7 +780,7 @@
             ],
             "frozen": false,
             "icon": "brain-circuit",
-            "last_updated": "2026-09-26T09:36:12.703Z",
+            "last_updated": "2026-09-27T13:02:53.828Z",
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
@@ -875,7 +875,7 @@
               },
               "base_url_ibm_watsonx": {
                 "_input_type": "DropdownInput",
-                "advanced": false,
+                "advanced": true,
                 "combobox": false,
                 "dialog_inputs": {},
                 "display_name": "watsonx API Endpoint",
@@ -896,14 +896,15 @@
                 "placeholder": "",
                 "real_time_refresh": true,
                 "required": false,
-                "show": false,
+                "show": true,
                 "title_case": false,
                 "toggle": false,
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "str",
-                "value": "https://us-south.ml.cloud.ibm.com"
+                "value": "https://us-south.ml.cloud.ibm.com",
+                "load_from_db": false
               },
               "code": {
                 "advanced": true,
@@ -1147,12 +1148,12 @@
                     }
                   },
                   {
-                    "name": "qwen/qwen3.8-flash",
-                    "provider": "OpenAI Compatible",
-                    "category": "OpenAI Compatible",
-                    "icon": "Plug",
+                    "name": "mistralai/mistral-small-3-1-24b-instruct-2503",
+                    "provider": "IBM WatsonX",
+                    "category": "IBM WatsonX",
+                    "icon": "IBM",
                     "metadata": {
-                      "icon": "Plug",
+                      "icon": "IBM",
                       "tool_calling": true,
                       "reasoning": false,
                       "search": false,
@@ -1245,7 +1246,7 @@
               },
               "project_id": {
                 "_input_type": "StrInput",
-                "advanced": false,
+                "advanced": true,
                 "display_name": "watsonx Project ID",
                 "dynamic": false,
                 "info": "The project ID associated with the foundation model (IBM watsonx.ai only)",
@@ -1256,7 +1257,7 @@
                 "override_skip": false,
                 "placeholder": "",
                 "required": false,
-                "show": false,
+                "show": true,
                 "title_case": false,
                 "tool_mode": false,
                 "trace_as_metadata": true,
@@ -1476,12 +1477,12 @@
                 "group_outputs": false,
                 "method": "retrieve_data",
                 "name": "retrieve_data",
-                "selected": "Table",
                 "tool_mode": true,
                 "types": [
                   "Table"
                 ],
-                "value": "__UNDEFINED__"
+                "value": "__UNDEFINED__",
+                "selected": "Table"
               }
             ],
             "pinned": false,
@@ -1593,7 +1594,8 @@
                     "display_name": "Column Name",
                     "edit_mode": "inline",
                     "name": "column_name",
-                    "type": "str"
+                    "type": "str",
+                    "formatter": "text"
                   },
                   {
                     "default": false,
@@ -1601,7 +1603,8 @@
                     "display_name": "Vectorize",
                     "edit_mode": "inline",
                     "name": "vectorize",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "formatter": "boolean"
                   },
                   {
                     "default": false,
@@ -1609,7 +1612,8 @@
                     "display_name": "Identifier",
                     "edit_mode": "inline",
                     "name": "identifier",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "formatter": "boolean"
                   }
                 ],
                 "title_case": false,
@@ -1943,7 +1947,13 @@
               }
             },
             "tool_mode": false
-          }
+          },
+          "selected_output": "dataframe_output"
+        },
+        "selected": false,
+        "measured": {
+          "width": 320,
+          "height": 513
         }
       },
       {
@@ -2138,6 +2148,11 @@
             },
             "tool_mode": false
           }
+        },
+        "selected": false,
+        "measured": {
+          "width": 320,
+          "height": 331
         }
       }
     ],
@@ -2231,6 +2246,34 @@
         "targetHandle": "{œfieldNameœ:œinput_valueœ,œidœ:œChatOutput-yK0AUœ,œinputTypesœ:[œDataœ,œJSONœ,œDataFrameœ,œTableœ,œMessageœ],œtypeœ:œstrœ}"
       },
       {
+        "id": "reactflow__edge-ParserComponent-panduan{œdataTypeœ:œParserComponentœ,œidœ:œParserComponent-panduanœ,œnameœ:œparsed_textœ,œoutput_typesœ:[œMessageœ]}-Prompt-t2oaK{œfieldNameœ:œcontextœ,œidœ:œPrompt-t2oaKœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "source": "ParserComponent-panduan",
+        "target": "Prompt-t2oaK",
+        "sourceHandle": "{œdataTypeœ:œParserComponentœ,œidœ:œParserComponent-panduanœ,œnameœ:œparsed_textœ,œoutput_typesœ:[œMessageœ]}",
+        "targetHandle": "{œfieldNameœ:œcontextœ,œidœ:œPrompt-t2oaKœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ParserComponent",
+            "id": "ParserComponent-panduan",
+            "name": "parsed_text",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "context",
+            "id": "Prompt-t2oaK",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
         "id": "reactflow__edge-Knowledge-panduan{œdataTypeœ:œKnowledgeœ,œidœ:œKnowledge-panduanœ,œnameœ:œretrieve_dataœ,œoutput_typesœ:[œTableœ]}-ParserComponent-panduan{œfieldNameœ:œinput_dataœ,œidœ:œParserComponent-panduanœ,œinputTypesœ:[œDataFrameœ,œTableœ,œDataœ,œJSONœ],œtypeœ:œotherœ}",
         "source": "Knowledge-panduan",
         "target": "ParserComponent-panduan",
@@ -2260,40 +2303,12 @@
         "animated": false,
         "className": "",
         "selected": false
-      },
-      {
-        "id": "reactflow__edge-ParserComponent-panduan{œdataTypeœ:œParserComponentœ,œidœ:œParserComponent-panduanœ,œnameœ:œparsed_textœ,œoutput_typesœ:[œMessageœ]}-Prompt-t2oaK{œfieldNameœ:œcontextœ,œidœ:œPrompt-t2oaKœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
-        "source": "ParserComponent-panduan",
-        "target": "Prompt-t2oaK",
-        "sourceHandle": "{œdataTypeœ:œParserComponentœ,œidœ:œParserComponent-panduanœ,œnameœ:œparsed_textœ,œoutput_typesœ:[œMessageœ]}",
-        "targetHandle": "{œfieldNameœ:œcontextœ,œidœ:œPrompt-t2oaKœ,œinputTypesœ:[œMessageœ],œtypeœ:œstrœ}",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ParserComponent",
-            "id": "ParserComponent-panduan",
-            "name": "parsed_text",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "context",
-            "id": "Prompt-t2oaK",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "animated": false,
-        "className": "",
-        "selected": false
       }
     ],
     "viewport": {
-      "x": -528.8228615785033,
-      "y": -919.8033779952843,
-      "zoom": 1.2618190060392116
+      "x": 122.76775142242838,
+      "y": -265.41565397084787,
+      "zoom": 0.4821338873477562
     }
   }
 }
