@@ -3,7 +3,7 @@ import { config } from "./config.ts";
 import { analyze } from "./analyze.ts";
 import { runBob } from "./bob.ts";
 import { parseFeatures, toFlowInput } from "./features.ts";
-import { runFlow } from "./langflow.ts";
+import { assertLangflowUp, runFlow } from "./langflow.ts";
 import { LangflowError } from "./reply.ts";
 import { parseTanya, tanya } from "./tanya.ts";
 
@@ -63,6 +63,7 @@ app.post("/api/tanya", async (req, res) => {
   }
   bobBusy = true;
   try {
+    await assertLangflowUp();
     res.json(await tanya(parsed.value, runBob));
   } catch (err) {
     if (err instanceof LangflowError) {

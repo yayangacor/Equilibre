@@ -182,8 +182,13 @@ export type TanyaAnswer = {
   biaya: number | null; // session_costs as Bob reports it
 };
 
+// Tool-call markup written as text: what the model does when it has no real tool (NOTES G-48).
+const FAKE_TOOL_CALL = /<\/?(function_calls|invoke)\b/i;
+
 // `bob run --format json` prints {type:"result", status, stats:{tool_calls, session_costs}, last_message}
-// (G-13). Other lines (logs) are skipped; the last result line counts.
+// (G-13). Other lines (logs) are skipped; the last result line counts. An answer is only passed on when
+// Bob really called a Langflow flow: with 0 tool calls (27 Sep, Langflow down) it wrote the calls as text
+// and made up advice that is in no flow and no source.
 export function parseBobOutput(stdout: string): TanyaAnswer {
   const result = stdout
     .split(/\r?\n/)
@@ -195,13 +200,21 @@ export function parseBobOutput(stdout: string): TanyaAnswer {
   if (last === "") throw new LangflowError(`Bob selesai tanpa jawaban (status: ${String(result.status)}).`, 502);
   const stats = isObject(result.stats) ? result.stats : {};
   const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+  const toolCalls = num(stats.tool_calls);
+  if (toolCalls === null || toolCalls < 1 || FAKE_TOOL_CALL.test(last)) {
+    throw new LangflowError(
+      "Bob menjawab tanpa memanggil flow Langflow, jadi jawabannya tidak ditampilkan (isinya bisa tidak berasal dari panduan). " +
+        "Pastikan Langflow berjalan, lalu coba lagi.",
+      502,
+    );
+  }
   const reply = parseJsonReply(last);
   const structured = isObject(reply) && typeof reply.jawaban === "string";
   return {
     jawaban: structured ? (reply.jawaban as string) : last,
     sumber: structured && Array.isArray(reply.sumber) ? reply.sumber.filter((s): s is string => typeof s === "string") : [],
     format_bebas: !structured,
-    tool_calls: num(stats.tool_calls),
+    tool_calls: toolCalls,
     biaya: num(stats.session_costs),
   };
 }

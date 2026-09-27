@@ -6,6 +6,23 @@ type RunResponse = {
 };
 
 /**
+ * Throws when Langflow does not answer GET /health. Checked before a Bob run: without Langflow, Bob
+ * starts with no MCP tools, writes tool calls as text and makes up an answer (NOTES G-48).
+ */
+export async function assertLangflowUp(): Promise<void> {
+  try {
+    const res = await fetch(`${config.langflowUrl}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) return;
+  } catch {
+    // unreachable: same message as below
+  }
+  throw new LangflowError(
+    `Langflow tidak berjalan di ${config.langflowUrl}, jadi Bob tidak punya flow untuk dipanggil. Jalankan Langflow lalu coba lagi.`,
+    503,
+  );
+}
+
+/**
  * Runs a chat flow via POST /api/v1/run/{flowId} and returns the Chat Output text.
  * `tweaks` override node fields for this run only, keyed by node id.
  */

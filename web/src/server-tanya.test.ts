@@ -109,6 +109,19 @@ describe("parseBobOutput", () => {
     expect(parseBobOutput(result("**Maaf**, aku tidak bisa."))).toMatchObject({ jawaban: "**Maaf**, aku tidak bisa.", sumber: [], format_bebas: true });
   });
 
+  it("rejects an answer that did not come from a Langflow flow (G-48)", () => {
+    // 27 Sep, Langflow down: the calls written as text three times, then made-up advice, 0 tool calls.
+    const faked =
+      '<function_calls> <invoke name="mcp__equilibre-langflow__ringkasan_harian"> <parameter name="input">{}</parameter> </invoke> </function_calls> ' +
+      JSON.stringify({ jawaban: "Pertimbangkan istirahat lebih panjang (15–20 menit).", sumber: [] });
+    expect(() => parseBobOutput(result(faked, { tool_calls: 0, session_costs: 0.01 }))).toThrow(/tanpa memanggil flow/);
+    const clean = JSON.stringify({ jawaban: "Istirahatkan matamu.", sumber: [] });
+    expect(() => parseBobOutput(result(clean, { tool_calls: 0, session_costs: 0.01 }))).toThrow(LangflowError);
+    expect(() => parseBobOutput(JSON.stringify({ type: "result", status: "success", last_message: clean }))).toThrow(/tanpa memanggil flow/);
+    expect(() => parseBobOutput(result(`<invoke name="x"></invoke> ${clean}`))).toThrow(/tanpa memanggil flow/); // markup despite a real call
+    expect(parseBobOutput(result(clean)).tool_calls).toBe(1); // control: a real call passes
+  });
+
   it("fails on output without a result or with an empty answer", () => {
     expect(() => parseBobOutput("bukan json")).toThrow(LangflowError);
     expect(() => parseBobOutput(result("  "))).toThrow(/tanpa jawaban/);
