@@ -185,6 +185,11 @@ export type TanyaAnswer = {
 // Tool-call markup written as text: what the model does when it has no real tool (NOTES G-48).
 const FAKE_TOOL_CALL = /<\/?(function_calls|invoke)\b/i;
 
+// The cari_panduan flow's fixed answer when no note covers the question. On 27 Sep the flow sent it with
+// every file of its context attached instead of [] and Bob copied them, so the app listed three sources
+// under "not covered" (NOTES G-50). A refusal never has a source.
+export const NOT_COVERED = "Maaf, panduan Equilibre belum membahas hal itu.";
+
 // `bob run --format json` prints {type:"result", status, stats:{tool_calls, session_costs}, last_message}
 // (G-13). Other lines (logs) are skipped; the last result line counts. An answer is only passed on when
 // Bob really called a Langflow flow: with 0 tool calls (27 Sep, Langflow down) it wrote the calls as text
@@ -210,9 +215,12 @@ export function parseBobOutput(stdout: string): TanyaAnswer {
   }
   const reply = parseJsonReply(last);
   const structured = isObject(reply) && typeof reply.jawaban === "string";
+  const jawaban = structured ? (reply.jawaban as string) : last;
+  const covered = !jawaban.trim().startsWith(NOT_COVERED);
   return {
-    jawaban: structured ? (reply.jawaban as string) : last,
-    sumber: structured && Array.isArray(reply.sumber) ? reply.sumber.filter((s): s is string => typeof s === "string") : [],
+    jawaban,
+    sumber:
+      structured && covered && Array.isArray(reply.sumber) ? reply.sumber.filter((s): s is string => typeof s === "string") : [],
     format_bebas: !structured,
     tool_calls: toolCalls,
     biaya: num(stats.session_costs),

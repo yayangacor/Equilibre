@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import flowPrompt from "../../langflow-flows/prompt-cari_panduan.txt?raw";
 import { LangflowError } from "../../server/src/reply.ts";
 import {
   BOB_DISABLED_GROUPS,
   BOB_LIMITS,
   bobArgs,
+  NOT_COVERED,
   parseBobOutput,
   parseTanya,
   tanya,
@@ -120,6 +122,16 @@ describe("parseBobOutput", () => {
     expect(() => parseBobOutput(JSON.stringify({ type: "result", status: "success", last_message: clean }))).toThrow(/tanpa memanggil flow/);
     expect(() => parseBobOutput(result(`<invoke name="x"></invoke> ${clean}`))).toThrow(/tanpa memanggil flow/); // markup despite a real call
     expect(parseBobOutput(result(clean)).tool_calls).toBe(1); // control: a real call passes
+  });
+
+  it("drops the sources of a 'not covered' answer (G-50)", () => {
+    // 27 Sep, "Kenapa mataku perih": the flow refused but attached every file of its context.
+    const sources = ["aao-20-20-20.md", "abe-2023-perclos.md", "niosh-kewaspadaan-kerja.md"];
+    const refused = JSON.stringify({ jawaban: NOT_COVERED, sumber: sources });
+    expect(parseBobOutput(result(refused))).toMatchObject({ jawaban: NOT_COVERED, sumber: [], format_bebas: false });
+    const answered = JSON.stringify({ jawaban: "Alihkan pandangan tiap 20 menit.", sumber: sources.slice(0, 1) });
+    expect(parseBobOutput(result(answered)).sumber).toEqual(["aao-20-20-20.md"]); // control: a real answer keeps its source
+    expect(flowPrompt).toContain(`{"jawaban": "${NOT_COVERED}", "sumber": []}`); // the flow refuses with this exact sentence
   });
 
   it("fails on output without a result or with an empty answer", () => {
