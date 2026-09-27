@@ -37,7 +37,8 @@ Parameter URL untuk pengembangan dan uji coba:
 ## Riwayat dan umpan balik
 
 Riwayat disimpan di IndexedDB browser, **hanya di perangkat**, selama 30 hari: label tiap 10 detik beserta angka
-ringkasannya, jeda (wajah hilang ≥ 2 menit), rekomendasi Langflow dan umpan baliknya ("sudah dilakukan" / "tidak
+ringkasannya, jeda (wajah dan tubuh tidak terlihat kamera ≥ 2 menit, atau ditandai sendiri lewat tombol "Saya sudah
+jeda" kalau jedanya tidak terhitung), rekomendasi Langflow dan umpan baliknya ("sudah dilakukan" / "tidak
 relevan"), koreksi label dari pengguna, dan isian Karolinska Sleepiness Scale. Panel "Riwayat" menampilkan satu hari
 per tampilan dengan grafik menit per jam, dan bisa diunduh sebagai JSON atau dihapus seluruhnya.
 `cd web && npm run replay -- <log.csv> --ringkasan --kirim-otomatis` memutar ulang log sesi dan mencetak ringkasan
