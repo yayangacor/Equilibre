@@ -214,6 +214,7 @@ Kedip < 1 detik sengaja tidak ikut dikonfirmasi kedalamannya, supaya laju kedip 
   karena `blinkPerMin`/`blinkDurationMs` di baseline lama dihitung dengan aturan lama.
 - **HP di tangan 07:30:58–07:31:18** masih `lelah ringan` (mata tertutup 9–14% + satu pejaman ≥ 1 detik). Di segmen itu
   mata memang terbaca benar-benar terpejam (15% frame di bawah 0,044), jadi bukan lagi kasus kelopak setengah turun.
+  → diukur ulang 30 Sep dan diterima sebagai keterbatasan, lihat "HP di tangan, rekaman 7 segmen (30 Sep)".
 
 ## Kepala bersandar, wajah tersembunyi (26 Sep)
 
@@ -255,3 +256,31 @@ Pesan penahanan tetap diperbaiki (menyebut porsi mata terbuka kalau > 10%), kare
 juga ukuran pertama `BODY.stillMotion` dan `BODY.sleepShareOfBaseline` dengan kepala di meja: keduanya jauh di sisi aman.
 Belum terverifikasi: filter ini di app live dengan posisi yang sama, dan apakah flicker juga memotong deteksi jeda
 (`stepBreak` di `main.ts` masih memakai `face` mentah per frame).
+
+## HP di tangan, rekaman 7 segmen (30 Sep)
+
+Log `equilibre-sesi-20260930-232017.csv`, `?debug=1` (kalibrasi 5 menit, jendela 60 detik, 9,9–10 fps). Tester sudah
+mengantuk (malam, menguap 3×), jadi segmen terakhir tidak dipakai untuk menyetel.
+
+| Segmen | Label tampil (replay) | Pemicu |
+|---|---|---|
+| Kontrol, menatap layar | normal | – |
+| HP di tangan setinggi dada, 2 menit | `lelah ringan` 30 detik di akhir | kedipan rata-rata 430–506 ms, batas 301 ms (2 × 151 ms) |
+| HP setinggi dagu, kepala hampir tegak | normal | – |
+| Layar, lalu menguap | `lelah ringan` | menguap asli: `jawOpen` 0,91 selama ±2 detik |
+| Bolak-balik HP ↔ layar tiap 5 detik | `lelah ringan` 30 detik | kedipan lambat, tercampur kantuk |
+| Layar, menguap dan mengantuk | `lelah ringan` | menguap 4,3 detik + kedipan lambat (benar) |
+
+Kedipan saat kepala di −10° sampai −15° (masih di atas batas menunduk −15°, jadi mata tetap dinilai) rata-rata 432 ms
+(11 kedip); saat kepala tegak 179 ms. Bukan transisi kepala: tidak ada dari 7 kedip ≥ 500 ms yang terjadi saat pitch
+berubah ≥ 5°. Di sudut itu kelopak mengikuti pandangan ke HP, jadi kedip biasa terbaca lebih lama.
+
+Dua perbaikan dicoba lewat replay pada rekaman 21, 23, 26, dan 30 Sep (tanpa perubahan, keluaran identik dengan replay asli):
+
+- Batas menunduk −15° → −10°/−12°: HP jadi normal, tetapi pura-pura mengantuk 23 Sep kehilangan `lelah` dan tes mata
+  terpejam 26 Sep turun dari `lelah`/`tertidur` ke `lelah ringan`.
+- Durasi kedip hanya dari kedip dengan kepala di atas −10°: HP setinggi dada jadi normal, tetapi rekaman 23 Sep mendapat 6
+  jendela `lelah ringan` palsu baru (kembali duduk, jendela 20 detik dengan sedikit kedip).
+
+Keputusan: **diterima sebagai keterbatasan**, threshold tidak diubah. Untuk demo, HP dipegang setinggi dagu atau diletakkan
+di pangkuan (menunduk ≥ 15°, mata tidak dinilai).

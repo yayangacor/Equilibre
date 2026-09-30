@@ -77,3 +77,8 @@ Situs dataset: https://sites.google.com/view/utarldd/home
 ## Catatan
 
 Equilibre memberikan **indikator risiko**, bukan diagnosis medis.
+
+Keterbatasan yang diketahui: melihat HP yang dipegang setinggi dada (kepala menunduk ±10–15°) bisa terbaca `lelah ringan`
+selama ±30 detik, karena kelopak ikut turun mengikuti pandangan sehingga kedipan terbaca lebih lambat (±430 ms, dibanding
+±180 ms saat kepala tegak pada orang yang sama). HP setinggi dagu atau di pangkuan terbaca `normal`. Ukuran dan dua
+perbaikan yang dicoba ada di `docs/tuning-notes.md`.
