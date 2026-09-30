@@ -11,6 +11,7 @@ import {
   stepAutoSend,
   type AutoTarget,
 } from "./autoSend.ts";
+import { BLINK_SEQUENCE, calibrateBlinks, MIN_SCORE_BLINKS } from "./blinkScore.ts";
 import { bodyPresent, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
 import {
   computeBaseline,
@@ -111,6 +112,7 @@ const labelMeta = byId("label-meta");
 const reasonList = byId("reasons");
 const pendingNote = byId("pending");
 const longRestNote = byId("long-rest");
+const blinkScoreNote = byId("blink-score");
 const calibStatus = byId("calib-status");
 const calibProgress = byId("calib-progress");
 const calibButton = byId<HTMLButtonElement>("calib-button");
@@ -499,10 +501,27 @@ function setLabel(text: string, label = "none") {
   labelBadge.dataset.label = label;
 }
 
+// Blink-pattern score (NOTES D-49): information only, next to the rules' label, never changing it.
+function renderBlinkScore() {
+  const score = monitor?.blinkScore(lastEvalT);
+  blinkScoreNote.hidden = false;
+  if (!score) {
+    blinkScoreNote.textContent = "Pola kedip: kalibrasi ulang untuk mengaktifkan skor ini.";
+  } else if (score.chance === null) {
+    blinkScoreNote.textContent = `Pola kedip: mengumpulkan kedipan (${score.n} dari minimal ${MIN_SCORE_BLINKS})…`;
+  } else {
+    const verdict = score.chance >= 0.5 ? "mirip orang mengantuk" : "mirip orang segar";
+    blinkScoreNote.textContent =
+      `Pola kedip (${score.n} kedipan terakhir, maks. ${BLINK_SEQUENCE}): ${verdict}, skor ${asPct(score.chance)}. ` +
+      "Model dari dataset UTA-RLDD, hanya informasi: label di atas tetap dari aturan.";
+  }
+}
+
 function renderStatus() {
   renderCompanion();
   reasonList.replaceChildren();
   pendingNote.hidden = true;
+  blinkScoreNote.hidden = true;
   longRestNote.hidden = saran === null || calibration !== null;
   longRestNote.textContent = saran ?? "";
   labelMeta.textContent = "";
@@ -533,6 +552,7 @@ function renderStatus() {
   }
   for (const reason of shown.alasan) reasonList.append(el("li", reason));
   for (const note of shown.catatan) reasonList.append(el("li", note, "muted"));
+  renderBlinkScore();
 
   if (hold) {
     pendingNote.hidden = false;
@@ -575,6 +595,10 @@ function renderBaseline() {
     ["Pitch normal", asDeg(b.pitchDeg)],
     ["jawOpen P95", fmt2.format(b.jawOpenP95)],
     ["Luas tubuh normal", b.bodyArea === null ? "belum ada (kalibrasi ulang)" : asPct(b.bodyArea)],
+    [
+      "Kedip untuk pola kedip",
+      b.kedip ? `${b.kedip.n} kedip, ${Math.round(b.kedip.durasi.mean)} ms, ${fmt.format(b.kedip.perMenit)}/menit` : "belum ada (kalibrasi ulang)",
+    ],
     ["Dibuat", new Date(b.createdAt).toLocaleString("id-ID")],
   ];
   for (const [name, value] of rows) metricRow(baselineList, name)(value);
@@ -902,7 +926,8 @@ async function runCalibration() {
       outcome = { message: result.error, isError: true };
       return;
     }
-    baseline = result.baseline;
+    // Blink shapes of the same stage B frames, for the blink-pattern score (blinkScore.ts).
+    baseline = { ...result.baseline, kedip: calibrateBlinks(run.normal, result.baseline) };
     const saved = store !== null && saveBaseline(store, baseline);
     resetWindow(performance.now());
     outcome = {
