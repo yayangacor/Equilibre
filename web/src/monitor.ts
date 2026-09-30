@@ -1,4 +1,5 @@
 import { initialBlinkState, stepBlink, type EyeClosure } from "./blink.ts";
+import { BLINK_SEQUENCE, blinkScore, blinkShape, type BlinkShape } from "./blinkScore.ts";
 import type { BodySample } from "./body.ts";
 import { blinkThreshold, closureConfirmThreshold, type Baseline } from "./calibration.ts";
 import { computeWindowFeatures, eyesReadable, type WindowFeatures } from "./features.ts";
@@ -44,6 +45,7 @@ export class Monitor {
   private frames: FrameSignal[] = [];
   private bodies: BodySample[] = [];
   private closures: EyeClosure[] = [];
+  private blinkShapes: BlinkShape[] = []; // the last BLINK_SEQUENCE blinks within keepMs, for blinkScore
   private yawns: YawnEvent[] = [];
   // Shown label after each evaluation that judged the face (no hold).
   private history: { t: number; label: Label }[] = [];
@@ -73,6 +75,12 @@ export class Monitor {
     );
     this.blinkState = blink.state;
     if (blink.event) this.closures.push(blink.event);
+    if (blink.event?.kind === "blink") {
+      // The reopened frame (endT = s.t) is already in this.frames.
+      const shape = blinkShape(this.frames, blink.event.startT, blink.event.endT);
+      if (shape) this.blinkShapes.push(shape);
+      if (this.blinkShapes.length > BLINK_SEQUENCE) this.blinkShapes.shift();
+    }
     const yawn = stepYawn(this.yawnState, s.t, s.jawOpen, s.face);
     this.yawnState = yawn.state;
     if (yawn.event) this.yawns.push(yawn.event);
@@ -80,6 +88,7 @@ export class Monitor {
     const cutoff = s.t - this.keepMs;
     dropBefore(this.frames, cutoff, (f) => f.t);
     dropBefore(this.closures, cutoff, (c) => c.endT);
+    dropBefore(this.blinkShapes, cutoff, (b) => b.endT);
     dropBefore(this.yawns, cutoff, (y) => y.endT);
     dropBefore(this.bodies, cutoff, (b) => b.t);
     return { closure: blink.event, yawn: yawn.event };
@@ -87,6 +96,12 @@ export class Monitor {
 
   pushBody(b: BodySample) {
     this.bodies.push(b);
+  }
+
+  // Blink-pattern score (blinkScore.ts, NOTES D-49): information only, evaluate() never reads it.
+  // null when the baseline has no blink norm (calibrated before the score existed).
+  blinkScore(now: number): { chance: number | null; n: number } | null {
+    return this.baseline.kedip ? blinkScore(this.blinkShapes, now, this.baseline.kedip) : null;
   }
 
   features(now: number, windowMs: number = this.options.windowMs): WindowFeatures {

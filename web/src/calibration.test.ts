@@ -169,6 +169,23 @@ describe("baseline storage", () => {
     expect(loadBaseline(store)).toBeNull();
   });
 
+  it("keeps a valid blink norm and drops a broken one without losing the baseline", () => {
+    const store = memoryStore();
+    const kedip = {
+      durasi: { mean: 180, sd: 40 },
+      amplitudo: { mean: 0.15, sd: 0.04 },
+      kecepatan: { mean: 0.9, sd: 0.3 },
+      perMenit: 12,
+      n: 60,
+    };
+    expect(saveBaseline(store, { ...BASELINE, kedip })).toBe(true);
+    expect(loadBaseline(store)).toEqual({ ...BASELINE, kedip });
+    store.data.set(BASELINE_KEY, JSON.stringify({ ...BASELINE, kedip: { ...kedip, durasi: { mean: 180, sd: 0 } } }));
+    expect(loadBaseline(store)).toEqual(BASELINE);
+    store.data.set(BASELINE_KEY, JSON.stringify({ ...BASELINE, kedip: "60" }));
+    expect(loadBaseline(store)).toEqual(BASELINE);
+  });
+
   it("drops unknown keys", () => {
     const store = memoryStore();
     store.data.set(BASELINE_KEY, JSON.stringify({ ...BASELINE, photo: "data:image/png;base64,..." }));

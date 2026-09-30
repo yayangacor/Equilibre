@@ -1,4 +1,5 @@
 import { detectEyeClosures } from "./blink.ts";
+import type { BlinkNorm } from "./blinkScore.ts";
 import type { BodySample } from "./body.ts";
 import type { FrameSignal } from "./signals.ts";
 
@@ -12,6 +13,9 @@ export type Baseline = {
   jawOpenP95: number;
   bodyArea: number | null; // median person-mask area while working normally; null = no body detection
   createdAt: number; // epoch ms
+  // Blink shape statistics of stage B for the blink-pattern score (blinkScore.ts calibrateBlinks, added after
+  // computeBaseline). Missing or null: calibrated before the score existed, or too few blinks.
+  kedip?: BlinkNorm | null;
 };
 
 type EyeRange = Pick<Baseline, "earOpen" | "earClosed">;
@@ -190,6 +194,7 @@ export function loadBaseline(store: KeyValueStore): Baseline | null {
     // Baselines saved before body detection existed have no bodyArea: still usable.
     if (v.bodyArea !== undefined && v.bodyArea !== null && !isNumber(v.bodyArea)) return null;
     // Rebuild instead of trusting the parsed object, so unknown keys are dropped.
+    const kedip = parseBlinkNorm(v.kedip);
     return {
       earOpen: v.earOpen as number,
       earClosed: v.earClosed as number,
@@ -199,8 +204,23 @@ export function loadBaseline(store: KeyValueStore): Baseline | null {
       jawOpenP95: v.jawOpenP95 as number,
       bodyArea: isNumber(v.bodyArea) ? v.bodyArea : null,
       createdAt: v.createdAt as number,
+      // A missing or broken blink norm only turns the blink-pattern score off; the baseline stays usable.
+      ...(kedip ? { kedip } : {}),
     };
   } catch {
     return null;
   }
+}
+
+function parseBlinkNorm(value: unknown): BlinkNorm | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as Record<string, unknown>;
+  const isNumber = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+  const stat = (x: unknown) => {
+    const s = x as Record<string, unknown> | null;
+    return typeof s === "object" && s !== null && isNumber(s.mean) && isNumber(s.sd) && s.sd > 0 ? { mean: s.mean, sd: s.sd } : null;
+  };
+  const [durasi, amplitudo, kecepatan] = [stat(v.durasi), stat(v.amplitudo), stat(v.kecepatan)];
+  if (!durasi || !amplitudo || !kecepatan || !isNumber(v.perMenit) || !isNumber(v.n)) return null;
+  return { durasi, amplitudo, kecepatan, perMenit: v.perMenit, n: v.n };
 }
