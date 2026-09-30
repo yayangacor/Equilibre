@@ -1,11 +1,12 @@
 // Replays a session CSV ("Unduh log sesi") through the app's own pipeline (Monitor),
 // so threshold changes in src/ can be checked against recorded sessions.
 // Run with Node's built-in type stripping:
-//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis]
+//   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis] [--kedip-dari=N]
 // --ringkasan also prints what the dashboard would show for the session (history.ts);
 // --kirim-otomatis, when the automatic sending would have called Langflow (autoSend.ts, no network).
 import { autoTarget, initialAutoSendState, stepAutoSend } from "../src/autoSend.ts";
 import type { EyeClosure } from "../src/blink.ts";
+import { calibrateBlinks } from "../src/blinkScore.ts";
 import { median } from "../src/calibration.ts";
 import { atScreen, breakEnded, initialBreakState, minutesSinceBreak, stepBreak } from "../src/features.ts";
 import { summarizeDay, toBreakRecord, toEvaluationRecord, type BreakRecord, type EvaluationRecord } from "../src/history.ts";
@@ -63,7 +64,16 @@ function downsample(rows: readonly Row[], fps: number, phase: number): Row[] {
 const live = fpsFlag ? downsample(recorded, Number(fpsFlag), phase) : recorded;
 // Body samples keep their own cadence (BODY_INTERVAL_MS), whichever frames are dropped.
 const liveBodies = recorded.flatMap((f) => (f.body ? [f.body] : []));
-const monitor = new Monitor(baseline, {
+// Blink-pattern score (blinkScore.ts): from the baseline's blink norm, or, for a CSV calibrated before the
+// score existed, --kedip-dari=N takes the norm from the first N minutes after calibration (an approximation:
+// the app takes it from calibration stage B). Without either, the output is unchanged.
+const kedipFlag = flag("kedip-dari");
+const kedip =
+  baseline.kedip ?? (kedipFlag ? calibrateBlinks(live.filter((f) => f.t < live[0].t + Number(kedipFlag) * 60_000), baseline) : null);
+if (kedipFlag && !baseline.kedip) {
+  console.log(kedip ? `Norma kedip dari ${kedipFlag} menit pertama: ${kedip.n} kedip, ${Math.round(kedip.durasi.mean)} ms, ${kedip.perMenit.toFixed(1)}/menit` : "Kurang dari 5 kedip untuk norma kedip.");
+}
+const monitor = new Monitor(kedip ? { ...baseline, kedip } : baseline, {
   windowMs: windowFlag ? Number(windowFlag) * 1000 : windowMs,
   evalIntervalMs: EVAL_INTERVAL_MS,
   tidurMenit: tidurFlag ? Number(tidurFlag) : tidurMenit,
@@ -93,7 +103,7 @@ const fixed = (x: number | null, width: number) => (x === null ? "-" : x.toFixed
 const motion = (x: number | null) => (x === null ? "    -" : x.toFixed(3));
 
 console.log(
-  "waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka terpejam tubuh diam gerak | mentah               -> tampil               | alasan",
+  `waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka terpejam tubuh diam gerak${kedip ? " pola" : ""} | mentah               -> tampil               | alasan`,
 );
 for (const f of live) {
   while (nextBody < liveBodies.length && liveBodies[nextBody].t <= f.t) monitor.pushBody(liveBodies[nextBody++]);
@@ -126,7 +136,8 @@ for (const f of live) {
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
       `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
       `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}     ${pct(feat.pct_mata_tertutup)}  ` +
-      `${pct(feat.pct_tubuh_ada)} ${pct(feat.pct_tubuh_diam)} ${motion(feat.gerak_tubuh)} | ` +
+      `${pct(feat.pct_tubuh_ada)} ${pct(feat.pct_tubuh_diam)} ${motion(feat.gerak_tubuh)}` +
+      `${kedip ? ` ${pct(monitor.blinkScore(f.t)?.chance ?? null)}` : ""} | ` +
       `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ` +
       [
         ...(latest?.alasan ?? []),

@@ -13,17 +13,9 @@
 import { readdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { BodySample } from "../src/body.ts";
-import { detectEyeClosures } from "../src/blink.ts";
-import {
-  blinkThreshold,
-  closureConfirmThreshold,
-  computeBaseline,
-  looksClosed,
-  median,
-  percentile,
-  type Baseline,
-} from "../src/calibration.ts";
-import { eyesReadable, type WindowFeatures } from "../src/features.ts";
+import { blinkShapes, calibrateBlinks, SEQUENCE_FEATURES, sequenceFeatures, type BlinkNorm } from "../src/blinkScore.ts";
+import { computeBaseline, looksClosed, median, percentile, type Baseline } from "../src/calibration.ts";
+import type { WindowFeatures } from "../src/features.ts";
 import { Monitor } from "../src/monitor.ts";
 import type { Label } from "../src/rules.ts";
 import { parseCsv, type Row } from "./session-csv.ts";
@@ -120,76 +112,13 @@ function continuousFeatures(window: readonly Row[], stats: Stats): Record<(typeo
   };
 }
 
-// Per-blink features of the UTA-RLDD paper (Ghoddoosian et al., CVPRW 2019, eq. 2–5): duration,
-// amplitude (EAR[start] − 2·EAR[bottom] + EAR[end]) / 2, eye-opening velocity (EAR[end] − EAR[bottom]) /
-// time, and frequency. The blinks come from the app's own detector with the Monitor's thresholds
-// (blink.ts), not the paper's SVM + Blink Retrieval Algorithm; start = last open frame, end = first
-// reopened frame. As in the paper, each feature is z-scored against the participant's calibration
-// blinks and summarised over the last BLINK_SEQUENCE blinks (paper: T = 30).
-const BLINK_SEQUENCE = 30;
-type Blink = { endT: number; startT: number; durasi: number; amplitudo: number; kecepatan: number };
-const BLINK_FEATURES = ["durasi", "amplitudo", "kecepatan"] as const;
-const BLINKS = ["zk_durasi_rata", "zk_amplitudo_rata", "zk_kecepatan_rata", "zk_frekuensi_relatif"] as const;
-type BlinkStats = Record<(typeof BLINK_FEATURES)[number], { mean: number; sd: number }> & { perMenit: number };
-
-function blinksOf(frames: readonly Row[], baseline: Baseline): Blink[] {
-  const events = detectEyeClosures(
-    frames,
-    blinkThreshold(baseline),
-    (f) => eyesReadable(f, baseline),
-    closureConfirmThreshold(baseline),
-  ).filter((e) => e.kind === "blink");
-  const index = new Map(frames.map((f, i) => [f.t, i]));
-  return events.flatMap((e) => {
-    const s = index.get(e.startT);
-    const end = index.get(e.endT);
-    if (s === undefined || end === undefined || s === 0) return [];
-    let bottom = s;
-    for (let i = s; i < end; i++) if (frames[i].ear < frames[bottom].ear) bottom = i;
-    const [a, b, c] = [frames[s - 1].ear, frames[bottom].ear, frames[end].ear];
-    if (![a, b, c].every(Number.isFinite)) return [];
-    return [{
-      startT: e.startT,
-      endT: e.endT,
-      durasi: e.durationMs,
-      amplitudo: (a - 2 * b + c) / 2,
-      kecepatan: (c - b) / ((frames[end].t - frames[bottom].t) / 1000),
-    }];
-  });
-}
-
-function blinkStats(calibrationBlinks: readonly Blink[], calibrationMinutes: number): BlinkStats {
-  const stat = (name: (typeof BLINK_FEATURES)[number]) => {
-    const v = calibrationBlinks.map((b) => b[name]);
-    const m = v.reduce((x, y) => x + y, 0) / v.length;
-    return { mean: m, sd: Math.sqrt(v.reduce((x, y) => x + (y - m) ** 2, 0) / v.length) || 1 };
-  };
-  return { durasi: stat("durasi"), amplitudo: stat("amplitudo"), kecepatan: stat("kecepatan"), perMenit: calibrationBlinks.length / calibrationMinutes };
-}
-
-// The last BLINK_SEQUENCE blinks that ended by `now`; frequency = their rate over the sequence's span.
-function blinkSequenceFeatures(blinks: readonly Blink[], now: number, stats: BlinkStats) {
-  const done = blinks.filter((b) => b.endT <= now);
-  const seq = done.slice(-BLINK_SEQUENCE);
-  const zMean = (name: (typeof BLINK_FEATURES)[number]) =>
-    seq.length > 0 ? seq.reduce((a, b) => a + (b[name] - stats[name].mean) / stats[name].sd, 0) / seq.length : null;
-  const spanMin = seq.length > 1 ? (now - seq[0].startT) / 60_000 : null;
-  return {
-    values: {
-      zk_durasi_rata: zMean("durasi"),
-      zk_amplitudo_rata: zMean("amplitudo"),
-      zk_kecepatan_rata: zMean("kecepatan"),
-      zk_frekuensi_relatif: spanMin && stats.perMenit > 0 ? seq.length / spanMin / stats.perMenit : null,
-    } satisfies Record<(typeof BLINKS)[number], number | null>,
-    from: seq.length > 0 ? seq[0].startT : now, // earliest data the sequence rests on
-  };
-}
+// Per-blink features of the UTA-RLDD paper: web/src/blinkScore.ts, the same code the app runs.
 
 type Evaluated = {
   t: number;
   features: WindowFeatures;
   continuous: ReturnType<typeof continuousFeatures>;
-  blinks: ReturnType<typeof blinkSequenceFeatures>;
+  blinks: ReturnType<typeof sequenceFeatures>["values"];
   raw: Label | null;
   shown: Label | null;
   hold: boolean;
@@ -197,9 +126,9 @@ type Evaluated = {
 
 // `calibratedUntil`: blinks that started before it were used for calibration and never enter a sequence
 // (paper: the first third of the alert blinks normalise, the rest are train/test data).
-function evaluateVideo(baseline: Baseline, stats: Stats, blinkNorm: BlinkStats, frames: Row[], calibratedUntil: number): Evaluated[] {
+function evaluateVideo(baseline: Baseline, stats: Stats, blinkNorm: BlinkNorm, frames: Row[], calibratedUntil: number): Evaluated[] {
   const monitor = new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS });
-  const blinks = blinksOf(frames, baseline).filter((b) => b.startT >= calibratedUntil);
+  const blinks = blinkShapes(frames, baseline).filter((b) => b.startT >= calibratedUntil);
   const bodies: BodySample[] = frames.flatMap((f) => (f.body ? [f.body] : []));
   const out: Evaluated[] = [];
   let nextBody = 0;
@@ -218,7 +147,7 @@ function evaluateVideo(baseline: Baseline, stats: Stats, blinkNorm: BlinkStats, 
         frames.filter((g) => g.t > f.t - WINDOW_MS && g.t <= f.t),
         stats,
       ),
-      blinks: blinkSequenceFeatures(blinks, f.t, blinkNorm),
+      blinks: sequenceFeatures(blinks, f.t, blinkNorm).values,
       raw: step.latest?.label ?? null,
       shown: monitor.labelState.shown?.label ?? null,
       hold: step.hold !== null,
@@ -230,7 +159,7 @@ function evaluateVideo(baseline: Baseline, stats: Stats, blinkNorm: BlinkStats, 
 const cell = (x: number | null) => (x === null || !Number.isFinite(x) ? "" : String(Number(x.toFixed(5))));
 const header = [
   "sumber", "partisipan", "kelas", "t_detik", "kalibrasi", ...FEATURES, "kedip_relatif", "durasi_kedip_relatif",
-  ...CONTINUOUS, ...BLINKS, "rules_mentah", "rules_tampil", "ditahan",
+  ...CONTINUOUS, ...SEQUENCE_FEATURES, "rules_mentah", "rules_tampil", "ditahan",
 ];
 const lines = [header.join(",")];
 const summary: string[] = [];
@@ -264,10 +193,13 @@ for (const dir of dirs) {
     const calibEnd = videos["0"][0].t + CALIB_MS;
     const calibFrames = videos["0"].filter((f) => f.t < calibEnd);
     const stats = signalStats(calibFrames);
-    const calibBlinks = blinksOf(videos["0"], b).filter((bl) => bl.endT < calibEnd);
-    const calibMinutes = (CALIB_MS / 60_000) * (calibFrames.filter((f) => f.face).length / calibFrames.length);
-    const blinkNorm = blinkStats(calibBlinks, calibMinutes);
-    summary.push(`  kedip kalibrasi: ${calibBlinks.length} (${blinkNorm.perMenit.toFixed(1)}/menit), durasi ${blinkNorm.durasi.mean.toFixed(0)} ms, amplitudo ${blinkNorm.amplitudo.mean.toFixed(3)}, kecepatan buka ${blinkNorm.kecepatan.mean.toFixed(2)}/dtk`);
+    // The app's calibration stores the same norm (blinkScore.ts calibrateBlinks on stage B frames).
+    const blinkNorm = calibrateBlinks(calibFrames, b);
+    if (!blinkNorm) {
+      summary.push(`  dilewati: kurang dari 5 kedip di kalibrasi`);
+      continue;
+    }
+    summary.push(`  kedip kalibrasi: ${blinkNorm.n} (${blinkNorm.perMenit.toFixed(1)}/menit), durasi ${blinkNorm.durasi.mean.toFixed(0)} ms, amplitudo ${blinkNorm.amplitudo.mean.toFixed(3)}, kecepatan buka ${blinkNorm.kecepatan.mean.toFixed(2)}/dtk`);
     for (const k of CLASSES) {
       const rows = evaluateVideo(b, stats, blinkNorm, videos[k], k === "0" ? calibEnd : -Infinity);
       const faceShare = videos[k].filter((f) => f.face).length / videos[k].length;
@@ -284,7 +216,7 @@ for (const dir of dirs) {
             cell(f.kedip_per_menit === null ? null : f.kedip_per_menit / b.blinkPerMin),
             cell(f.durasi_kedip_ms === null || b.blinkDurationMs === null ? null : f.durasi_kedip_ms / b.blinkDurationMs),
             ...CONTINUOUS.map((name) => cell(r.continuous[name])),
-            ...BLINKS.map((name) => cell(r.blinks.values[name])),
+            ...SEQUENCE_FEATURES.map((name) => cell(r.blinks[name])),
             r.raw ?? "", r.shown ?? "", r.hold ? "1" : "0",
           ].join(","),
         );

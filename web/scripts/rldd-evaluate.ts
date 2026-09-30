@@ -6,7 +6,7 @@
 //     [--tanpa-kalibrasi] [--koefisien] [--uji=<dataset orang baru.csv>]
 // Body features are left out on purpose: they depend on how far the camera sits (webcam vs
 // phone in the dataset), not on drowsiness.
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const flagValue = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -237,6 +237,31 @@ console.log(
 const videos = [...videoVotes.values()];
 const videoHit = videos.filter((v) => v.votes.indexOf(Math.max(...v.votes)) === v.y).length;
 console.log(`per video (suara terbanyak jendela): ${videoHit}/${videos.length} benar`);
+
+// --ekspor=<file.json>: the model for web/src/blinkScore.ts MODEL, trained on every row of <dataset.csv>
+// (two classes only). The two-class softmax becomes one logistic: logit(class 2) = bias + Σ weight·z.
+const exportPath = flagValue("ekspor");
+if (exportPath) {
+  if (K !== 2) throw new Error("--ekspor hanya untuk dua kelas (--kelas=0,10)");
+  const m = train(samples, samples.map((s) => s.y));
+  const round = (x: number) => Number(x.toFixed(6));
+  const model = {
+    features: FEATURES,
+    fill: m.fill.map(round),
+    center: m.center.map(round),
+    scale: m.scale.map(round),
+    weights: FEATURES.map((_, j) => round(m.w[1][j + 1] - m.w[0][j + 1])),
+    bias: round(m.w[1][0] - m.w[0][0]),
+    dilatih: `${samples.length} jendela, ${subjects.length} partisipan, kelas ${classes.join("/")}, ${path}`,
+  };
+  writeFileSync(exportPath, JSON.stringify(model, null, 2) + "\n");
+  console.log(`\nModel → ${exportPath}\n${JSON.stringify(model)}`);
+  // The rounded one-logistic form must predict what the softmax model predicts, row by row.
+  const logistic = (s: Sample) =>
+    model.bias + s.x.reduce((a: number, v, j) => a + (model.weights[j] * ((v ?? model.fill[j]) - model.center[j])) / model.scale[j], 0) >= 0 ? 1 : 0;
+  const mismatch = samples.filter((s) => logistic(s) !== predict(m, s)).length;
+  console.log(`cek bentuk satu-logistik vs softmax: ${mismatch} beda dari ${samples.length} jendela`);
+}
 
 if (args.includes("--koefisien")) {
   const all = train(samples, samples.map((s) => s.y));
