@@ -50,7 +50,7 @@ Arah pitch sudah dicek user: `pitch relatif` negatif saat menunduk.
    - Opsi B: batas `perclosMild` personal, misalnya `max(0,08, 2 × PERCLOS saat kalibrasi tahap B)`. Ini perlu field baru di `Baseline`.
 2. **Jendela dengan fps rendah menghasilkan fitur yang tidak bisa dipercaya.** Saat tab tersembunyi (±1–2,5 fps, misalnya 14:01:49–14:02:09 dan 14:04:02–14:05:05), semua kedip dibatalkan (jeda > 500 ms) sehingga kedip/menit = 0, sementara PERCLOS dihitung dari segelintir frame. Pada 14:04:55, 1 dari ±10 frame tertutup langsung menghasilkan label mentah "lelah". Usulan: jangan beri label kalau fps jendela < ±5, dan tampilkan "tidak dipantau". → **Dipakai 22 Sep dengan batas 3 fps** (`RULES.minWindowFps`): label terakhir ditahan dengan catatan "Pemantauan dijeda". Batas 5 akan mematikan label di mode hemat daya. Ini terkait keputusan tab tersembunyi di `IDEA.md` bagian 7.
 3. **Menguap: hanya 1 dari beberapa percobaan yang terhitung** (6,8 detik, 14:02:54). Percobaan 14:02:26 hanya 0,9 detik di atas `jawOpen` 0,5 (minimum 1,5 detik). Percobaan 14:02:17 terjadi saat kepala menunduk, dan wajah sempat hilang dari deteksi. Sebelum menurunkan durasi minimum, rekam dulu sesi **berbicara** supaya bicara tidak ikut terhitung menguap.
-4. **EAR terbuka bergantung pada posisi kamera**: ±0,30 saat kamera di bawah wajah, 0,243 saat sejajar mata. Kalibrasi personal menangani ini, tapi user perlu kalibrasi ulang kalau kamera dipindah. Pesan di panel kalibrasi sudah menyebut hal ini.
+4. **EAR terbuka bergantung pada posisi kamera**: ±0,30 saat kamera di bawah wajah, 0,243 saat sejajar mata. Kalibrasi personal menangani ini, tapi user perlu kalibrasi ulang kalau kamera dipindah. Pesan di kartu Kalibrasi (halaman Privasi & pengaturan) sudah menyebut hal ini.
 5. **Kalibrasi tahap A (sudah diperbaiki di `d6f46eb`).** Landmark mata terpejam sesekali "meloncat" terbuka, dan 3 detik rekaman sering tidak bersamaan dengan saat mata benar-benar terpejam. Sekarang tahap A menunggu mata terdeteksi terpejam, cukup ≥30% frame terbaca tertutup, dan `eyeBlink` dipakai sebagai cadangan.
 
 ## Menunduk melihat HP, dan tertidur di meja (21 Sep sore)
@@ -98,7 +98,7 @@ Perubahan lain di versi yang sama:
 - **Mata tidak terlihat ≥ 50% jendela + tubuh ada** → label ditahan. Sebelumnya hanya "wajah hilang ≥ 50%"; sekarang juga kepala jatuh ke depan dengan wajah masih terdeteksi.
 - **PERCLOS tanpa kedip pendek** (< 500 ms), temuan 1 opsi A.
 - **Kedip ≥ 2× baseline** jadi poin pendukung: hanya dihitung kalau sudah ada tanda lain; kalau sendirian, muncul sebagai `catatan`. Di CSV 21 Sep laju kedip saat normal 24–48/menit (baseline 25,8), saat pura-pura mengantuk sampai 67.
-- **Saran istirahat panjang**: kalau label tampil `lelah`/`tertidur` total ≥ 15 menit dalam 60 menit terakhir (`ADVICE` di `rules.ts`; menit yang ditahan dan `lelah ringan` tidak dihitung), panel Status menyarankan berhenti dan, kalau badan kurang fit, minta izin. Payload membawa `menit_lelah_60`; server menurunkan `saran_istirahat_panjang` dengan batas yang sama, jadi keputusan ini tidak dibuat oleh LLM.
+- **Saran istirahat panjang**: kalau label tampil `lelah`/`tertidur` total ≥ 15 menit dalam 60 menit terakhir (`ADVICE` di `rules.ts`; menit yang ditahan dan `lelah ringan` tidak dihitung), halaman Sekarang menyarankan berhenti dan, kalau badan kurang fit, minta izin. Payload membawa `menit_lelah_60`; server menurunkan `saran_istirahat_panjang` dengan batas yang sama, jadi keputusan ini tidak dibuat oleh LLM.
 
 Efek di replay CSV 21 Sep, jendela 60 detik (`--window=60`), kode lama → baru:
 
@@ -123,7 +123,7 @@ Buka `?debug=1&calib=30&window=20&tidur=1` (jalur tertidur jadi 1 menit mata ter
    - **HP tidak perlu terlihat kamera.** Equilibre tidak mendeteksi HP; yang dibaca hanya wajah (ada/tidak, posisi kepala, mata) dan siluet tubuh (luas, gerak). Yang diuji adalah postur main HP: kepala menunduk dalam, tangan di bawah meja, hanya jempol yang bergerak. Ini kasus tersulit karena kamera hanya melihat kepala dan bahu yang nyaris diam, mirip tidur telungkup.
    - Pegang HP di tempat yang biasa dipakai. Kalau biasanya di pangkuan di bawah meja, biarkan HP dan tangan di luar frame. Kalau tangan dan HP ikut masuk frame, gerakannya mungkin ikut terbaca sebagai gerak tubuh, sehingga uji jadi lebih mudah dari kenyataan.
    - Menggulir dan membaca seperti biasa (media sosial, chat). Jangan sengaja diam, jangan sengaja banyak bergerak.
-   - Wajah boleh kadang terbaca, kadang tidak. Kalau terbaca dengan mata terbuka, `tertidur` sudah batal; kalau tidak terbaca, hanya gerak tubuh yang menentukan. Catat mana yang lebih sering terjadi (panel debug: "Wajah terdeteksi" / "Wajah tidak terdeteksi").
+   - Wajah boleh kadang terbaca, kadang tidak. Kalau terbaca dengan mata terbuka, `tertidur` sudah batal; kalau tidak terbaca, hanya gerak tubuh yang menentukan. Catat mana yang lebih sering terjadi (badge di pratinjau kamera: "Wajah terdeteksi" / "Wajah tidak terdeteksi").
 3. Pura-pura mengantuk: pejam pelan ≥ 1 detik beberapa kali dan menguap, sampai label "lelah" bertahan ≥ 1 menit.
 4. Mata terpejam dengan kepala tegak, diam 90 detik → "lelah", lalu "tertidur".
 5. Kepala direbahkan di meja, diam 3 menit → label ditahan, lalu "tertidur".
@@ -133,7 +133,7 @@ Yang dicek dari CSV: `body_area` saat duduk / kepala di meja / kursi kosong / ja
 
 ## Hemat daya: deteksi ±5 fps (22 Sep)
 
-Toggle "Hemat daya" di panel Sinyal wajah menurunkan loop deteksi dari 100 ms ke 200 ms (`web/src/powerSaving.ts`). Kalibrasi selalu berjalan ±10 fps, jadi satu baseline dipakai di kedua mode. Pilihan diingat di perangkat, dan mode ini menyala sendiri saat baterai di bawah 20% dan tidak diisi (Battery Status API, hanya Chromium). Header CSV mencatat kapan mode berubah: `hemat_daya=[{"t_ms":…,"sebab":"pilihan"|"baterai"|null}]`.
+Toggle "Hemat daya" di halaman Privasi & pengaturan menurunkan loop deteksi dari 100 ms ke 200 ms (`web/src/powerSaving.ts`). Kalibrasi selalu berjalan ±10 fps, jadi satu baseline dipakai di kedua mode. Pilihan diingat di perangkat, dan mode ini menyala sendiri saat baterai di bawah 20% dan tidak diisi (Battery Status API, hanya Chromium). Header CSV mencatat kapan mode berubah: `hemat_daya=[{"t_ms":…,"sebab":"pilihan"|"baterai"|null}]`.
 
 Biayanya diukur sebelum toggle ditulis, dengan memutar ulang sesi 21 Sep seolah direkam di 5 fps:
 
