@@ -4,8 +4,8 @@ import { dayKey, oldestKeptDay, summarizeDay, toExport, type DayData, type DaySu
 import { openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
 
 // The local history as the page uses it: opening it (days past the retention go, NOTES
-// D-38), writing records without ever blocking the monitoring, and the "Riwayat" panel
-// (dashboard.ts) with its export and delete buttons.
+// D-38), writing records without ever blocking the monitoring, the "Insight" page (dashboard.ts),
+// today's numbers for the "Sekarang" page (onToday), and the export and delete buttons.
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const CLEAR_CONFIRM_MS = 5_000;
@@ -14,6 +14,8 @@ export class HistoryPanel {
   // Called after a feedback was stored, so other views of the same recommendation follow.
   onFeedback: (id: number, feedback: Feedback) => void = () => {};
   onCleared: () => void = () => {};
+  // Today's summary after every refresh, whichever day the Insight page shows (null: no history).
+  onToday: (summary: DaySummary | null) => void = () => {};
 
   private db: HistoryDb | null = null;
   private problem: string | null = null;
@@ -30,8 +32,16 @@ export class HistoryPanel {
       {
         select: byId<HTMLSelectElement>("day-select"),
         note: byId("history-note"),
+        body: byId("insight-body"),
+        lead: byId("insight-lead"),
+        tiles: byId("insight-tiles"),
+        labelBars: byId("label-bars"),
+        labelBarsNote: byId("label-bars-note"),
+        trendWrap: byId("trend-wrap"),
+        trendTip: byId("trend-tip"),
+        trendLegend: byId("trend-legend"),
+        trendSub: byId("trend-sub"),
         stats: byId("day-stats"),
-        figure: byId("day-chart"),
         legend: byId("chart-legend"),
         chart: byId("chart-wrap"),
         tip: byId("chart-tip"),
@@ -105,18 +115,26 @@ export class HistoryPanel {
   async refresh() {
     const today = dayKey(Date.now());
     const day = this.shownDay ?? today;
-    const view = { days: [] as string[], day, today, summary: null, rekomendasi: [], problem: this.problem };
+    const view = { days: [] as string[], day, today, summary: null, rekomendasi: [], evaluasi: [], jeda: [], problem: this.problem };
     if (!this.db) {
       this.dashboard.render({ ...view, problem: this.problem ?? "Riwayat belum siap." });
+      this.onToday(null);
       return;
     }
     try {
-      const [days, data] = await Promise.all([this.db.days(), this.loadDay(this.db, day)]);
+      const db = this.db;
+      const [days, data, todayData] = await Promise.all([
+        db.days(),
+        this.loadDay(db, day),
+        day === today ? null : this.loadDay(db, today),
+      ]);
       const summary = summarizeDay(data, this.evalIntervalMs);
-      this.dashboard.render({ ...view, days, summary, rekomendasi: data.rekomendasi, problem: this.problem });
+      this.dashboard.render({ ...view, days, summary, rekomendasi: data.rekomendasi, evaluasi: data.evaluasi, jeda: data.jeda, problem: this.problem });
+      this.onToday(todayData ? summarizeDay(todayData, this.evalIntervalMs) : summary);
     } catch (err) {
       this.failed(err);
       this.dashboard.render({ ...view, problem: this.problem });
+      this.onToday(null);
     }
   }
 

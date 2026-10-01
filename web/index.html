@@ -4,167 +4,444 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Equilibre</title>
   </head>
-  <body>
-    <main class="app">
-      <header>
-        <h1>Equilibre</h1>
-        <p class="subtitle">Prototipe hari 2: kalibrasi, fitur kelelahan, dan label</p>
-      </header>
+  <body data-page="sekarang">
+    <a class="skip-link" href="#main">Lewati ke konten</a>
 
-      <div class="column">
-        <section class="camera">
-          <video id="video" autoplay playsinline muted></video>
-          <canvas id="overlay" hidden></canvas>
-          <p id="face-status" class="badge" data-state="loading">Memuat kamera dan model…</p>
-          <p id="camera-prompt" class="camera-prompt" hidden></p>
+    <header class="topbar">
+      <a class="brand" href="#sekarang" aria-label="Equilibre, ke halaman Sekarang">
+        <img src="/favicon.svg" alt="" width="28" height="28" />
+        <span>Equilibre</span>
+      </a>
+      <nav class="tabs" aria-label="Halaman">
+        <a href="#sekarang" data-page-link="sekarang">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 12 7 12 10 5 14 19 17 12 21 12" /></svg>
+          <span>Sekarang</span>
+        </a>
+        <a href="#insight" data-page-link="insight">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="20" x2="5" y2="13" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="19" y1="20" x2="19" y2="10" /></svg>
+          <span>Insight</span>
+        </a>
+        <a href="#tanya" data-page-link="tanya">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+          <span>Tanya</span>
+        </a>
+        <a href="#privasi" data-page-link="privasi">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><polyline points="9 12 11 14 15 10" /></svg>
+          <span>Privasi</span>
+        </a>
+        <a href="#teknis" data-page-link="teknis">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="8 7 3 12 8 17" /><polyline points="16 7 21 12 16 17" /></svg>
+          <span>Teknis</span>
+        </a>
+      </nav>
+      <p id="top-status" class="status-chip" data-label="none" aria-live="polite">
+        <span class="shape" aria-hidden="true"></span><span class="status-text">Memuat…</span>
+      </p>
+    </header>
+
+    <div class="shell">
+      <main id="main" class="pages" tabindex="-1">
+        <!-- ── Sekarang ─────────────────────────────────────────────────────── -->
+        <section class="page" data-page="sekarang" aria-labelledby="h-sekarang">
+          <h1 id="h-sekarang" class="visually-hidden" tabindex="-1">Sekarang</h1>
+
+          <article id="hero" class="hero" data-label="none">
+            <div id="hero-bear" class="hero-art" aria-hidden="true"></div>
+            <div class="hero-body">
+              <p id="label" class="label-chip" data-label="none">Memuat…</p>
+              <h2 id="hero-title" class="hero-title">Menyiapkan Equilibre…</h2>
+              <p id="hero-text" class="hero-text">Kamera dan model deteksi sedang dimuat. Semuanya diproses di perangkat ini.</p>
+              <div id="hero-progress" class="bar progress" hidden><span></span></div>
+              <div class="hero-actions">
+                <button id="hero-calib" type="button" class="btn primary" hidden>Mulai kalibrasi</button>
+                <a id="hero-saran" class="btn tonal" href="#saran" hidden>Lihat saran</a>
+              </div>
+              <p id="label-meta" class="meta"></p>
+            </div>
+          </article>
+
+          <p id="long-rest" class="callout danger" role="status" hidden></p>
+
+          <details id="why" class="card why">
+            <summary>
+              <span class="summary-title">Kenapa Equilibre menilai begini?</span>
+              <span class="summary-hint">Tanda yang terbaca kamera di jendela terakhir</span>
+            </summary>
+            <ul id="reasons" class="reasons"></ul>
+            <p id="pending" class="callout info" hidden></p>
+            <div id="correction" class="inline-action" hidden>
+              <button id="correct-label" type="button" class="btn text">Label ini tidak sesuai?</button>
+              <div id="correction-choices" class="choices" hidden>
+                <span class="choices-label">Menurutku sebenarnya:</span>
+                <span id="correction-options" class="choice-row"></span>
+                <button id="correction-cancel" type="button" class="btn text">Batal</button>
+              </div>
+              <p id="correction-note" class="helper" aria-live="polite"></p>
+            </div>
+          </details>
+
+          <section class="card today" aria-labelledby="h-today">
+            <div class="card-head">
+              <h2 id="h-today">Hari ini</h2>
+              <a class="link" href="#insight">Lihat insight</a>
+            </div>
+            <div class="tiles three">
+              <div class="tile">
+                <p class="tile-label">Sejak jeda terakhir</p>
+                <p id="since-break" class="tile-value">–</p>
+              </div>
+              <div class="tile">
+                <p class="tile-label">Dipantau hari ini</p>
+                <p id="today-monitored" class="tile-value">–</p>
+              </div>
+              <div class="tile">
+                <p class="tile-label">Jeda hari ini</p>
+                <p id="today-breaks" class="tile-value">–</p>
+              </div>
+            </div>
+            <div id="today-strip" class="strip" role="img" aria-label="Belum ada riwayat hari ini."></div>
+            <ul id="today-legend" class="legend compact"></ul>
+            <div class="inline-action">
+              <button id="break-done" type="button" class="btn outline">Saya sudah jeda</button>
+              <div id="break-choices" class="choices" hidden>
+                <span class="choices-label">Kira-kira berapa lama?</span>
+                <span id="break-options" class="choice-row"></span>
+                <button id="break-cancel" type="button" class="btn text">Batal</button>
+              </div>
+              <p id="break-note" class="helper" aria-live="polite">
+                Jeda terhitung otomatis saat kamu tidak terlihat kamera 2 menit. Kalau jedamu tidak terhitung, tandai di sini.
+              </p>
+            </div>
+          </section>
+
+          <section id="saran" class="card saran" aria-labelledby="h-saran">
+            <div class="card-head">
+              <h2 id="h-saran">Saran untukmu</h2>
+              <a id="auto-pill" class="pill" href="#privasi">Saran otomatis mati</a>
+            </div>
+            <p class="muted">
+              Equilibre mengirim label dan angka ringkasan (tanpa video) ke flow Langflow, yang menyusun saran dari panduan WHO,
+              jurnal, dan K3 perkantoran.
+            </p>
+            <div class="row">
+              <button id="send-status" type="button" class="btn primary" disabled>Minta saran sekarang</button>
+            </div>
+            <p id="send-note" class="helper" hidden>Saran tidak diminta saat kamu tidak di depan layar: tidak ada kondisi kerja yang perlu dinilai.</p>
+            <div id="answer" class="answer" aria-live="polite"></div>
+            <div id="feedback" class="feedback" hidden>
+              <span class="choices-label">Saran ini:</span>
+            </div>
+          </section>
+
+          <section id="kss-panel" class="card kss" aria-labelledby="h-kss">
+            <div class="card-head">
+              <h2 id="h-kss">Cek kantuk</h2>
+              <span class="muted small">Karolinska Sleepiness Scale · 1–9</span>
+            </div>
+            <p id="kss-prompt" class="kss-prompt">Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.</p>
+            <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
+            <p id="kss-note" class="helper" aria-live="polite"></p>
+            <p class="fine">
+              Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990), label tiap langkah menurut Miley dkk. (2016).
+              Terjemahan Equilibre, belum divalidasi. Disimpan di perangkat ini saja.
+            </p>
+          </section>
         </section>
 
-        <section class="panel" id="riwayat">
-          <div class="panel-head">
-            <h2>Riwayat</h2>
+        <!-- ── Insight ──────────────────────────────────────────────────────── -->
+        <section class="page" data-page="insight" aria-labelledby="h-insight" hidden>
+          <div class="page-head">
+            <h1 id="h-insight" tabindex="-1">Insight</h1>
             <label class="day-pick">Hari <select id="day-select"></select></label>
           </div>
-          <p id="history-note" class="note" hidden></p>
-          <dl id="day-stats" class="metrics wide" hidden></dl>
-          <figure id="day-chart" class="chart" hidden>
-            <figcaption class="note">
-              Menit per jam saat kamu di depan layar dan dinilai. Arahkan kursor atau Tab ke sebuah jam untuk melihat angkanya.
-            </figcaption>
-            <ul id="chart-legend" class="legend"></ul>
-            <div id="chart-wrap" class="chart-wrap">
-              <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden></div>
-            </div>
-            <details class="chart-table">
-              <summary>Lihat sebagai tabel</summary>
-              <div class="table-scroll"><table id="chart-table"></table></div>
+          <p id="history-note" class="callout info" hidden></p>
+
+          <div id="insight-body" hidden>
+            <p id="insight-lead" class="lead"></p>
+            <div id="insight-tiles" class="tiles four"></div>
+
+            <section class="card" aria-labelledby="h-labels">
+              <div class="card-head">
+                <h2 id="h-labels">Waktu per label</h2>
+              </div>
+              <p class="muted">Berapa lama tiap label tampil saat kamu dipantau.</p>
+              <div id="label-bars" class="label-bars"></div>
+              <p id="label-bars-note" class="helper"></p>
+            </section>
+
+            <section class="card" aria-labelledby="h-trend">
+              <div class="card-head">
+                <h2 id="h-trend">Tingkat kelelahan sepanjang hari</h2>
+              </div>
+              <p id="trend-sub" class="muted">Rata-rata tingkat label per menit. Garis terputus saat kamu tidak dipantau atau tidak di depan layar.</p>
+              <ul id="trend-legend" class="legend"></ul>
+              <div id="trend-wrap" class="chart-wrap">
+                <div id="trend-tip" class="chart-tip" aria-hidden="true" hidden></div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="h-hours">
+              <div class="card-head">
+                <h2 id="h-hours">Per jam</h2>
+              </div>
+              <figure id="day-chart" class="chart">
+                <figcaption class="muted">
+                  Menit per jam saat kamu di depan layar dan dinilai. Arahkan kursor atau Tab ke sebuah jam untuk melihat angkanya.
+                </figcaption>
+                <ul id="chart-legend" class="legend"></ul>
+                <div id="chart-wrap" class="chart-wrap">
+                  <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden></div>
+                </div>
+                <details class="chart-table">
+                  <summary>Lihat sebagai tabel</summary>
+                  <div class="table-scroll"><table id="chart-table"></table></div>
+                </details>
+              </figure>
+            </section>
+
+            <section id="day-recs-block" class="card" aria-labelledby="h-recs" hidden>
+              <div class="card-head">
+                <h2 id="h-recs">Saran hari itu</h2>
+              </div>
+              <ol id="day-recs" class="recs"></ol>
+            </section>
+
+            <details class="card">
+              <summary>
+                <span class="summary-title">Rincian angka</span>
+                <span class="summary-hint">Semua angka hari itu dalam satu daftar</span>
+              </summary>
+              <dl id="day-stats" class="stat-list"></dl>
             </details>
-          </figure>
-          <div id="day-recs-block" hidden>
-            <h3>Rekomendasi</h3>
-            <ol id="day-recs" class="recs"></ol>
           </div>
-          <div class="history-actions">
-            <button id="export-history" type="button" class="secondary small">Unduh riwayat (JSON)</button>
-            <button id="clear-history" type="button" class="secondary small danger">Hapus semua riwayat</button>
-          </div>
-          <p id="history-action-note" class="note" aria-live="polite"></p>
-          <p class="note">Riwayat hanya disimpan di perangkat ini selama 30 hari dan tidak dikirim ke server.</p>
         </section>
 
-        <section class="panel">
-          <h2>Sinyal wajah</h2>
-          <dl id="signals" class="metrics"></dl>
-          <dl class="metrics">
-            <div class="metric"><dt>fps aktual</dt><dd><output id="fps">–</output></dd></div>
-            <div class="metric"><dt>delegate</dt><dd><output id="delegate">–</output></dd></div>
-          </dl>
-          <label class="toggle"><input id="power-saving" type="checkbox" /> Hemat daya (±5 fps)</label>
-          <p id="power-note" class="note power-note" aria-live="polite"></p>
-          <div id="debug" hidden>
-            <h3>Debug: facialTransformationMatrixes[0].data</h3>
-            <p class="note">Layout terdeteksi: <output id="matrix-layout">–</output></p>
-            <pre id="matrix">–</pre>
+        <!-- ── Tanya ────────────────────────────────────────────────────────── -->
+        <section class="page" data-page="tanya" aria-labelledby="h-tanya" hidden>
+          <div class="page-head">
+            <h1 id="h-tanya" tabindex="-1">Tanya Equilibre</h1>
           </div>
-          <p class="note">Video diproses di perangkat ini dan tidak pernah dikirim ke server.</p>
-        </section>
-      </div>
-
-      <div class="column">
-        <section class="panel">
-          <h2>Status</h2>
-          <p id="label" class="label" data-label="none">Memuat…</p>
-          <p id="label-meta" class="note"></p>
-          <ul id="reasons" class="reasons"></ul>
-          <p id="pending" class="note pending" hidden></p>
-          <p id="long-rest" class="note long-rest" hidden></p>
-          <p id="blink-score" class="note" hidden></p>
-          <div id="correction" class="correction" hidden>
-            <button id="correct-label" type="button" class="secondary small">Label ini tidak sesuai</button>
-            <div id="correction-choices" class="choices" hidden>
-              <span class="note">Menurutku sebenarnya:</span>
-              <span id="correction-options" class="choice-row"></span>
-              <button id="correction-cancel" type="button" class="link">Batal</button>
+          <section id="tanya-panel" class="card chat">
+            <div class="chat-intro">
+              <img src="/karakter/beruang.png" alt="" class="avatar" width="40" height="54" />
+              <p>
+                Tanyakan kondisimu hari ini atau hal seputar jeda dan kelelahan kerja. Dijawab IBM Bob, yang memilih flow Langflow
+                yang tepat dan menjawab dari knowledge base beserta sumbernya.
+              </p>
             </div>
-            <p id="correction-note" class="note" aria-live="polite"></p>
-          </div>
-          <div class="correction">
-            <button id="break-done" type="button" class="secondary small">Saya sudah jeda</button>
-            <div id="break-choices" class="choices" hidden>
-              <span class="note">Kira-kira berapa lama?</span>
-              <span id="break-options" class="choice-row"></span>
-              <button id="break-cancel" type="button" class="link">Batal</button>
+            <div id="tanya-chips" class="chips" aria-label="Contoh pertanyaan"></div>
+            <ol id="tanya-thread" class="thread" aria-live="polite"></ol>
+            <p id="tanya-status" class="helper" aria-live="polite"></p>
+            <div class="composer">
+              <label class="visually-hidden" for="tanya-input">Pertanyaan</label>
+              <textarea id="tanya-input" rows="2" placeholder="Misalnya: gimana kondisiku hari ini?"></textarea>
+              <button id="tanya-send" type="button" class="btn primary">Tanya</button>
             </div>
-            <p id="break-note" class="note" aria-live="polite">
-              Jeda dihitung otomatis saat wajah dan tubuhmu tidak terlihat kamera 2 menit. Kalau jedamu tidak terhitung, tandai di sini.
+            <p class="fine">
+              Yang dikirim ke server: teks pertanyaan, label terakhir, dan angka ringkasan hari ini (menit per label, jumlah jeda,
+              rata-rata cek kantuk). Video dan wajah tidak pernah dikirim. Jawaban biasanya 15–40 detik.
             </p>
+          </section>
+        </section>
+
+        <!-- ── Privasi & pengaturan ─────────────────────────────────────────── -->
+        <section class="page" data-page="privasi" aria-labelledby="h-privasi" hidden>
+          <div class="page-head">
+            <h1 id="h-privasi" tabindex="-1">Privasi &amp; pengaturan</h1>
           </div>
-          <div class="correction">
-            <button id="pip-open" type="button" class="secondary small">Buka pendamping</button>
-            <p id="pip-note" class="note" aria-live="polite"></p>
+
+          <section class="card" aria-labelledby="h-keluar">
+            <div class="card-head">
+              <h2 id="h-keluar">Apa yang keluar dari perangkat ini</h2>
+            </div>
+            <ul class="data-flow">
+              <li>
+                <span class="flow-icon never" aria-hidden="true"></span>
+                <div>
+                  <p class="flow-title">Video dan gambar wajah: tidak pernah</p>
+                  <p class="muted">Kamera dibaca MediaPipe di browser ini. Yang tersisa hanya angka seperti seberapa lama mata tertutup.</p>
+                </div>
+              </li>
+              <li>
+                <span class="flow-icon sent" aria-hidden="true"></span>
+                <div>
+                  <p class="flow-title">Saat kamu meminta saran → Langflow</p>
+                  <p class="muted">Label, angka ringkasan 60 detik terakhir, dan nama tanda yang terbaca (misalnya "menguap").</p>
+                </div>
+              </li>
+              <li>
+                <span class="flow-icon sent" aria-hidden="true"></span>
+                <div>
+                  <p class="flow-title">Saat kamu bertanya → IBM Bob dan Langflow</p>
+                  <p class="muted">Teks pertanyaan, label terakhir, dan angka ringkasan hari ini.</p>
+                </div>
+              </li>
+              <li>
+                <span class="flow-icon local" aria-hidden="true"></span>
+                <div>
+                  <p class="flow-title">Riwayat, kalibrasi, dan cek kantuk: hanya di perangkat ini</p>
+                  <p class="muted">Disimpan di browser selama 30 hari. Isi JSON yang dikirim bisa dilihat persis di halaman <a href="#teknis">Teknis</a>.</p>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section id="calib-card" class="card" aria-labelledby="h-calib">
+            <div class="card-head">
+              <h2 id="h-calib">Kalibrasi</h2>
+            </div>
+            <ol class="steps">
+              <li>Saat hitungan habis, pejamkan mata ±3 detik sampai terdengar bunyi panjang.</li>
+              <li>Buka mata dan bekerja seperti biasa ±5 menit. Tab ini harus tetap terlihat.</li>
+            </ol>
+            <p id="calib-status" class="calib-status" aria-live="polite"></p>
+            <div id="calib-progress" class="bar progress" hidden><span></span></div>
+            <button id="calib-button" type="button" class="btn primary" disabled>Mulai kalibrasi</button>
+          </section>
+
+          <section class="card" aria-labelledby="h-pantau">
+            <div class="card-head">
+              <h2 id="h-pantau">Pemantauan</h2>
+            </div>
+            <div class="setting">
+              <label class="switch">
+                <input id="auto-send" type="checkbox" role="switch" />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span class="setting-title">Minta saran otomatis</span>
+              </label>
+              <p id="auto-send-note" class="helper" aria-live="polite"></p>
+            </div>
+            <div class="setting">
+              <label class="switch">
+                <input id="power-saving" type="checkbox" role="switch" />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span class="setting-title">Hemat daya (±5 fps)</span>
+              </label>
+              <p id="power-note" class="helper" aria-live="polite"></p>
+            </div>
+            <div class="setting">
+              <p class="setting-title">Pendamping beruang</p>
+              <p id="pip-note" class="helper" aria-live="polite"></p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="h-data">
+            <div class="card-head">
+              <h2 id="h-data">Data kamu</h2>
+            </div>
+            <p class="muted">Riwayat disimpan di perangkat ini selama 30 hari dan tidak dikirim ke server. Kamu bisa mengunduh atau menghapusnya kapan saja.</p>
+            <div class="row">
+              <button id="export-history" type="button" class="btn outline">Unduh riwayat (JSON)</button>
+              <button id="clear-history" type="button" class="btn outline danger">Hapus semua riwayat</button>
+            </div>
+            <p id="history-action-note" class="helper" aria-live="polite"></p>
+          </section>
+
+          <section class="card about" aria-labelledby="h-batas">
+            <div class="card-head">
+              <h2 id="h-batas">Batasan Equilibre</h2>
+            </div>
+            <ul class="plain-list">
+              <li><strong>Bukan alat medis.</strong> Label adalah perkiraan dari wajah dan posisi duduk, bukan diagnosis. Kalau kelelahan terus berlanjut, bicarakan dengan tenaga kesehatan.</li>
+              <li>Kacamata, pencahayaan, atau posisi duduk yang berubah membuat penilaian kurang tepat. Kalibrasi ulang di atas.</li>
+              <li>Memegang HP setinggi dada bisa sesekali terbaca "lelah ringan". Pegang HP setinggi dagu atau di pangkuan.</li>
+              <li>Equilibre hanya menilai kelelahan, tidak menebak emosi.</li>
+            </ul>
+          </section>
+        </section>
+
+        <!-- ── Teknis ───────────────────────────────────────────────────────── -->
+        <section class="page" data-page="teknis" aria-labelledby="h-teknis" hidden>
+          <div class="page-head">
+            <h1 id="h-teknis" tabindex="-1">Teknis</h1>
           </div>
-        </section>
-
-        <section class="panel" id="tanya-panel">
-          <h2>Tanya Equilibre</h2>
-          <p class="note">
-            Tanyakan kondisimu hari ini atau hal seputar jeda dan kelelahan kerja. Dijawab IBM Bob lewat flow Langflow.
+          <p class="muted page-intro">
+            Untuk juri dan pengembang: sinyal mentah MediaPipe, fitur jendela, baseline, dan JSON yang dikirim. Titik mata digambar di
+            atas video selama halaman ini terbuka.
           </p>
-          <label class="tanya-label" for="tanya-input">Pertanyaan</label>
-          <textarea id="tanya-input" class="tanya-input" rows="2" placeholder="Misalnya: gimana kondisiku hari ini?"></textarea>
-          <button id="tanya-send" type="button">Tanya</button>
-          <p id="tanya-status" class="note" aria-live="polite"></p>
-          <div id="tanya-answer" class="answer" aria-live="polite"></div>
-          <p class="note fine">
-            Yang dikirim ke server: teks pertanyaan, label terakhir, dan angka ringkasan hari ini (menit per label, jumlah jeda,
-            rata-rata KSS). Video dan wajah tidak pernah dikirim.
-          </p>
-        </section>
 
-        <section class="panel kss" id="kss-panel">
-          <h2>Cek kantuk (KSS)</h2>
-          <p id="kss-prompt" class="note">Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.</p>
-          <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
-          <p id="kss-note" class="note" aria-live="polite"></p>
-          <p class="note fine">
-            Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990), label tiap langkah menurut Miley dkk. (2016).
-            Terjemahan Equilibre, belum divalidasi. Disimpan di perangkat ini saja.
-          </p>
-        </section>
+          <section class="card" aria-labelledby="h-ear">
+            <div class="card-head">
+              <h2 id="h-ear">Eye Aspect Ratio (live)</h2>
+              <span class="muted small">20 detik terakhir</span>
+            </div>
+            <ul id="ear-legend" class="legend"></ul>
+            <canvas id="ear-chart" class="ear-chart" role="img" aria-label="Grafik EAR 20 detik terakhir"></canvas>
+          </section>
 
-        <section class="panel">
-          <h2>Kalibrasi</h2>
-          <p id="calib-status" class="calib-status" aria-live="polite"></p>
-          <div id="calib-progress" class="bar progress" hidden><span></span></div>
-          <dl id="baseline" class="metrics wide" hidden></dl>
-          <button id="calib-button" type="button" disabled>Mulai kalibrasi</button>
-        </section>
+          <div class="grid-2">
+            <section class="card" aria-labelledby="h-signals">
+              <div class="card-head">
+                <h2 id="h-signals">Sinyal wajah</h2>
+              </div>
+              <dl id="signals" class="metrics"></dl>
+              <dl class="metrics">
+                <div class="metric"><dt>fps aktual</dt><dd><output id="fps">–</output></dd></div>
+                <div class="metric"><dt>delegate</dt><dd><output id="delegate">–</output></dd></div>
+              </dl>
+              <div id="debug" hidden>
+                <h3>Debug: facialTransformationMatrixes[0].data</h3>
+                <p class="helper">Layout terdeteksi: <output id="matrix-layout">–</output></p>
+                <pre id="matrix">–</pre>
+              </div>
+            </section>
 
-        <section class="panel">
-          <h2 id="window-title">60 detik terakhir</h2>
-          <dl id="features" class="metrics wide"></dl>
-          <button id="download-log" type="button" class="secondary">Unduh log sesi (CSV)</button>
-          <p class="note">Log berisi angka per frame saja (tanpa gambar) dan disimpan di perangkat ini.</p>
-        </section>
-
-        <section class="panel">
-          <h2>Langflow</h2>
-          <label class="toggle"><input id="auto-send" type="checkbox" /> Kirim rekomendasi otomatis</label>
-          <p id="auto-send-note" class="note power-note" aria-live="polite"></p>
-          <p class="note">Data yang dikirim ke server hanya JSON ini:</p>
-          <pre id="payload">Belum ada status.</pre>
-          <button id="send-status" type="button" disabled>Kirim status saat ini ke Langflow</button>
-          <p id="send-note" class="note send-note" hidden>
-            Label "tidak di depan layar" tidak dikirim ke Langflow: tidak ada kondisi kerja yang perlu direkomendasikan.
-          </p>
-          <div id="answer" class="answer" aria-live="polite"></div>
-          <div id="feedback" class="feedback" hidden>
-            <span class="note">Rekomendasi ini:</span>
+            <section class="card" aria-labelledby="window-title">
+              <div class="card-head">
+                <h2 id="window-title">60 detik terakhir</h2>
+              </div>
+              <dl id="features" class="metrics wide"></dl>
+              <button id="download-log" type="button" class="btn outline">Unduh log sesi (CSV)</button>
+              <p class="helper">Log berisi angka per frame saja (tanpa gambar) dan disimpan di perangkat ini.</p>
+            </section>
           </div>
+
+          <div class="grid-2">
+            <section class="card" aria-labelledby="h-blink">
+              <div class="card-head">
+                <h2 id="h-blink">Skor pola kedip (UTA-RLDD)</h2>
+              </div>
+              <p id="blink-score" class="blink-score">Muncul setelah kalibrasi dan label pertama.</p>
+              <p class="helper">Regresi logistik dari fitur kedipan dataset UTA-RLDD. Hanya informasi: label tetap dari aturan, dan skor ini tidak dikirim.</p>
+            </section>
+
+            <section class="card" aria-labelledby="h-baseline">
+              <div class="card-head">
+                <h2 id="h-baseline">Baseline kalibrasi</h2>
+              </div>
+              <p id="baseline-empty" class="muted">Belum ada baseline. Kalibrasi di halaman <a href="#privasi">Privasi &amp; pengaturan</a>.</p>
+              <dl id="baseline" class="metrics wide" hidden></dl>
+            </section>
+          </div>
+
+          <section class="card" aria-labelledby="h-payload">
+            <div class="card-head">
+              <h2 id="h-payload">Payload ke Langflow</h2>
+            </div>
+            <p class="muted">Data yang dikirim saat meminta saran hanya JSON ini:</p>
+            <pre id="payload">Belum ada status.</pre>
+          </section>
         </section>
-      </div>
-    </main>
+      </main>
+
+      <!-- Camera dock: always rendered (the detection loop reads this video on every page). -->
+      <aside class="dock" aria-label="Kamera">
+        <div class="camera">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay" hidden></canvas>
+          <p id="face-status" class="cam-badge" data-state="loading">Memuat kamera dan model…</p>
+          <p id="camera-prompt" class="camera-prompt" hidden></p>
+        </div>
+        <p class="dock-note">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+          Video diproses di perangkat ini dan tidak pernah dikirim.
+        </p>
+        <button id="pip-open" type="button" class="btn tonal block">Buka pendamping</button>
+      </aside>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

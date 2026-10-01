@@ -23,6 +23,7 @@ import {
   type KeyValueStore,
 } from "./calibration.ts";
 import { downloadFile, fileStamp } from "./download.ts";
+import { EarChart } from "./earChart.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
   breakEnded,
@@ -35,10 +36,13 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
+import { createBear } from "./bear.ts";
 import { initialGreetingState, moodFor, snoozeGreeting, stepGreeting } from "./companion.ts";
-import { toBreakRecord, toEvaluationRecord, toRecommendationRecord } from "./history.ts";
+import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME } from "./historyDb.ts";
 import { HistoryPanel } from "./historyPanel.ts";
+import { formatDuration, monitoredMinutes } from "./insight.ts";
+import { renderTodayStrip } from "./insightCharts.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
@@ -57,8 +61,10 @@ import {
   type PowerReason,
   type PowerState,
 } from "./powerSaving.ts";
-import { ADVICE, RULES, SLEEP, type Evaluation } from "./rules.ts";
+import { Router } from "./router.ts";
+import { ADVICE, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
+import { capitalize, heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
@@ -127,6 +133,21 @@ const autoSendToggle = byId<HTMLInputElement>("auto-send");
 const autoSendNote = byId("auto-send-note");
 const pipButton = byId<HTMLButtonElement>("pip-open");
 const pipNote = byId("pip-note");
+// Pages (plan P14): the header chip, the "Sekarang" hero and today's tiles, the Teknis EAR chart.
+const topStatus = byId("top-status");
+const hero = byId("hero");
+const heroTitle = byId("hero-title");
+const heroText = byId("hero-text");
+const heroProgress = byId("hero-progress");
+const heroCalib = byId<HTMLButtonElement>("hero-calib");
+const heroSaran = byId("hero-saran");
+const whyHint = byId("why").querySelector<HTMLElement>(".summary-hint")!;
+const sinceBreakValue = byId("since-break");
+const autoPill = byId("auto-pill");
+const heroBear = createBear(document, "", "hero-eye");
+byId("hero-bear").append(heroBear.root);
+const earChart = new EarChart(byId<HTMLCanvasElement>("ear-chart"), byId("ear-legend"));
+const router = new Router();
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -226,6 +247,7 @@ let baseline: Baseline | null = store ? loadBaseline(store) : null;
 let calibration: CalibrationRun | null = null;
 let detecting = false;
 let bodyDetection = false; // the segmenter loaded
+let cameraProblem: string | null = null; // why the camera or the model is not running
 
 // Rolling window + label (only while calibrated and not calibrating).
 let monitor: Monitor | null = null;
@@ -244,6 +266,7 @@ const powerLog: { t_ms: number; sebab: PowerReason }[] = [{ t_ms: 0, sebab: powe
 
 let breakState: BreakState | null = null;
 let lastCameraBreak: number | null = null; // wall clock end of the last break counted from the camera
+let breakMarked = false; // a break was marked by hand in this session
 
 // Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock.
 const SESSION = Math.round(performance.timeOrigin);
@@ -301,6 +324,7 @@ function onFrame(s: FrameSignal) {
     features = monitor.features(s.t);
     menitLelah = monitor.menitLelah(s.t);
     renderFeatures();
+    renderSinceBreak();
   }
   if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
     lastEvalT = s.t;
@@ -337,9 +361,35 @@ const selfReport = new SelfReport({
   breakTaken: () => {
     if (!breakState) return;
     breakState = initialBreakState(performance.now());
+    breakMarked = true;
     renderPayload();
+    renderSinceBreak();
   },
 });
+
+// Today's numbers on the "Sekarang" page, from the same refresh as the Insight page.
+let todaySummary: DaySummary | null = null;
+panel.onToday = (summary) => {
+  todaySummary = summary;
+  renderToday();
+};
+
+function renderToday() {
+  const s = todaySummary;
+  byId("today-monitored").textContent = s ? formatDuration(monitoredMinutes(s)) : "–";
+  byId("today-breaks").textContent = s ? `${s.jeda.jumlah}×` : "–";
+  renderTodayStrip(byId("today-strip"), byId("today-legend"), s);
+}
+
+// Minutes since the last break, or since monitoring started when there was none (menit_sejak_jeda).
+function renderSinceBreak() {
+  if (!breakState || !monitor || calibration) {
+    sinceBreakValue.textContent = "–";
+    return;
+  }
+  const since = formatDuration(minutesSinceBreak(breakState, performance.now()));
+  sinceBreakValue.textContent = lastCameraBreak === null && !breakMarked ? `${since} (sejak mulai)` : since;
+}
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
 new TanyaPanel({
@@ -445,8 +495,14 @@ function setFaceStatus(state: FaceState, text: string) {
   faceStatus.textContent = text;
 }
 
+let lastEarDraw = 0;
 function renderSignals(s: FrameSignal) {
   setFaceStatus(s.face ? "found" : "missing", s.face ? "Wajah terdeteksi" : "Wajah tidak terdeteksi");
+  earChart.push(s.t, s.face ? s.ear : null);
+  if (router.page === "teknis" && s.t - lastEarDraw >= 100) {
+    lastEarDraw = s.t;
+    earChart.draw(baseline);
+  }
   const ear = (x: number) => show(x, (v) => fmt3.format(v));
   signalRows.earLeft(ear(s.earLeft), s.earLeft / 0.5);
   signalRows.earRight(ear(s.earRight), s.earRight / 0.5);
@@ -496,63 +552,82 @@ function renderFeatures() {
   featureRows.frame(f ? `${f.n_frame} (data ${Math.round(f.durasi_jendela_detik)} detik)` : "–");
 }
 
-function setLabel(text: string, label = "none") {
+// The label in the "Sekarang" chip and in the header chip on every page (shape + text, never color alone).
+function setLabel(text: string, label: Label | "none" = "none") {
   labelBadge.textContent = text;
   labelBadge.dataset.label = label;
+  topStatus.dataset.label = label;
+  topStatus.querySelector(".status-text")!.textContent = text;
 }
 
-// Blink-pattern score (NOTES D-49): information only, next to the rules' label, never changing it.
+// Blink-pattern score (NOTES D-49): information only, on the Teknis page, never changing the label.
 function renderBlinkScore() {
-  const score = monitor?.blinkScore(lastEvalT);
-  blinkScoreNote.hidden = false;
-  if (!score) {
-    blinkScoreNote.textContent = "Pola kedip: kalibrasi ulang untuk mengaktifkan skor ini.";
+  const score = calibration || !baseline ? null : monitor?.blinkScore(lastEvalT);
+  if (!monitor?.labelState.shown || calibration) {
+    blinkScoreNote.textContent = "Muncul setelah kalibrasi dan label pertama.";
+  } else if (!score) {
+    blinkScoreNote.textContent = "Kalibrasi ulang untuk mengaktifkan skor ini (baseline ini belum punya data kedipan).";
   } else if (score.chance === null) {
-    blinkScoreNote.textContent = `Pola kedip: mengumpulkan kedipan (${score.n} dari minimal ${MIN_SCORE_BLINKS})…`;
+    blinkScoreNote.textContent = `Mengumpulkan kedipan: ${score.n} dari minimal ${MIN_SCORE_BLINKS}…`;
   } else {
     const verdict = score.chance >= 0.5 ? "mirip orang mengantuk" : "mirip orang segar";
-    blinkScoreNote.textContent =
-      `Pola kedip (${score.n} kedipan terakhir, maks. ${BLINK_SEQUENCE}): ${verdict}, skor ${asPct(score.chance)}. ` +
-      "Model dari dataset UTA-RLDD, hanya informasi: label di atas tetap dari aturan.";
+    const value = document.createElement("strong");
+    value.textContent = asPct(score.chance);
+    blinkScoreNote.replaceChildren(value, ` ${verdict} · ${score.n} kedipan terakhir (maks. ${BLINK_SEQUENCE})`);
   }
+}
+
+function heroState(): HeroState {
+  if (cameraProblem) return { kind: "error", message: cameraProblem };
+  if (calibration) return { kind: "calibrating" };
+  if (!detecting) return { kind: "loading" };
+  if (!baseline) return { kind: "uncalibrated" };
+  const shown = monitor?.labelState.shown;
+  return shown ? { kind: "label", label: shown.label } : { kind: "analyzing" };
 }
 
 function renderStatus() {
   renderCompanion();
   reasonList.replaceChildren();
   pendingNote.hidden = true;
-  blinkScoreNote.hidden = true;
   longRestNote.hidden = saran === null || calibration !== null;
   longRestNote.textContent = saran ?? "";
   labelMeta.textContent = "";
   selfReport.renderCorrection(calibration ? null : (monitor?.labelState.shown ?? null));
+  renderBlinkScore();
 
-  if (calibration) {
-    setLabel("Kalibrasi…");
-    labelMeta.textContent = "Label dihitung lagi setelah kalibrasi selesai.";
-    return;
-  }
-  if (!baseline) {
-    setLabel("Belum dikalibrasi");
-    labelMeta.textContent = "Kalibrasi dulu supaya Equilibre mengenal kondisi normalmu.";
-    return;
-  }
+  const state = heroState();
+  const copy = heroCopy(state);
+  const label = state.kind === "label" ? state.label : "none";
+  setLabel(copy.chip, label);
+  hero.dataset.label = label;
+  hero.dataset.mood = state.kind === "label" ? moodFor(state.label) : "menunggu";
+  heroBear.setMood(state.kind === "label" ? moodFor(state.label) : "menunggu");
+  heroTitle.textContent = copy.title;
+  if (state.kind !== "calibrating") heroText.textContent = copy.text; // calibration writes its own steps
+  heroProgress.hidden = state.kind !== "calibrating" || calibProgress.hidden;
+  heroCalib.hidden = state.kind !== "uncalibrated";
+  heroSaran.hidden = !(saran !== null || label === "lelah ringan" || label === "lelah" || label === "tertidur");
+  document.body.toggleAttribute("data-calibrated", baseline !== null);
+
   const labelState = monitor?.labelState;
-  const shown = labelState?.shown;
+  const shown = state.kind === "label" ? labelState?.shown : undefined;
+  if (state.kind === "analyzing" && hold) labelMeta.textContent = hold;
   if (!labelState || !shown) {
-    setLabel("Menganalisis…");
-    labelMeta.textContent = hold ?? `Label pertama muncul sekitar ${EVAL_INTERVAL_MS / 1000} detik setelah kamera berjalan.`;
+    whyHint.textContent = "Muncul setelah label pertama.";
     return;
   }
 
-  setLabel(shown.label, shown.label);
-  labelMeta.textContent = `Skor ${fmt2.format(shown.skor)} · dievaluasi ${clock(new Date())} · tiap ${EVAL_INTERVAL_MS / 1000} detik`;
+  labelMeta.textContent = `Diperbarui ${clock(new Date())} · dinilai tiap ${EVAL_INTERVAL_MS / 1000} detik dari ${WINDOW_MS / 1000} detik terakhir`;
+  whyHint.textContent =
+    shown.alasan.length === 0
+      ? "Tidak ada tanda lelah di jendela terakhir."
+      : `${shown.alasan.length} tanda terbaca di ${WINDOW_MS / 1000} detik terakhir.`;
   if (shown.alasan.length === 0) {
     reasonList.append(el("li", shown.label === "normal" ? "Tidak ada tanda kelelahan di jendela ini." : "–"));
   }
   for (const reason of shown.alasan) reasonList.append(el("li", reason));
   for (const note of shown.catatan) reasonList.append(el("li", note, "muted"));
-  renderBlinkScore();
 
   if (hold) {
     pendingNote.hidden = false;
@@ -584,6 +659,7 @@ function renderPayload() {
 
 function renderBaseline() {
   baselineList.hidden = !baseline;
+  byId("baseline-empty").hidden = baseline !== null;
   baselineList.replaceChildren();
   if (!baseline) return;
   const b = baseline;
@@ -604,8 +680,14 @@ function renderBaseline() {
   for (const [name, value] of rows) metricRow(baselineList, name)(value);
 }
 
+// About how long a calibration takes, as the user reads it (±5 menit; seconds for ?calib=30).
+function calibLength(): string {
+  const seconds = Math.round((CALIB_NORMAL_MS + CALIB_CLOSED_MS) / 1000) + 4;
+  return seconds >= 90 ? `±${Math.round(seconds / 60)} menit` : `±${seconds} detik`;
+}
+
 function renderCalibrationIdle(message?: string, isError = false) {
-  calibProgress.hidden = true;
+  setCalibProgress(null);
   cameraPrompt.hidden = true;
   calibButton.textContent = baseline ? "Kalibrasi ulang" : "Mulai kalibrasi";
   calibButton.disabled = !detecting;
@@ -616,7 +698,7 @@ function renderCalibrationIdle(message?: string, isError = false) {
       ? baseline.bodyArea === null && bodyDetection
         ? "Baseline ini dibuat sebelum ada deteksi tubuh. Kalibrasi ulang supaya Equilibre juga mengenal posisi dudukmu."
         : "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
-      : `Kalibrasi ±${Math.round((CALIB_NORMAL_MS + CALIB_CLOSED_MS) / 1000) + 4} detik: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
+      : `Kalibrasi ${calibLength()}: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
   renderBaseline();
 }
 
@@ -749,7 +831,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);
       onFrame(signal);
       renderSignals(signal);
-      if (DEBUG) renderDebug(result, grid);
+      if (DEBUG || router.page === "teknis") renderDebug(result, grid);
       fpsFrames++;
     }
     if (now - fpsWindowStart >= 1000) {
@@ -845,9 +927,19 @@ function reminderBeep() {
   }
 }
 
+// The calibration card (Privasi page) and the hero (Sekarang page) show the same step.
 function setCalibStatus(text: string) {
   calibStatus.dataset.state = "";
   calibStatus.textContent = text;
+  if (calibration) heroText.textContent = text;
+}
+
+function setCalibProgress(fraction: number | null) {
+  calibProgress.hidden = fraction === null;
+  heroProgress.hidden = fraction === null;
+  const width = `${(fraction ?? 0) * 100}%`;
+  calibProgress.querySelector("span")!.style.width = width;
+  heroProgress.querySelector("span")!.style.width = width;
 }
 
 async function runCalibration() {
@@ -865,6 +957,7 @@ async function runCalibration() {
   // Created inside the click handler, so the browser lets it play the beep.
   const audio = new AudioContext();
   calibButton.textContent = "Batalkan kalibrasi";
+  document.body.dataset.calibrating = "1"; // small screens: the camera preview grows for the prompts
   renderStatus();
 
   let outcome: { message: string; isError: boolean } | undefined;
@@ -908,12 +1001,10 @@ async function runCalibration() {
 
     run.phase = "normal";
     cameraPrompt.hidden = true;
-    calibProgress.hidden = false;
-    const bar = calibProgress.querySelector("span")!;
     const start = performance.now();
     for (let elapsed = 0; elapsed < CALIB_NORMAL_MS; elapsed = performance.now() - start) {
       if (run.cancelled) return;
-      bar.style.width = `${(elapsed / CALIB_NORMAL_MS) * 100}%`;
+      setCalibProgress(elapsed / CALIB_NORMAL_MS);
       setCalibStatus(
         `Tahap 2 dari 2: buka mata dan bekerja seperti biasa di depan kamera. ` +
           `Biarkan tab ini tetap terlihat. Sisa ${Math.ceil((CALIB_NORMAL_MS - elapsed) / 1000)} detik.`,
@@ -938,6 +1029,7 @@ async function runCalibration() {
     };
   } finally {
     calibration = null;
+    delete document.body.dataset.calibrating;
     void audio.close();
     renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Kalibrasi dibatalkan." : undefined), outcome?.isError);
     renderStatus();
@@ -952,6 +1044,17 @@ calibButton.addEventListener("click", () => {
   }
   void runCalibration();
 });
+// The hero's "Mulai kalibrasi" runs the same calibration (still inside a click, for the beep).
+heroCalib.addEventListener("click", () => calibButton.click());
+
+// The landmark overlay is drawn on the Teknis page (and with ?debug=1); the EAR chart only there.
+function onPage(page: string) {
+  const overlayOn = DEBUG || page === "teknis";
+  overlay.hidden = !overlayOn;
+  if (!overlayOn) overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+  if (page === "teknis") earChart.draw(baseline);
+}
+router.onChange(onPage);
 
 // ── Session log + Langflow ──────────────────────────────────────────────────────
 
@@ -969,28 +1072,44 @@ byId("download-log").addEventListener("click", () => {
   downloadFile(csv, `equilibre-sesi-${fileStamp(new Date())}.csv`, "text/csv");
 });
 
-function renderAnswer(reply: AnalyzeResponse) {
+// The recommendation as a card: tags (status, break length), the advice itself, why, and sources.
+// Fields the prompt did not ask for still show, in a small list under it.
+function renderAnswer(reply: AnalyzeResponse, label: Label) {
   const view = toAnswerView(reply);
-  const parts: HTMLElement[] = [];
-  if (view.kind === "text") parts.push(el("p", view.text));
+  const card = el("div", "", "advice");
+  if (view.kind === "text") card.append(el("p", view.text, "advice-main"));
   else {
-    const list = document.createElement("dl");
-    for (const [name, value] of view.rows) list.append(el("dt", name), el("dd", value));
-    if (view.sumber) {
-      const sources = document.createElement("dd");
-      if (view.sumber.length === 0) sources.textContent = "tidak ada sumber yang dipakai";
-      else {
-        const items = document.createElement("ul");
-        items.className = "sources";
-        items.append(...view.sumber.map((s) => el("li", s.text, s.known ? undefined : "error")));
-        sources.append(items);
-      }
-      list.append(el("dt", "Sumber"), sources);
+    const rows = new Map(view.rows);
+    const tags = el("div", "", "advice-tags");
+    const chip = el("span", capitalize(label), "label-chip");
+    chip.dataset.label = label;
+    tags.append(chip);
+    if (rows.has("Status")) tags.append(el("span", rows.get("Status")!, "pill"));
+    if (rows.has("Lama jeda")) tags.append(el("span", `Jeda ${rows.get("Lama jeda")}`, "pill"));
+    card.append(tags);
+    if (rows.has("Rekomendasi")) card.append(el("p", rows.get("Rekomendasi")!, "advice-main"));
+    if (rows.has("Alasan")) {
+      const why = el("p", "", "advice-why");
+      why.append(el("strong", "Kenapa: "), rows.get("Alasan")!);
+      card.append(why);
     }
-    parts.push(list);
+    const extra = view.rows.filter(([name]) => !["Status", "Rekomendasi", "Alasan", "Lama jeda"].includes(name));
+    if (extra.length > 0) {
+      const list = el("dl", "", "extra");
+      for (const [name, value] of extra) list.append(el("dt", name), el("dd", value));
+      card.append(list);
+    }
+    if (view.sumber) {
+      if (view.sumber.length === 0) card.append(el("p", "Tanpa sumber dari knowledge base.", "helper"));
+      else {
+        const items = el("ul", "", "sources");
+        items.append(...view.sumber.map((s) => el("li", s.text, s.known ? undefined : "error")));
+        card.append(items);
+      }
+    }
   }
-  if (view.cadangan) parts.push(el("p", "Dijawab model cadangan karena model utama gagal.", "note"));
-  answer.replaceChildren(...parts);
+  if (view.cadangan) card.append(el("p", "Dijawab model cadangan karena model utama gagal.", "helper"));
+  answer.replaceChildren(card);
 }
 
 // ── Automatic sending (NOTES D-37) ──────────────────────────────────────────────
@@ -999,12 +1118,14 @@ const minuteClock = (t: number) => new Date(t).toLocaleTimeString("id-ID", { hou
 
 function renderAutoSend() {
   autoSendToggle.checked = autoSendOn;
+  autoPill.textContent = autoSendOn ? "Saran otomatis aktif" : "Saran otomatis mati";
+  autoPill.dataset.on = autoSendOn ? "1" : "0";
   const rule =
     "saat label menjadi lelah ringan, lelah, atau tertidur, atau saat saran istirahat panjang muncul, " +
     `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit; tertidur dan saran istirahat panjang boleh ` +
-    "menyela sekali. Tiap kiriman memakai satu panggilan LLM.";
+    "menyela sekali. Tiap permintaan memakai satu panggilan LLM.";
   if (!autoSendOn) {
-    autoSendNote.textContent = `Mati: status hanya dikirim lewat tombol di bawah. Kalau dinyalakan, status dikirim sendiri ${rule}`;
+    autoSendNote.textContent = `Mati: saran hanya diminta lewat tombol "Minta saran sekarang". Kalau dinyalakan, saran diminta sendiri ${rule}`;
     return;
   }
   const last =
@@ -1016,7 +1137,7 @@ function renderAutoSend() {
           : lastAuto.ok
             ? "terkirim."
             : `gagal, dicoba lagi paling cepat ${minuteClock(lastAuto.t + AUTO_SEND.minGapMs)}.`);
-  autoSendNote.textContent = `Menyala: status dikirim sendiri ${rule}${last}`;
+  autoSendNote.textContent = `Menyala: saran diminta sendiri ${rule}${last}`;
 }
 
 autoSendToggle.addEventListener("change", () => {
@@ -1042,7 +1163,9 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
   payloadPre.textContent = JSON.stringify(payload, null, 2);
   sending = true;
   sendButton.disabled = true;
-  answer.replaceChildren(el("p", pemicu === "otomatis" ? "Dikirim otomatis, menunggu jawaban Langflow…" : "Menunggu jawaban Langflow…", "muted"));
+  answer.replaceChildren(
+    el("p", pemicu === "otomatis" ? "Diminta otomatis, Langflow sedang menyusun saran…" : "Langflow sedang menyusun saran…", "muted"),
+  );
   selfReport.showRecommendation(null);
   try {
     const res = await fetch("/api/analyze", {
@@ -1055,13 +1178,13 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
       throw new Error(body.error ?? `Backend tidak menjawab (HTTP ${res.status}). Pastikan server sudah jalan.`);
     }
     const reply = body as AnalyzeResponse;
-    renderAnswer(reply);
+    renderAnswer(reply, payload.label);
     if (pemicu === "otomatis") autoSendDone(true);
     const context = { t: Date.now(), sesi: SESSION, pemicu, label: payload.label };
     selfReport.showRecommendation(await panel.add("rekomendasi", toRecommendationRecord(reply, context)));
   } catch (err) {
     const message = err instanceof TypeError ? "Tidak bisa menghubungi backend." : (err as Error).message;
-    answer.replaceChildren(el("p", pemicu === "otomatis" ? `Kirim otomatis gagal: ${message}` : message, "error"));
+    answer.replaceChildren(el("p", pemicu === "otomatis" ? `Saran otomatis gagal: ${message}` : message, "callout danger"));
     if (pemicu === "otomatis") autoSendDone(false);
   } finally {
     sending = false;
@@ -1072,11 +1195,19 @@ sendButton.addEventListener("click", () => void sendStatus("manual"));
 
 // ── Start ───────────────────────────────────────────────────────────────────────
 
+// The camera dock badge and the hero both say why nothing is being monitored.
+function cameraFailed(message: string) {
+  cameraProblem = message;
+  setFaceStatus("error", message);
+  renderStatus();
+}
+
 async function main() {
-  overlay.hidden = !DEBUG;
+  onPage(router.page);
   byId("debug").hidden = !DEBUG;
   renderFeatures();
   renderStatus();
+  renderToday();
   renderCalibrationIdle();
   renderPower();
   renderAutoSend();
@@ -1087,19 +1218,19 @@ async function main() {
   setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
   if (TEST_MODE) setInterval(() => selfReport.tick(Date.now()), KSS_CHECK_MS);
   if (NO_CAMERA) {
-    setFaceStatus("error", "Kamera tidak dinyalakan (?kamera=0).");
+    cameraFailed("Kamera tidak dinyalakan (?kamera=0).");
     return;
   }
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
   if (camera.status === "rejected") {
     console.error(camera.reason);
-    setFaceStatus("error", cameraErrorMessage(camera.reason));
+    cameraFailed(cameraErrorMessage(camera.reason));
     return;
   }
   if (model.status === "rejected") {
     console.error(model.reason);
-    setFaceStatus("error", "Model MediaPipe gagal dimuat. Muat ulang halaman; kalau tetap gagal, jalankan ulang npm run dev (file WASM disalin saat itu).");
+    cameraFailed("Model MediaPipe gagal dimuat. Muat ulang halaman; kalau tetap gagal, jalankan ulang npm run dev (file WASM disalin saat itu).");
     return;
   }
 
@@ -1109,6 +1240,7 @@ async function main() {
   detecting = true;
   renderCalibrationIdle();
   renderFeatures();
+  renderStatus();
   runDetection(model.value);
 }
 

@@ -1,3 +1,4 @@
+import { ART, createBear, type Bear } from "./bear.ts";
 import { GREETING, type Mood } from "./companion.ts";
 
 // Picture-in-Picture companion (plan P13, NOTES D-24): a small always-on-top window with the
@@ -16,20 +17,27 @@ export type CompanionView = {
   note: string; // one short line under the badge
 };
 
-// Eye centres and radius (inside the outline) in the original 1082×1454 picture, measured from its
-// pixels (27 Sep): outlines x 363–512 / 538–687, y 284–446.
-const ART = { width: 1082, height: 1454, eyes: [437, 612], eyeY: 365, eyeR: 66 } as const;
-// How far down the upper lid comes, as a share of the eye height (0 = open, 1 = closed).
-const LID: Record<Mood, number> = { normal: 0, menunggu: 0, pergi: 0, "lelah-ringan": 0.38, lelah: 0.62, tertidur: 1 };
-const SVG_NS = "http://www.w3.org/2000/svg";
+// The PiP window is its own document: the Plex faces are declared again with absolute URLs.
+const fontFaces = () =>
+  [
+    [400, "Regular"],
+    [600, "SemiBold"],
+  ]
+    .map(
+      ([weight, name]) =>
+        `@font-face { font-family: "IBM Plex Sans"; font-weight: ${weight}; font-display: swap;
+  src: url("${new URL(`/fonts/IBMPlexSans-${name}-Latin1.woff2`, location.href).href}") format("woff2"); }`,
+    )
+    .join("\n");
 
-const STYLE = `
-:root { --bg: #f6f7f5; --text: #1c2321; --muted: #5d6b66; --ok: #2f7d6d; --warn: #b7791f; --error: #c0392b;
-  --sleep: #5b4bb7; --idle: #6b7773; --on-status: #fff; --bubble: #ffffff; --border: #dde3e0;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
-@media (prefers-color-scheme: dark) { :root { --bg: #121615; --text: #e6ece9; --muted: #9aa8a3; --ok: #5cc3ab;
-  --warn: #e0a84a; --error: #ef7a6c; --sleep: #a597f0; --idle: #7d8a86; --on-status: #121615; --bubble: #1b211f;
-  --border: #2c3532; } }
+const styleSheet = () => `
+${fontFaces()}
+:root { --bg: #f7f5f0; --text: #1b1f24; --muted: #545b66; --ok: #0b7f6e; --warn: #b26b00; --error: #b3402e;
+  --sleep: #5b4bb7; --idle: #687587; --on-status: #fff; --bubble: #ffffff; --border: #e2ded5;
+  font-family: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
+@media (prefers-color-scheme: dark) { :root { --bg: #111418; --text: #e6e9ed; --muted: #a3abb6; --ok: #4fc1a9;
+  --warn: #e5a646; --error: #f08b79; --sleep: #a99bf2; --idle: #94a0b0; --on-status: #111418; --bubble: #181c21;
+  --border: #2c333b; } }
 * { box-sizing: border-box; }
 body { margin: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 6px; padding: 8px; overflow: hidden; user-select: none; }
@@ -86,9 +94,7 @@ export class PipCompanion {
     bubble: HTMLElement;
     bubbleText: HTMLElement;
     fps: HTMLElement | null;
-    lids: SVGRectElement[];
-    lidLines: SVGLineElement[];
-    closedLines: SVGPathElement[];
+    bear: Bear;
   } | null = null;
   private bubbleTimer = 0;
   private view: CompanionView = { mood: "menunggu", label: "Memuat…", note: "" };
@@ -133,7 +139,7 @@ export class PipCompanion {
     p.body.dataset.mood = view.mood;
     p.badge.textContent = view.label;
     p.note.textContent = view.note;
-    this.renderEyes(view.mood);
+    p.bear.setMood(view.mood);
   }
 
   // A greeting in the bubble; it hides by itself after GREETING.showMs.
@@ -159,7 +165,7 @@ export class PipCompanion {
   private build(doc: Document) {
     doc.title = "Equilibre";
     const style = doc.createElement("style");
-    style.textContent = STYLE;
+    style.textContent = styleSheet();
     doc.head.append(style);
 
     const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
@@ -191,14 +197,8 @@ export class PipCompanion {
     // A click on the character asks for the Equilibre tab; the browser may ignore it, and the
     // window's own "back to tab" button stays available either way.
     stage.addEventListener("click", () => window.focus());
-    const bear = make("div", "bear");
-    const img = make("img");
-    img.src = new URL("/karakter/beruang.png", location.href).href;
-    img.alt = "Beruang pendamping Equilibre";
-    img.draggable = false;
-    const { svg, lids, lidLines, closedLines } = this.eyeLayer(doc);
-    bear.append(img, svg);
-    stage.append(bear);
+    const bear = createBear(doc, "Beruang pendamping Equilibre");
+    stage.append(bear.root);
 
     // The bubble sits above the character (not over it), so the face stays visible while it talks.
     const badge = make("div", "badge");
@@ -207,85 +207,6 @@ export class PipCompanion {
     const fps = this.deps.debug ? make("p", "fps", "deteksi – fps") : null;
     if (fps) doc.body.append(fps);
 
-    this.parts = { body: doc.body, badge, note, bubble, bubbleText, fps, lids, lidLines, closedLines };
-  }
-
-  // Upper lids drawn over the picture's eyes (in its own 1082×1454 coordinates), so one picture can
-  // look open, drowsy, or asleep; "Z" letters float up while asleep.
-  private eyeLayer(doc: Document) {
-    const svg = doc.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", `0 0 ${ART.width} ${ART.height}`);
-    svg.setAttribute("aria-hidden", "true");
-    const defs = doc.createElementNS(SVG_NS, "defs");
-    svg.append(defs);
-    const lids: SVGRectElement[] = [];
-    const lidLines: SVGLineElement[] = [];
-    const closedLines: SVGPathElement[] = [];
-    ART.eyes.forEach((cx, i) => {
-      const clip = doc.createElementNS(SVG_NS, "clipPath");
-      clip.id = `eye-${i}`;
-      const circle = doc.createElementNS(SVG_NS, "circle");
-      circle.setAttribute("cx", String(cx));
-      circle.setAttribute("cy", String(ART.eyeY));
-      circle.setAttribute("r", String(ART.eyeR));
-      clip.append(circle);
-      defs.append(clip);
-
-      const lid = doc.createElementNS(SVG_NS, "rect");
-      lid.setAttribute("x", String(cx - ART.eyeR));
-      lid.setAttribute("y", String(ART.eyeY - ART.eyeR));
-      lid.setAttribute("width", String(ART.eyeR * 2));
-      lid.setAttribute("fill", "#fefefe");
-      lid.setAttribute("clip-path", `url(#eye-${i})`);
-      const line = doc.createElementNS(SVG_NS, "line");
-      line.setAttribute("stroke", "#1a1a1a");
-      line.setAttribute("stroke-width", "9");
-      line.setAttribute("stroke-linecap", "round");
-      const closed = doc.createElementNS(SVG_NS, "path");
-      closed.setAttribute("d", `M ${cx - 42} ${ART.eyeY + 4} Q ${cx} ${ART.eyeY + 34} ${cx + 42} ${ART.eyeY + 4}`);
-      closed.setAttribute("fill", "none");
-      closed.setAttribute("stroke", "#1a1a1a");
-      closed.setAttribute("stroke-width", "9");
-      closed.setAttribute("stroke-linecap", "round");
-      svg.append(lid, line, closed);
-      lids.push(lid);
-      lidLines.push(line);
-      closedLines.push(closed);
-    });
-    // To the right of the head (ears end near x 950, y 110); the svg may draw past its box.
-    [
-      [900, 360, 200],
-      [990, 240, 160],
-      [1060, 140, 120],
-    ].forEach(([x, y, size]) => {
-      const z = doc.createElementNS(SVG_NS, "text");
-      z.setAttribute("class", "zzz");
-      z.setAttribute("x", String(x));
-      z.setAttribute("y", String(y));
-      z.setAttribute("font-size", String(size));
-      z.textContent = "Z";
-      svg.append(z);
-    });
-    return { svg, lids, lidLines, closedLines };
-  }
-
-  private renderEyes(mood: Mood) {
-    const p = this.parts;
-    if (!p) return;
-    const share = LID[mood];
-    const top = ART.eyeY - ART.eyeR;
-    const edge = top + share * ART.eyeR * 2; // where the lid ends
-    const half = Math.sqrt(Math.max(0, ART.eyeR ** 2 - (edge - ART.eyeY) ** 2)); // half chord at that height
-    ART.eyes.forEach((cx, i) => {
-      p.lids[i].setAttribute("height", String(share * ART.eyeR * 2));
-      p.lids[i].style.display = share > 0 ? "" : "none";
-      const line = p.lidLines[i];
-      line.style.display = share > 0 && share < 1 ? "" : "none";
-      line.setAttribute("x1", String(cx - half));
-      line.setAttribute("x2", String(cx + half));
-      line.setAttribute("y1", String(edge));
-      line.setAttribute("y2", String(edge));
-      p.closedLines[i].style.display = share >= 1 ? "" : "none";
-    });
+    this.parts = { body: doc.body, badge, note, bubble, bubbleText, fps, bear };
   }
 }

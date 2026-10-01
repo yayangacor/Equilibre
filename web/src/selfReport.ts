@@ -71,7 +71,7 @@ export class SelfReport {
     this.breakButton.addEventListener("click", () => this.showBreakChoices(true));
     byId("break-cancel").addEventListener("click", () => this.showBreakChoices(false));
     byId("break-options").replaceChildren(
-      ...MANUAL_BREAK_MINUTES.map((m) => button(`±${m} menit`, "secondary small", () => void this.markBreak(m))),
+      ...MANUAL_BREAK_MINUTES.map((m) => button(`±${m} menit`, "btn outline small", () => void this.markBreak(m))),
     );
     byId("kss-scale").replaceChildren(
       ...KSS_SCALE.map((step) => {
@@ -111,7 +111,7 @@ export class SelfReport {
     const shown = this.deps.shown();
     if (!shown) return;
     this.correctionFor = shown.label;
-    this.options.replaceChildren(...correctionChoices(shown.label).map((l) => button(l, "secondary small", () => void this.correct(l))));
+    this.options.replaceChildren(...correctionChoices(shown.label).map((l) => button(l, "btn outline small", () => void this.correct(l))));
     this.choices.hidden = false;
     this.correctButton.hidden = true;
     this.correctionNote.textContent = "";

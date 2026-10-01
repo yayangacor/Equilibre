@@ -1,16 +1,27 @@
-import { CHART_LABELS, type DaySummary, type Feedback, type HourSummary, type RecommendationRecord } from "./history.ts";
+import {
+  CHART_LABELS,
+  type BreakRecord,
+  type DaySummary,
+  type EvaluationRecord,
+  type Feedback,
+  type HourSummary,
+  type RecommendationRecord,
+} from "./history.ts";
+import { bucketFor, dayTiles, hourSpan, insightSentences, levelSeries } from "./insight.ts";
+import { renderLabelBars, TrendChart, trendSubtitle } from "./insightCharts.ts";
 import { LABELS } from "./rules.ts";
+import { capitalize } from "./statusCopy.ts";
 
-// The "Riwayat" panel: one day's numbers, an hourly stacked column chart and the same
-// numbers as a table. Text from data only goes in through textContent. Segment colors
-// are CSS custom properties (--chart-*, style.css) checked as adjacent stacked fills in
-// both color schemes with the dataviz palette validator (plans/P06, step 3).
+// The "Insight" page (plan P14, was the "Riwayat" panel of plan P06): one day in sentences and
+// tiles, time per label, the fatigue level over the day, an hourly stacked column chart with the
+// same numbers as a table, and that day's recommendations. Text from data only goes in through
+// textContent. Segment colors are CSS custom properties (--chart-*, style.css) checked as adjacent
+// stacked fills in both color schemes with the dataviz palette validator (plans/P06, step 3).
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const one = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
 const minutes = (x: number) => `${one.format(x)} menit`;
 const two = (n: number) => String(n).padStart(2, "0");
-const hourSpan = (jam: number) => `${two(jam)}.00–${two((jam + 1) % 24)}.00`;
 
 const PLOT_H = 140;
 const MARGIN = { top: 10, right: 8, bottom: 24, left: 46 }; // left: room for "60 mnt"
@@ -23,14 +34,24 @@ export type DashboardView = {
   today: string;
   summary: DaySummary | null; // null: history not available
   rekomendasi: readonly RecommendationRecord[]; // that day's, oldest first
+  evaluasi: readonly EvaluationRecord[]; // that day's, for the fatigue level over time
+  jeda: readonly BreakRecord[];
   problem: string | null;
 };
 
 export type DashboardElements = {
   select: HTMLSelectElement;
   note: HTMLElement;
+  body: HTMLElement; // everything below the note, hidden on an empty day
+  lead: HTMLElement;
+  tiles: HTMLElement;
+  labelBars: HTMLElement;
+  labelBarsNote: HTMLElement;
+  trendWrap: HTMLElement;
+  trendTip: HTMLElement;
+  trendLegend: HTMLElement;
+  trendSub: HTMLElement;
   stats: HTMLElement;
-  figure: HTMLElement;
   legend: HTMLElement;
   chart: HTMLElement; // wrapper the SVG is drawn into; holds the tooltip too
   tip: HTMLElement;
@@ -79,6 +100,7 @@ export class Dashboard {
   private readonly ui: DashboardElements;
   private readonly onFeedback: (id: number, feedback: Feedback) => void;
   private hours: readonly HourSummary[] = [];
+  private readonly trend: TrendChart;
 
   constructor(ui: DashboardElements, onPickDay: (day: string) => void, onFeedback: (id: number, feedback: Feedback) => void) {
     this.ui = ui;
@@ -87,12 +109,12 @@ export class Dashboard {
     ui.legend.replaceChildren(
       ...[...CHART_LABELS].reverse().map((label) => {
         const item = html("li");
-        const swatch = html("span", "", "swatch");
-        swatch.dataset.label = label;
-        item.append(swatch, html("span", label));
+        item.dataset.label = label;
+        item.append(html("span", "", "shape"), html("span", capitalize(label)));
         return item;
       }),
     );
+    this.trend = new TrendChart(ui.trendWrap, ui.trendTip, ui.trendLegend);
     new ResizeObserver(() => this.drawChart()).observe(ui.chart);
   }
 
@@ -121,14 +143,29 @@ export class Dashboard {
       (view.day === view.today
         ? "Belum ada riwayat hari ini. Riwayat tercatat tiap 10 detik setelah kalibrasi, dan hanya disimpan di perangkat ini."
         : "Tidak ada riwayat untuk hari ini.");
-    ui.stats.hidden = empty;
-    ui.figure.hidden = empty;
+    ui.body.hidden = empty;
     this.renderRecommendations(view.rekomendasi);
     this.hours = s && !empty ? s.perJam : [];
     if (!s || empty) {
       this.drawChart();
+      this.trend.render({ points: [], bucket: 60_000, breaks: [] });
       return;
     }
+
+    ui.lead.textContent = insightSentences(s).join(" ");
+    ui.tiles.replaceChildren(
+      ...dayTiles(s).map((t) => {
+        const tile = html("div", "", "tile");
+        tile.append(html("p", t.label, "tile-label"), html("p", t.value, "tile-value"), html("p", t.sub, "tile-sub"));
+        return tile;
+      }),
+    );
+    renderLabelBars(ui.labelBars, ui.labelBarsNote, s);
+    const rated = view.evaluasi.filter((r) => r.dinilai);
+    const span = rated.length > 1 ? rated[rated.length - 1].t - rated[0].t : 0;
+    const bucket = bucketFor(span);
+    ui.trendSub.textContent = trendSubtitle(bucket);
+    this.trend.render({ points: levelSeries(view.evaluasi, bucket), bucket, breaks: view.jeda });
 
     const rows: [string, string][] = [
       ["Dipantau", `${minutes(judged + notJudged)} · ${s.sesi} sesi`],
@@ -177,10 +214,13 @@ export class Dashboard {
       ...[...recs].reverse().map((r) => {
         const item = html("li");
         const time = new Date(r.t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-        item.append(
-          html("p", `${time} · ${r.status ?? r.label}${r.pemicu === "otomatis" ? " · otomatis" : ""}`, "rec-head"),
-          html("p", recommendationText(r), "rec-text"),
-        );
+        const head = html("p", "", "rec-head");
+        const chip = html("span", capitalize(r.label), "label-chip");
+        chip.dataset.label = r.label;
+        head.append(html("span", time), chip);
+        if (r.status) head.append(html("span", r.status, "pill"));
+        if (r.pemicu === "otomatis") head.append(html("span", "otomatis", "pill"));
+        item.append(head, html("p", recommendationText(r), "rec-text"));
         if (r.id !== undefined) item.append(feedbackButtons(r.feedback, (f) => this.onFeedback(r.id as number, f)));
         return item;
       }),
@@ -299,7 +339,7 @@ export class Dashboard {
 export function feedbackButtons(current: Feedback | null, choose: (f: Feedback) => void): HTMLElement {
   const row = html("div", "", "feedback-row");
   for (const { value, text } of FEEDBACKS) {
-    const button = html("button", text, "secondary small");
+    const button = html("button", text, "btn outline small");
     button.type = "button";
     button.setAttribute("aria-pressed", String(current === value));
     button.addEventListener("click", () => choose(value));
