@@ -34,9 +34,9 @@ flowchart LR
   fb --> llm
 ```
 
-- **Jalur A (rekomendasi):** tombol "Kirim status saat ini ke Langflow" atau kirim otomatis → backend → flow `analisis_status`
+- **Jalur A (rekomendasi):** tombol "Minta saran sekarang" (halaman Sekarang) atau saran otomatis → backend → flow `analisis_status`
   → rekomendasi jeda + alasan + sumber.
-- **Jalur B (percakapan):** panel "Tanya Equilibre" → backend menjalankan IBM Bob → Bob memilih salah satu dari dua tool Langflow
+- **Jalur B (percakapan):** halaman "Tanya" → backend menjalankan IBM Bob → Bob memilih salah satu dari dua tool Langflow
   lewat MCP → jawaban + sumber.
 - Backend menyimpan API key Langflow dan Bob, sehingga browser tidak pernah memegang kunci apa pun.
 
@@ -45,7 +45,7 @@ flowchart LR
 | Ke mana | Isi | Penjaga |
 |---|---|---|
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
-| `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain; panel menyebutkan apa yang dikirim di bawah jawaban |
+| `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain; halaman Tanya menyebutkan apa yang dikirim di bawah kotak pertanyaan |
 | tidak pernah | video, gambar, landmark wajah, EAR per frame, baseline kalibrasi, skor pola kedip, riwayat | diproses dan disimpan hanya di browser |
 
 ## Deteksi di browser
@@ -91,7 +91,7 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 
 ### Skor pola kedip (UTA-RLDD)
 
-Di bawah label, panel Status menampilkan **skor pola kedip**: peluang bahwa 30 kedipan terakhir mirip pola orang mengantuk.
+Halaman Teknis menampilkan **skor pola kedip**: peluang bahwa 30 kedipan terakhir mirip pola orang mengantuk.
 Fiturnya dari paper UTA-RLDD (durasi, amplitudo, kecepatan membuka mata, frekuensi; dinormalkan terhadap kedipan kalibrasi
 orang itu), lalu regresi logistik (`web/src/blinkScore.ts`). Skor ini **hanya informasi**: tidak mengubah label dan tidak
 dikirim ke server.
@@ -141,13 +141,13 @@ balasan hanya JSON.
 Advances, American Academy of Ophthalmology, Environmental Health Perspectives, Regulation (EU) 432/2012), masing-masing dengan
 sitasi dan lisensi. Klaim yang tidak ada di catatan tidak boleh muncul di rekomendasi; daftarnya di `knowledge/README.md`.
 
-**Kirim otomatis** (toggle di panel Langflow, bawaan mati): hanya saat label berubah menjadi `lelah ringan`/`lelah`/`tertidur`
+**Saran otomatis** (toggle "Minta saran otomatis" di halaman Privasi & pengaturan, bawaan mati): hanya saat label berubah menjadi `lelah ringan`/`lelah`/`tertidur`
 atau saran istirahat panjang muncul, paling sering sekali per 10 menit (`tertidur` dan istirahat panjang boleh menembus sekali,
 jadi maksimal 2 panggilan per 10 menit).
 
 ## Tanya Equilibre (IBM Bob + Langflow lewat MCP)
 
-Panel "Tanya Equilibre" mengirim pertanyaan ke `POST /api/tanya`. Backend menjalankan IBM Bob Shell secara headless
+Halaman "Tanya" mengirim pertanyaan ke `POST /api/tanya`. Backend menjalankan IBM Bob Shell secara headless
 (`bob run --format json`) dari folder kerja terpisah (`../bob-workspace/`, berisi konfigurasi MCP ke Langflow). Bob memilih
 satu dari dua tool Langflow: `cari_panduan` (tanya-jawab dari knowledge base) atau `ringkasan_harian` (merangkum angka riwayat
 hari ini), lalu jawabannya ditampilkan di app beserta sumbernya. `analisis_status` tidak dibuka untuk Bob, karena statusnya
@@ -169,8 +169,27 @@ diputuskan server, bukan LLM.
 
 Riwayat disimpan di IndexedDB browser, **hanya di perangkat**, selama 30 hari: label tiap 10 detik beserta angka
 ringkasannya, jeda, rekomendasi Langflow dan umpan baliknya ("sudah dilakukan" / "tidak relevan"), koreksi label dari
-pengguna ("Label ini tidak sesuai"), dan isian Karolinska Sleepiness Scale (KSS). Panel "Riwayat" menampilkan satu hari per
-tampilan dengan grafik menit per jam, dan bisa diunduh sebagai JSON atau dihapus seluruhnya.
+pengguna ("Label ini tidak sesuai"), dan isian Karolinska Sleepiness Scale (KSS). Halaman "Insight" menampilkan satu hari per
+tampilan (lihat "Antarmuka"); riwayat bisa diunduh sebagai JSON atau dihapus seluruhnya dari halaman Privasi & pengaturan.
+
+## Antarmuka
+
+Satu halaman web dengan lima tab (`web/index.html`, navigasi lewat hash URL di `web/src/router.ts`). Kamera tampil sebagai
+pratinjau kecil di samping semua tab, karena detektor membaca video itu terus; di layar sempit pratinjau mengambang di pojok
+dan tab pindah ke bawah.
+
+| Tab | Isi |
+|---|---|
+| **Sekarang** | Label saat ini dalam kalimat biasa bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`); "Kenapa Equilibre menilai begini?" berisi kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"; ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label); "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
+| **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
+| **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
+| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
+| **Teknis** | Grafik EAR 20 detik terakhir dengan batas pribadi dari kalibrasi (`earChart.ts`), titik mata dan mask tubuh di atas video, sinyal per frame, fitur jendela, skor pola kedip, baseline, JSON yang dikirim, unduh log CSV |
+
+Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
+bentuk, dan teks: ● normal, ◆ lelah ringan, ▲ lelah, ■ tertidur, ○ tidak di depan layar), panduan grafik Apple HIG, mode terang
+dan gelap mengikuti sistem. Warna grafik diperiksa dengan validator palet (buta warna dan kontras). Font IBM Plex Sans disajikan
+dari `web/public/fonts/`, jadi app tidak menghubungi layanan font pihak ketiga.
 
 ## Menjalankan (development)
 
@@ -190,7 +209,7 @@ Parameter URL untuk pengembangan dan uji coba:
 | Parameter | Fungsi |
 |---|---|
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
-| `?debug=1` | overlay titik mata dan mask tubuh |
+| `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Teknis |
 | `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
@@ -216,7 +235,7 @@ Parameter URL untuk pengembangan dan uji coba:
 |---|---|
 | Privasi | Video diproses di perangkat; hanya label, angka agregat, dan nama aturan yang dikirim, dengan whitelist di server (tabel "Data yang keluar"). Riwayat hanya di IndexedDB, bisa diunduh atau dihapus seluruhnya. Log sesi CSV hanya dibuat kalau pengguna menekan tombol unduh |
 | Transparansi dan explainability | Tiap label disertai alasan per aturan dengan angka dan batasnya ("Kedipan rata-rata 430 ms, lebih lambat dari biasanya (151 ms; batas 301 ms)"); konteks yang tidak dihitung ditulis sebagai catatan. Tiap rekomendasi dan jawaban Bob menyebut sumber dari knowledge base. Skor pola kedip diberi keterangan "hanya informasi" |
-| Bukan diagnosis | Prompt melarang diagnosis dan menyebut penyakit; knowledge base hanya berisi panduan jeda dan kerja yang bersumber; keluhan di luar catatan ditolak |
+| Bukan diagnosis | Prompt melarang diagnosis dan menyebut penyakit; knowledge base hanya berisi panduan jeda dan kerja yang bersumber; keluhan di luar catatan ditolak; halaman Privasi & pengaturan menyatakan Equilibre bukan alat medis |
 | Human oversight | Pengguna yang memutuskan tindakan. Kirim otomatis bawaan mati. Pengguna bisa mengoreksi label, memberi umpan balik rekomendasi, dan mengisi KSS; semuanya tersimpan untuk evaluasi |
 | Fairness | Setiap batas dinilai terhadap baseline pribadi hasil kalibrasi. UTA-RLDD didominasi pria (±85%) dan threshold disetel dari rekaman pengembang, jadi hasil pada orang lain belum diketahui (lihat Keterbatasan) |
 | Regulasi | EU AI Act (Regulation (EU) 2024/1689) Pasal 5(1)(f) melarang AI menyimpulkan emosi di tempat kerja; Recital 18 menegaskan keadaan fisik seperti kelelahan tidak termasuk pengenalan emosi. Equilibre hanya mendeteksi kelelahan dan tidak punya label emosi |
@@ -270,4 +289,5 @@ dataset tidak disertakan di repo ini.
 Situs dataset: https://sites.google.com/view/utarldd/home
 
 Sumber knowledge base dan lisensinya tercantum di `knowledge/README.md`. Deteksi wajah dan tubuh memakai
-[MediaPipe](https://ai.google.dev/edge/mediapipe) (Face Landmarker dan Image Segmenter).
+[MediaPipe](https://ai.google.dev/edge/mediapipe) (Face Landmarker dan Image Segmenter). Font
+[IBM Plex Sans](https://github.com/IBM/plex) © IBM Corp., SIL Open Font License 1.1 (`web/public/fonts/OFL.txt`).
