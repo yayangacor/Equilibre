@@ -291,3 +291,13 @@ Situs dataset: https://sites.google.com/view/utarldd/home
 Sumber knowledge base dan lisensinya tercantum di `knowledge/README.md`. Deteksi wajah dan tubuh memakai
 [MediaPipe](https://ai.google.dev/edge/mediapipe) (Face Landmarker dan Image Segmenter). Font
 [IBM Plex Sans](https://github.com/IBM/plex) © IBM Corp., SIL Open Font License 1.1 (`web/public/fonts/OFL.txt`).
+
+## Lisensi
+
+Kode Equilibre dirilis dengan lisensi **BSD 3-Clause** (`LICENSE`). Lisensi itu tidak mencakup bagian milik pihak lain, yang
+tetap mengikuti ketentuannya masing-masing:
+
+- koefisien skor pola kedip (`web/src/blinkScore.ts`), dilatih dari UTA-RLDD: pemakaian ulang mengikuti ketentuan dataset;
+- `@mediapipe/tasks-vision` (Apache-2.0) beserta model di `web/public/models/`, sesuai model card MediaPipe masing-masing;
+- font IBM Plex Sans (SIL Open Font License 1.1, `web/public/fonts/OFL.txt`);
+- isi `knowledge/`: parafrase sumber pihak ketiga, lisensi per sumber di `knowledge/README.md`.
