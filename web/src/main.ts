@@ -22,6 +22,7 @@ import {
   type Baseline,
   type KeyValueStore,
 } from "./calibration.ts";
+import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
 import { downloadFile, fileStamp } from "./download.ts";
 import { EarChart } from "./earChart.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
@@ -276,8 +277,8 @@ const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
 let sending = false;
 
-// Automatic sending (NOTES D-37): off unless switched on, remembered on this device.
-let autoSendOn = store ? loadAutoSend(store) : false;
+// Automatic sending (NOTES D-37): off unless switched on, remembered on this device. Never in the demo build.
+let autoSendOn = !DEMO && store ? loadAutoSend(store) : false;
 let autoState = initialAutoSendState();
 let lastAuto: { t: number; target: AutoTarget; ok: boolean | null } | null = null;
 
@@ -653,8 +654,8 @@ const notSent = (payload: AnalyzePayload | null) => payload?.label === "tidak di
 function renderPayload() {
   const payload = currentPayload();
   payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "Belum ada status.";
-  sendButton.disabled = payload === null || sending || notSent(payload);
-  sendNote.hidden = !notSent(payload);
+  sendButton.disabled = DEMO || payload === null || sending || notSent(payload);
+  sendNote.hidden = DEMO || !notSent(payload);
 }
 
 function renderBaseline() {
@@ -1120,6 +1121,11 @@ function renderAutoSend() {
   autoSendToggle.checked = autoSendOn;
   autoPill.textContent = autoSendOn ? "Saran otomatis aktif" : "Saran otomatis mati";
   autoPill.dataset.on = autoSendOn ? "1" : "0";
+  if (DEMO) {
+    autoSendToggle.disabled = true;
+    autoSendNote.textContent = DEMO_NOTE.autoSend;
+    return;
+  }
   const rule =
     "saat label menjadi lelah ringan, lelah, atau tertidur, atau saat saran istirahat panjang muncul, " +
     `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit; tertidur dan saran istirahat panjang boleh ` +
@@ -1211,6 +1217,7 @@ async function main() {
   renderCalibrationIdle();
   renderPower();
   renderAutoSend();
+  if (DEMO) answer.replaceChildren(demoCallout(DEMO_NOTE.saran));
   renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.

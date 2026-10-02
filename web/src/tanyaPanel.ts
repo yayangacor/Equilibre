@@ -1,3 +1,4 @@
+import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
 import type { DaySummary } from "./history.ts";
 import type { Label } from "./rules.ts";
 import { PERTANYAAN_MAX, PERTANYAAN_MIN, toTanyaBody, toTanyaView, type TanyaResponse } from "./tanya.ts";
@@ -58,6 +59,12 @@ export class TanyaPanel {
       return chip;
     });
     byId("tanya-chips").replaceChildren(...this.chips);
+    if (DEMO) {
+      this.setBusy(true); // nothing to answer with: the demo build has no backend
+      this.input.disabled = true;
+      this.input.placeholder = "Tidak aktif di demo online";
+      this.thread.before(demoCallout(DEMO_NOTE.tanya));
+    }
   }
 
   private setBusy(busy: boolean) {

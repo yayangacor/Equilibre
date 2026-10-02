@@ -9,6 +9,8 @@
     "dev": "vite",
     "prebuild": "node scripts/copy-wasm.ts",
     "build": "tsc && vite build",
+    "prebuild:demo": "node scripts/copy-wasm.ts",
+    "build:demo": "tsc && vite build --mode demo",
     "preview": "vite preview",
     "test": "vitest run",
     "replay": "node scripts/replay.ts"

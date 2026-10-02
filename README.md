@@ -214,6 +214,11 @@ Parameter URL untuk pengembangan dan uji coba:
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
 
+**Demo online (frontend saja).** `cd web && npm run build:demo` menghasilkan `web/dist/` untuk hosting statis tanpa backend.
+Deteksi, riwayat, Insight, dan pendamping sama persis dengan versi lokal karena semuanya berjalan di browser. Saran Langflow dan
+Tanya Equilibre dinonaktifkan dengan keterangan, karena keduanya butuh backend, Langflow, dan Bob Shell yang berjalan lokal.
+Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dari `main`, tidak pernah berisi kode sendiri.
+
 ## Testing dan validasi
 
 | Uji | Hasil |
