@@ -67,6 +67,8 @@ import { ADVICE, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
 import { capitalize, heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
+import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
+import { UserTestPanel } from "./userTestPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 
@@ -93,9 +95,15 @@ const TIDUR_MENIT = numberParam("tidur", SLEEP.eyesClosedMinutes, 0.5, 30);
 const DEBUG = params.get("debug") === "1";
 // ?riwayat=uji keeps the history in its own database (checks, demos), away from the real one.
 const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
-const HISTORY_DB = HISTORY_SUFFIX ? `${DB_NAME}-${HISTORY_SUFFIX}` : DB_NAME;
-// ?uji=1: user test mode (P08), a KSS reminder every 15 minutes.
-const TEST_MODE = params.get("uji") === "1";
+// ?kode=EQ-XXXX: remote user test (plans/P08, NOTES D-57) with its own history database and the test card.
+const TEST_CODE = parseCode(params.get("kode"));
+const HISTORY_DB = TEST_CODE
+  ? `${DB_NAME}-${testDbSuffix(TEST_CODE)}`
+  : HISTORY_SUFFIX
+    ? `${DB_NAME}-${HISTORY_SUFFIX}`
+    : DB_NAME;
+// ?uji=1 (or a ?kode= test): user test mode, a KSS reminder every 15 minutes.
+const TEST_MODE = params.get("uji") === "1" || TEST_CODE !== null;
 // ?kamera=0: the page without camera and models (automated checks, screenshots of the history).
 const NO_CAMERA = params.get("kamera") === "0";
 const DASHBOARD_REFRESH_MS = 30_000;
@@ -355,7 +363,8 @@ const selfReport = new SelfReport({
   panel,
   session: SESSION,
   shown: () => (calibration ? null : (monitor?.labelState.shown ?? null)),
-  testMode: TEST_MODE,
+  // With a test code the reminders run only while the test does (after consent and calibration).
+  testMode: () => TEST_MODE && (userTest === null || userTest.running()),
   beep: reminderBeep,
   lastCameraBreak: () => lastCameraBreak,
   // Before the first frame there is nothing to restart: the count starts at that frame anyway.
@@ -367,6 +376,44 @@ const selfReport = new SelfReport({
     renderSinceBreak();
   },
 });
+
+// Frames per second between two wall-clock times, from the session log (hidden-tab gaps included).
+function framesPerSecond(from: number, to: number): number | null {
+  const end = Math.min(to, Date.now());
+  if (end <= from) return null;
+  const frames = sessionLog.filter((f) => {
+    const t = wallClock(f.t);
+    return t >= from && t <= end;
+  }).length;
+  return Math.round((frames / ((end - from) / 1000)) * 10) / 10;
+}
+
+// Remote user test card (?kode=), plans/P08.
+const userTest: UserTestPanel | null = TEST_CODE
+  ? new UserTestPanel({
+      store,
+      code: TEST_CODE,
+      isCalibrating: () => calibration !== null,
+      startCalibration: () => {
+        if (!calibration) calibButton.click();
+      },
+      openCompanion: PipCompanion.supported()
+        ? () => {
+            if (!companion.isOpen) pipButton.click();
+          }
+        : null,
+      records: () => panel.allRecords(),
+      device: (from, to) => ({
+        browser: browserOf(navigator.userAgent),
+        os: osOf(navigator.userAgent),
+        kamera: video.videoWidth > 0 ? `${video.videoWidth}x${video.videoHeight}` : null,
+        fps_rata: framesPerSecond(from, to),
+      }),
+      baseline: () => baseline,
+      beep: reminderBeep,
+      onStarted: (t) => selfReport.resetKssClock(t),
+    })
+  : null;
 
 // Today's numbers on the "Sekarang" page, from the same refresh as the Insight page.
 let todaySummary: DaySummary | null = null;
@@ -960,6 +1007,7 @@ async function runCalibration() {
   calibButton.textContent = "Batalkan kalibrasi";
   document.body.dataset.calibrating = "1"; // small screens: the camera preview grows for the prompts
   renderStatus();
+  userTest?.render();
 
   let outcome: { message: string; isError: boolean } | undefined;
   try {
@@ -1022,6 +1070,7 @@ async function runCalibration() {
     baseline = { ...result.baseline, kedip: calibrateBlinks(run.normal, result.baseline) };
     const saved = store !== null && saveBaseline(store, baseline);
     resetWindow(performance.now());
+    userTest?.calibrated(Date.now()); // the first calibration after consent starts the test clock
     outcome = {
       message: saved
         ? "Kalibrasi selesai dan tersimpan di perangkat ini."
@@ -1034,6 +1083,7 @@ async function runCalibration() {
     void audio.close();
     renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Kalibrasi dibatalkan." : undefined), outcome?.isError);
     renderStatus();
+    userTest?.render();
   }
 }
 
@@ -1221,9 +1271,16 @@ async function main() {
   renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
-  void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock());
+  void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock(userTest?.started ?? null));
   setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
-  if (TEST_MODE) setInterval(() => selfReport.tick(Date.now()), KSS_CHECK_MS);
+  userTest?.render();
+  if (TEST_MODE) {
+    setInterval(() => {
+      const now = Date.now();
+      selfReport.tick(now);
+      userTest?.render(now);
+    }, KSS_CHECK_MS);
+  }
   if (NO_CAMERA) {
     cameraFailed("Kamera tidak dinyalakan (?kamera=0).");
     return;

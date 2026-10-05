@@ -1793,6 +1793,111 @@ select {
   resize: vertical;
 }
 
+/* ── Uji coba (?kode=, plans/P08) ─────────────────────────────────────────── */
+
+.uji {
+  border: 1px solid var(--primary);
+}
+
+.uji h3 {
+  margin: 16px 0 4px;
+  font-size: 0.95rem;
+}
+
+.uji ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.uji .step {
+  margin: 0;
+  font-weight: 600;
+}
+
+.uji-timer {
+  margin: 8px 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.uji-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.uji fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.uji legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 0.875rem;
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.radio:has(input:checked) {
+  color: var(--on-primary-container);
+  background: var(--primary-container);
+  border-color: var(--primary);
+}
+
+.radio input,
+.check input {
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.uji input[type="text"],
+.uji textarea {
+  font: inherit;
+  color: var(--on-surface);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-sm);
+}
+
+.uji input[type="text"] {
+  width: 6em;
+  margin: 0 6px;
+  padding: 6px 10px;
+}
+
+.uji textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.uji .row {
+  margin-top: 12px;
+}
+
 /* ── Privasi & pengaturan ─────────────────────────────────────────────────── */
 
 .data-flow {

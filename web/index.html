@@ -48,6 +48,15 @@
         <section class="page" data-page="sekarang" aria-labelledby="h-sekarang">
           <h1 id="h-sekarang" class="visually-hidden" tabindex="-1">Sekarang</h1>
 
+          <!-- Remote user test (?kode=), plans/P08 -->
+          <section id="uji-card" class="card uji" aria-labelledby="h-uji" hidden>
+            <div class="card-head">
+              <h2 id="h-uji">Uji coba Equilibre</h2>
+              <span id="uji-code" class="pill"></span>
+            </div>
+            <div id="uji-body"></div>
+          </section>
+
           <article id="hero" class="hero" data-label="none">
             <div id="hero-bear" class="hero-art" aria-hidden="true"></div>
             <div class="hero-body">
@@ -277,6 +286,13 @@
                 <div>
                   <p class="flow-title">Saat kamu bertanya → IBM Bob dan Langflow</p>
                   <p class="muted">Teks pertanyaan, label terakhir, dan angka ringkasan hari ini.</p>
+                </div>
+              </li>
+              <li id="flow-uji" hidden>
+                <span class="flow-icon sent" aria-hidden="true"></span>
+                <div>
+                  <p class="flow-title">Uji coba, setelah kamu menekan Kirim → Google Sheet pengembang</p>
+                  <p class="muted">Riwayat selama uji (label dan angka tiap 10 detik, cek kantuk, koreksi, jeda), angka kalibrasi, jenis browser, isian awal, dan feedback. Tanpa video dan tanpa nama.</p>
                 </div>
               </li>
               <li>

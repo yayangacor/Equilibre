@@ -35,7 +35,7 @@ export type SelfReportDeps = {
   panel: HistoryPanel;
   session: number;
   shown: () => Evaluation | null; // the label on screen right now
-  testMode: boolean;
+  testMode: () => boolean; // KSS reminders on (?uji=1, or a ?kode= test that is running)
   beep: () => void;
   lastCameraBreak: () => number | null; // wall clock end of the last break the camera counted
   breakTaken: () => void; // restarts menit_sejak_jeda
@@ -92,11 +92,19 @@ export class SelfReport {
     deps.panel.onCleared = () => this.showRecommendation(null);
   }
 
-  // A reload keeps the 15-minute rhythm of the day's ratings.
-  async restoreKssClock() {
+  // A reload keeps the 15-minute rhythm of the day's ratings. `notBefore`: a running user test, whose
+  // clock started then (ratings from before the test do not count).
+  async restoreKssClock(notBefore: number | null = null) {
     const today = await this.deps.panel.byDay("kss", dayKey(Date.now()));
-    const last = Math.max(...today.map((k) => k.t));
+    const last = Math.max(...today.map((k) => k.t), notBefore ?? -Infinity);
     if (Number.isFinite(last)) this.lastKss = last;
+  }
+
+  // A user test just started: the first reminder comes 15 minutes later.
+  resetKssClock(t: number) {
+    this.lastKss = t;
+    this.kssDueNow = false;
+    delete this.kssPanel.dataset.due;
   }
 
   // ── Label correction ──────────────────────────────────────────────────────────
@@ -161,7 +169,7 @@ export class SelfReport {
 
   // Test mode only: flags the panel once the rating is due, and beeps once.
   tick(now: number) {
-    if (!this.deps.testMode || this.kssDueNow || !kssDue(this.lastKss, now)) return;
+    if (!this.deps.testMode() || this.kssDueNow || !kssDue(this.lastKss, now)) return;
     this.kssDueNow = true;
     this.kssPanel.dataset.due = "1";
     this.kssPrompt.textContent = "Waktunya mengisi KSS (tiap 15 menit): seberapa mengantuk kamu dalam 5 menit terakhir?";
@@ -182,7 +190,7 @@ export class SelfReport {
     this.kssDueNow = false;
     delete this.kssPanel.dataset.due;
     this.kssPrompt.textContent = "Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.";
-    this.kssNote.textContent = `KSS ${kss} tersimpan pukul ${clock(t)}.${this.deps.testMode ? " Pengingat berikutnya 15 menit lagi." : ""}`;
+    this.kssNote.textContent = `KSS ${kss} tersimpan pukul ${clock(t)}.${this.deps.testMode() ? " Pengingat berikutnya 15 menit lagi." : ""}`;
   }
 
   // ── Feedback on the answer in the Langflow panel ──────────────────────────────

@@ -160,11 +160,9 @@ export class HistoryPanel {
     return { evaluasi, jeda, rekomendasi, koreksi_label, kss };
   }
 
-  private async exportFile() {
-    if (!this.db) {
-      this.actionNote.textContent = this.problem ?? "Riwayat belum siap.";
-      return;
-    }
+  // Every stored record, all days (export, user test submission). null: the history is not available.
+  async allRecords(): Promise<DayData | null> {
+    if (!this.db) return null;
     const db = this.db;
     const [evaluasi, jeda, rekomendasi, koreksi_label, kss] = await Promise.all([
       db.all("evaluasi"),
@@ -173,7 +171,17 @@ export class HistoryPanel {
       db.all("koreksi_label"),
       db.all("kss"),
     ]);
-    const file = toExport({ evaluasi, jeda, rekomendasi, koreksi_label, kss }, Date.now());
+    return { evaluasi, jeda, rekomendasi, koreksi_label, kss };
+  }
+
+  private async exportFile() {
+    const stores = await this.allRecords();
+    if (!stores) {
+      this.actionNote.textContent = this.problem ?? "Riwayat belum siap.";
+      return;
+    }
+    const { evaluasi, jeda, rekomendasi, koreksi_label, kss } = stores;
+    const file = toExport(stores, Date.now());
     downloadFile(JSON.stringify(file), `equilibre-riwayat-${fileStamp(new Date())}.json`, "application/json");
     this.actionNote.textContent =
       `Diunduh: ${evaluasi.length} evaluasi, ${jeda.length} jeda, ${rekomendasi.length} rekomendasi, ` +
