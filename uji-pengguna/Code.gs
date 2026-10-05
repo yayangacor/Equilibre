@@ -58,10 +58,15 @@ function doPost(e) {
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sent = sheet_(ss, "kiriman");
-    // A second submission with the same code is kept but marked, so the analysis can use the first one.
-    const duplikat =
-      sent.getLastRow() > 1 && sent.getRange(2, 3, sent.getLastRow() - 1, 1).getValues().some((r) => r[0] === kode);
-    const id = Utilities.getUuid();
+    const stored = sent.getLastRow() > 1 ? sent.getRange(2, 1, sent.getLastRow() - 1, 4).getValues() : [];
+    // The app resends with the same id when it got no readable answer (the redirect hop is flaky): answer
+    // again without writing a second copy.
+    const clientId = typeof sub.id_kiriman === "string" && /^[0-9a-f-]{36}$/i.test(sub.id_kiriman) ? sub.id_kiriman.toLowerCase() : null;
+    const again = clientId && stored.find((r) => r[0] === clientId);
+    if (again) return json_({ ok: true, id: clientId, duplikat: again[3] === true, ulang: true });
+    // A different submission with the same code is kept but marked, so the analysis can use the first one.
+    const duplikat = stored.some((r) => r[2] === kode);
+    const id = clientId || Utilities.getUuid();
     const i = sub.isian || {};
     const f = sub.feedback || {};
     const p = sub.perangkat || {};
