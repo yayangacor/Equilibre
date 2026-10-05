@@ -139,6 +139,9 @@ export type TestState = {
   mulai: number | null; // first calibration after consent finished: the test clock starts
   selesai: number | null; // finished early, or when the feedback form was first shown after TEST_MINUTES
   selesai_awal: boolean;
+  // Made once, at the first send, and kept across retries and reloads: the receiver stores one row per id,
+  // so a retry after a lost answer never writes the submission twice.
+  id_kiriman: string | null;
   terkirim: { id: string; t: number; duplikat: boolean } | null;
 };
 
@@ -151,8 +154,14 @@ export const freshState = (kode: string): TestState => ({
   mulai: null,
   selesai: null,
   selesai_awal: false,
+  id_kiriman: null,
   terkirim: null,
 });
+
+const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const withSubmissionId = (s: TestState, makeId: () => string): TestState =>
+  s.id_kiriman !== null ? s : { ...s, id_kiriman: makeId() };
 
 const MINUTE = 60_000;
 
@@ -219,6 +228,7 @@ export function loadTestState(store: KeyValueStore, kode: string): TestState {
       mulai: time(v.mulai),
       selesai: time(v.selesai),
       selesai_awal: v.selesai_awal === true,
+      id_kiriman: typeof v.id_kiriman === "string" && ID_PATTERN.test(v.id_kiriman) ? v.id_kiriman : null,
       terkirim:
         sent && typeof sent.id === "string" && time(sent.t) !== null
           ? { id: sent.id, t: sent.t as number, duplikat: sent.duplikat === true }
@@ -267,6 +277,7 @@ export const BREAK_KEYS = ["sesi", "mulai", "selesai", "menit", "pemicu"] as con
 export const SUBMISSION_KEYS = [
   "format",
   "versi",
+  "id_kiriman",
   "kode",
   "app",
   "dikirim",
@@ -356,12 +367,14 @@ export function toSubmission(
   context: { perangkat: Device; baseline: Baseline | null; now: number },
 ) {
   if (s.mulai === null || s.selesai === null) throw new Error("Uji belum selesai.");
+  if (s.id_kiriman === null) throw new Error("Kiriman belum punya id.");
   const from = s.mulai;
   const to = s.selesai;
   const inside = (t: number) => t >= from && t <= to;
   return {
     format: "equilibre-uji",
     versi: 1,
+    id_kiriman: s.id_kiriman,
     kode: s.kode,
     app: APP_VERSION,
     dikirim: new Date(context.now).toISOString(),
@@ -403,3 +416,34 @@ export async function postSubmission(url: string, sub: Submission, fetchFn: type
   if (b.ok === true && typeof b.id === "string") return { ok: true, id: b.id, duplikat: b.duplikat === true };
   return { ok: false, error: typeof b.error === "string" ? b.error : "Jawaban penerima tidak dikenal." };
 }
+
+// Apps Script answers through a redirect to googleusercontent.com, and that hop is flaky: in 9 browser
+// trials on 5 Oct the answer was right 5 times, the doGet answer twice and a 404 twice (plans/P08). The
+// submission itself is stored by doPost before the redirect, and its id makes a resend harmless, so an
+// unconfirmed send is simply tried again. A refusal the receiver did give (unknown code) is not retried.
+export const SEND_ATTEMPTS = 3;
+export const RETRY_WAIT_MS = 2_000;
+
+export async function sendWithRetry(
+  url: string,
+  sub: Submission,
+  options: {
+    fetchFn?: typeof fetch;
+    sleep?: (ms: number) => Promise<void>;
+    onAttempt?: (attempt: number) => void;
+  } = {},
+): Promise<SendResult> {
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let result: SendResult = { ok: false, error: "Belum dikirim." };
+  for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
+    options.onAttempt?.(attempt);
+    result = await postSubmission(url, sub, options.fetchFn);
+    if (result.ok || isRefusal(result.error)) return result;
+    if (attempt < SEND_ATTEMPTS) await sleep(RETRY_WAIT_MS * attempt);
+  }
+  return result;
+}
+
+// Errors written by Code.gs itself: the receiver read the submission and said no, so resending changes nothing.
+const REFUSALS = ["Kode uji tidak terdaftar", "Format kiriman tidak dikenal", "Kiriman bukan JSON", "Kiriman kosong atau terlalu besar", "Bagian "];
+const isRefusal = (error: string) => REFUSALS.some((r) => error.startsWith(r));

@@ -17,12 +17,14 @@ import {
   loadTestState,
   markSent,
   phase,
-  postSubmission,
   saveTestState,
+  SEND_ATTEMPTS,
+  sendWithRetry,
   SLEEP_HOURS,
   TEST_MINUTES,
   toSubmission,
   UJI_URL,
+  withSubmissionId,
   type Device,
   type FeedbackKey,
   type IntakeKey,
@@ -382,6 +384,7 @@ export class UserTestPanel {
       return;
     }
     const now = Date.now();
+    this.setState(withSubmissionId(this.state, () => crypto.randomUUID())); // saved before the first send
     const sub = toSubmission(this.state, feedback, records, {
       perangkat: this.deps.device(mulai, selesai),
       baseline: this.deps.baseline(),
@@ -395,8 +398,11 @@ export class UserTestPanel {
       ui.send.disabled = false;
       return;
     }
-    ui.status.textContent = "Mengirim…";
-    const result = await postSubmission(UJI_URL, sub);
+    const result = await sendWithRetry(UJI_URL, sub, {
+      onAttempt: (n) => {
+        ui.status.textContent = n === 1 ? "Mengirim…" : `Belum ada konfirmasi, mencoba lagi (${n} dari ${SEND_ATTEMPTS})…`;
+      },
+    });
     if (result.ok) {
       this.setState(markSent(this.state, result.id, Date.now(), result.duplikat));
       this.render();

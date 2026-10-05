@@ -22,11 +22,16 @@ import {
   phase,
   postSubmission,
   saveTestState,
+  SEND_ATTEMPTS,
+  sendWithRetry,
   SUBMISSION_KEYS,
   testDbSuffix,
   toSubmission,
+  withSubmissionId,
   type TestState,
 } from "./userTest.ts";
+
+const ID = "3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90";
 
 const MIN = 60_000;
 const T0 = Date.UTC(2026, 9, 6, 6, 0, 0); // consent
@@ -176,7 +181,7 @@ describe("submission", () => {
     ({ id: 4, hari: "x", sesi: 5, mulai, selesai, menit: (selesai - mulai) / MIN, pemicu: "kamera" }) as BreakRecord;
   const baseline = { earOpen: 0.31234, earClosed: 0.1, blinkPerMin: 14.04, blinkDurationMs: 151.4, createdAt: START } as Baseline;
 
-  const done = finish(running(), START + 60 * MIN);
+  const done = withSubmissionId(finish(running(), START + 60 * MIN), () => ID);
   const records = {
     evaluasi: [evaluation(START - MIN), evaluation(START + MIN), evaluation(START + 60 * MIN), evaluation(START + 61 * MIN)],
     kss: [kss(START - MIN), kss(START + 15 * MIN)],
@@ -193,7 +198,7 @@ describe("submission", () => {
   it("has exactly the listed top-level fields, and no recommendations", () => {
     expect(Object.keys(sub).sort()).toEqual([...SUBMISSION_KEYS].sort());
     expect(sub).not.toHaveProperty("rekomendasi");
-    expect(sub).toMatchObject({ kode: "EQ-7K2M", durasi_menit: 60, selesai_awal: false, isian: intake });
+    expect(sub).toMatchObject({ id_kiriman: ID, kode: "EQ-7K2M", durasi_menit: 60, selesai_awal: false, isian: intake });
     expect(sub.baseline).toEqual({ dibuat: START, kedip_per_menit: 14, durasi_kedip_ms: 151, ear_terbuka: 0.312, ear_terpejam: 0.1 });
   });
 
@@ -216,8 +221,20 @@ describe("submission", () => {
     expect(sub.evaluasi[0]).not.toHaveProperty("hari");
   });
 
-  it("refuses to build a submission before the test ended", () => {
+  it("refuses to build a submission before the test ended, or without an id", () => {
     expect(() => toSubmission(running(), feedback, records as never, { perangkat: sub.perangkat, baseline: null, now: START })).toThrow();
+    const noId = finish(running(), START + 60 * MIN);
+    expect(() => toSubmission(noId, feedback, records as never, { perangkat: sub.perangkat, baseline: null, now: START })).toThrow();
+  });
+
+  it("makes the submission id once and keeps it, also through storage", () => {
+    const first = withSubmissionId(done, () => "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d");
+    expect(first.id_kiriman).toBe(ID);
+    const store = memoryStore();
+    saveTestState(store, done);
+    expect(loadTestState(store, "EQ-7K2M").id_kiriman).toBe(ID);
+    store.setItem("equilibre-uji-EQ-7K2M", JSON.stringify({ ...done, id_kiriman: "not-an-id" }));
+    expect(loadTestState(store, "EQ-7K2M").id_kiriman).toBeNull();
   });
 
   const reply = (status: number, body: unknown) =>
@@ -253,6 +270,48 @@ describe("submission", () => {
     expect(seen?.method).toBe("POST");
     expect(seen?.headers).toEqual({ "Content-Type": "text/plain;charset=utf-8" });
     expect(JSON.parse(String(seen?.body)).kode).toBe("EQ-7K2M");
+  });
+});
+
+describe("sending with retries", () => {
+  const sub = toSubmission(withSubmissionId(finish(running(), START + 60 * MIN), () => ID), feedback, {
+    evaluasi: [],
+    kss: [],
+    koreksi_label: [],
+    jeda: [],
+  }, { perangkat: { browser: "x", os: "x", kamera: null, fps_rata: null }, baseline: null, now: START });
+  const json = (body: unknown, status = 200) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
+  const scripted = (...answers: Response[]) => {
+    const bodies: string[] = [];
+    const fn = (async (_u: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return answers.shift() ?? json("<html>404</html>", 404);
+    }) as unknown as typeof fetch;
+    return { fn, bodies };
+  };
+  const noWait = { sleep: async () => {} };
+
+  it("tries again when the answer is lost (404, doGet answer) and stops at the first confirmation", async () => {
+    const { fn, bodies } = scripted(json("<html>404</html>", 404), json({ ok: true, layanan: "equilibre-uji" }), json({ ok: true, id: ID }));
+    const attempts: number[] = [];
+    const result = await sendWithRetry("u", sub, { ...noWait, fetchFn: fn, onAttempt: (n) => attempts.push(n) });
+    expect(result).toEqual({ ok: true, id: ID, duplikat: false });
+    expect(attempts).toEqual([1, 2, 3]);
+    expect(new Set(bodies.map((b) => JSON.parse(b).id_kiriman))).toEqual(new Set([ID])); // the same id every time
+  });
+
+  it("does not resend what the receiver refused (negative control)", async () => {
+    const { fn, bodies } = scripted(json({ ok: false, error: "Kode uji tidak terdaftar atau sudah tidak aktif." }));
+    const result = await sendWithRetry("u", sub, { ...noWait, fetchFn: fn });
+    expect(result).toMatchObject({ ok: false });
+    expect(bodies).toHaveLength(1);
+  });
+
+  it("gives up after the last attempt with the last error", async () => {
+    const { fn, bodies } = scripted();
+    const result = await sendWithRetry("u", sub, { ...noWait, fetchFn: fn });
+    expect(result).toEqual({ ok: false, error: "Penerima menjawab HTTP 404." });
+    expect(bodies).toHaveLength(SEND_ATTEMPTS);
   });
 });
 
