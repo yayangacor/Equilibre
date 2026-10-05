@@ -46,7 +46,8 @@ flowchart LR
 |---|---|---|
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
 | `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain; halaman Tanya menyebutkan apa yang dikirim di bawah kotak pertanyaan |
-| tidak pernah | video, gambar, landmark wajah, EAR per frame, baseline kalibrasi, skor pola kedip, riwayat | diproses dan disimpan hanya di browser |
+| Google Sheet pengembang, **hanya mode uji `?kode=`** setelah penguji setuju dan menekan Kirim | riwayat jendela uji (label + angka payload per evaluasi, KSS, koreksi label, jeda), 4 angka baseline kalibrasi, jenis browser/OS, resolusi kamera, fps rata-rata, isian awal, feedback, kode uji | whitelist field di `web/src/userTest.ts` (dites); penerima menolak kode yang tidak terdaftar (`uji-pengguna/Code.gs`) |
+| tidak pernah | video, gambar, landmark wajah, EAR per frame, skor pola kedip; baseline kalibrasi dan riwayat di luar mode uji | diproses dan disimpan hanya di browser |
 
 ## Deteksi di browser
 
@@ -211,6 +212,7 @@ Parameter URL untuk pengembangan dan uji coba:
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
 | `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Teknis |
 | `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit |
+| `?kode=EQ-XXXX` | uji pengguna jarak jauh: kartu persetujuan → kalibrasi → 60 menit kerja dengan KSS tiap 15 menit → feedback → satu kiriman ke Google Sheet pengembang; riwayat uji di database terpisah (`uji-pengguna/README.md`) |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
 
@@ -232,7 +234,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 | Perbaikan prompt | uji ulang skenario yang sama: saran di luar konteks ("berjalan/minum air" untuk jeda biasa) 9/9 → 0/8; alasan menyebut tanda yang benar 2/9 → 9/9; nama field bocor ke teks 3 → 0 |
 | IBM Bob | jawaban tanpa panggilan tool ditolak (dicek dengan Langflow mati); 2 prompt injection ("jalankan `dir C:\`", "buat file halo.txt"): tidak ada perintah dijalankan, workspace tidak berubah; `analisis_status` tidak terlihat oleh Bob walau prompt tidak melarangnya; keluhan di luar knowledge base (pusing, mual) ditolak tanpa sumber |
 | Skor pola kedip | uji sekali pada 6 orang baru UTA-RLDD (tabel di atas); di app, 16% saat kerja segar dan 80–97% saat pengembang mengantuk dan menguap (satu sesi, anekdot) |
-| Uji pengguna | **belum**: uji 5–10 orang dengan KSS tiap 15 menit (`?uji=1`) direncanakan; akurasi terhadap kantuk yang dirasakan belum diukur |
+| Uji pengguna | **berjalan** (mulai 6 Okt): penguji memakai laptop masing-masing lewat demo online dengan link `?kode=`, KSS tiap 15 menit; akurasi terhadap kantuk yang dirasakan belum diukur sampai hasilnya masuk |
 
 ## Responsible AI
 
@@ -251,6 +253,10 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 - **Threshold disetel dari rekaman satu orang** (pengembang) dan belum diuji pada pengguna lain; nilai yang masih awal ditandai ⚠️
   di kode.
+- **Rules sengaja konservatif, jadi banyak kantuk terlewat.** Pada 12 orang UTA-RLDD yang diekstrak dengan pipeline app, rules tidak
+  memberi label lelah pada satu pun jendela segar yang dinilai, tetapi hanya menangkap video mengantuk pada 5 dari 12 orang; pada
+  uji segar vs mengantuk 6 orang baru, akurasinya 38,0%, di bawah tebak kelas mayoritas (69,9%). Classifier pola kedip menangkap
+  lebih banyak (77,9%), tetapi 13% jendela segar terbaca mengantuk dan belum diuji di kondisi app, sehingga hanya ditampilkan.
 - **HP dipegang setinggi dada** (kepala menunduk ±10–15°) bisa terbaca `lelah ringan` selama ±30 detik: kelopak ikut turun
   mengikuti pandangan sehingga kedipan terbaca lebih lambat (±430 ms, dibanding ±180 ms saat kepala tegak pada orang yang sama).
   HP setinggi dagu atau di pangkuan terbaca `normal`. Dua perbaikan dicoba dan keduanya merusak deteksi yang benar
@@ -283,6 +289,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 | `langflow-flows/` | Ekspor JSON ketiga flow (tanpa API key), prompt, 21 skenario uji + pengecek, runner uji LLM (`uji-llm.mts`, memanggil LLM hanya dengan `--jalankan`) dan hasilnya, `cek-flow.mjs [--pulihkan]` untuk memastikan edge flow sama dengan ekspor, `pasang-prompt.mjs` untuk memasang prompt, `pesan-flow.mjs` untuk membaca teks masuk/keluar flow terakhir |
 | `knowledge/` | Knowledge base RAG: 9 catatan parafrase dengan sitasi dan lisensi |
 | `docs/` | Catatan penyetelan threshold dari rekaman sesi |
+| `uji-pengguna/` | Penerima hasil uji pengguna jarak jauh (Google Apps Script → Google Sheet) dan cara memasangnya |
 
 ## Atribusi
 
