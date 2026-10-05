@@ -121,6 +121,22 @@ function siapkan() {
   codes.getRange(start, 2, rows.length, 1).insertCheckboxes().check();
 }
 
+// Submissions refused as "Kode uji tidak terdaftar"? Run this and read View → Execution log: it shows which
+// spreadsheet the receiver is bound to and how it reads every code row.
+function periksaKode() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log("Spreadsheet: " + ss.getName() + " | sheet: " + ss.getSheets().map((s) => s.getName()).join(", "));
+  const sh = ss.getSheetByName("kode");
+  if (!sh || sh.getLastRow() < 2) {
+    Logger.log("Sheet 'kode' tidak ada atau kosong: jalankan siapkan().");
+    return;
+  }
+  sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach((r, k) => {
+    const kode = String(r[0]).trim().toUpperCase();
+    Logger.log("baris " + (k + 2) + ": " + JSON.stringify(r[0]) + " aktif=" + JSON.stringify(r[1]) + " (" + typeof r[1] + ") → diterima: " + activeCode_(kode));
+  });
+}
+
 // Deletes every row of one code from the data sheets (a tester asked for it). The code row itself stays, unticked.
 function hapusKode(kode) {
   const target = String(kode || "").trim().toUpperCase();
