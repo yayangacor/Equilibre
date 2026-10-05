@@ -11,7 +11,7 @@ import type { BreakRecord, EvaluationRecord, KssRecord, LabelCorrectionRecord } 
 
 // Apps Script web app (/exec) that receives submissions. Empty until it is deployed (P08 step 5):
 // the card then offers the file download only.
-export const UJI_URL = "";
+export const UJI_URL = "https://script.google.com/macros/s/AKfycbyTHyKflpJSsveMM9bgHNPKSn_mWzCYehdCSF0dg8QbC-k8nkr6JcgQ3Ivpq4iF8KaL/exec";
 
 export const TEST_MINUTES = 60;
 export const EARLY_FINISH_MINUTES = 30;
