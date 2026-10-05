@@ -110,8 +110,10 @@ function siapkan() {
     if (existing.has(code) || rows.some((r) => r[0] === code)) continue;
     rows.push([code, true, APP_URL + "?kode=" + code, ""]);
   }
-  codes.getRange(codes.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-  codes.getRange(2, 2, codes.getLastRow() - 1, 1).insertCheckboxes();
+  const start = codes.getLastRow() + 1;
+  codes.getRange(start, 1, rows.length, rows[0].length).setValues(rows);
+  // insertCheckboxes() resets the cells to false, so tick the new rows afterwards; codes unticked by hand stay unticked.
+  codes.getRange(start, 2, rows.length, 1).insertCheckboxes().check();
 }
 
 // Deletes every row of one code from the data sheets (a tester asked for it). The code row itself stays, unticked.
