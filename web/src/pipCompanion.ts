@@ -7,7 +7,9 @@ import { GREETING, type Mood } from "./companion.ts";
 // (G-03). Document Picture-in-Picture is Chromium only; elsewhere the button is off.
 // Texts go in via textContent; the window gets its own small stylesheet, not the app's.
 
-type DocumentPiP = { requestWindow(options: { width: number; height: number }): Promise<Window> };
+type DocumentPiP = {
+  requestWindow(options: { width: number; height: number; preferInitialWindowPlacement?: boolean }): Promise<Window>;
+};
 const documentPiP = (): DocumentPiP | null =>
   (window as Window & { documentPictureInPicture?: DocumentPiP }).documentPictureInPicture ?? null;
 
@@ -130,10 +132,12 @@ export class PipCompanion {
   }
 
   // Must run inside a click handler: requestWindow needs a user gesture.
+  // Chrome raises the width to its minimum (±253 px inside). Without preferInitialWindowPlacement it
+  // reopens at the size the window had when it was closed, so one drag made every later window wide.
   async open(): Promise<void> {
     const api = documentPiP();
     if (!api || this.win) return;
-    const win = await api.requestWindow({ width: 220, height: 300 });
+    const win = await api.requestWindow({ width: 220, height: 300, preferInitialWindowPlacement: true });
     this.win = win;
     this.build(win.document);
     win.addEventListener("pagehide", () => this.closed(), { once: true });
