@@ -194,7 +194,10 @@ export class UserTestPanel {
     const todo = list([
       "Kalibrasi ±5 menit, lalu bekerja seperti biasa di laptop ini.",
       "Tiap 15 menit ada bunyi: isi \"Cek kantuk\" (skala 1–9) di halaman ini.",
-      "Kalau pindah ke aplikasi lain, buka pendamping (jendela kecil) supaya pemantauan tetap jalan.",
+      this.deps.openCompanion
+        ? "Jendela kecil berisi beruang (pendamping) muncul saat kalibrasi dimulai. Biarkan terbuka sampai selesai: tanpa " +
+          "jendela itu, pemantauan berhenti saat kamu pindah ke aplikasi lain."
+        : "Browser ini tidak punya jendela pendamping, jadi pemantauan berhenti saat tab ini tidak terlihat. Kalau bisa, pakai Chrome.",
       "Di akhir, jawab 5 pertanyaan singkat lalu tekan Kirim.",
     ]);
     const sent = el(
@@ -270,7 +273,8 @@ export class UserTestPanel {
         "p",
         "Duduk seperti biasa dengan wajah terlihat kamera. Tekan tombol lalu ikuti aba-aba: mata terbuka, pejamkan ±3 detik sampai " +
           "bunyi beep panjang, lalu bekerja biasa ±5 menit. Biarkan tab ini terlihat selama kalibrasi. Waktu uji mulai dihitung " +
-          "setelah kalibrasi selesai.",
+          "setelah kalibrasi selesai." +
+          (this.deps.openCompanion ? " Jendela kecil berisi beruang ikut muncul saat kamu menekan tombol: biarkan terbuka." : ""),
         "helper",
       ),
       actions,
@@ -298,7 +302,9 @@ export class UserTestPanel {
       bar,
       list([
         "Isi \"Cek kantuk\" di bawah saat ada bunyi (tiap 15 menit).",
-        "Pindah ke aplikasi lain? Buka pendamping supaya pemantauan tetap jalan.",
+        this.deps.openCompanion
+          ? "Biarkan jendela beruang (pendamping) terbuka saat pindah ke aplikasi lain. Tertutup? Tekan \"Buka pendamping\"."
+          : "Biarkan tab ini terlihat: tanpa jendela pendamping, pemantauan berhenti saat tab ini tertutup jendela lain.",
         "Label terasa salah? Buka \"Kenapa Equilibre menilai begini?\" lalu \"Label ini tidak sesuai?\".",
       ]),
       actions,

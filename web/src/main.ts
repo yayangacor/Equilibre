@@ -397,11 +397,7 @@ const userTest: UserTestPanel | null = TEST_CODE
       startCalibration: () => {
         if (!calibration) calibButton.click();
       },
-      openCompanion: PipCompanion.supported()
-        ? () => {
-            if (!companion.isOpen) pipButton.click();
-          }
-        : null,
+      openCompanion: PipCompanion.supported() ? () => openCompanion() : null,
       records: () => panel.allRecords(),
       device: (from, to) => ({
         browser: browserOf(navigator.userAgent),
@@ -481,16 +477,23 @@ function renderPipButton() {
     snoozed;
 }
 
-pipButton.addEventListener("click", () => {
-  if (companion.isOpen) {
-    companion.close();
-    return;
-  }
+// Needs a click, or the browser's automatic picture-in-picture handler (openOnTabSwitch).
+function openCompanion() {
+  if (companion.isOpen) return;
   companion.open().catch((err) => {
     console.error(err);
     pipNote.textContent = "Jendela pendamping tidak bisa dibuka.";
   });
+}
+
+pipButton.addEventListener("click", () => {
+  if (companion.isOpen) companion.close();
+  else openCompanion();
 });
+
+// A tester's link (?kode=) keeps the companion up, since a hidden tab without it pauses monitoring
+// (G-56): it opens with the calibration click, and again when the tester switches tabs after closing it.
+if (TEST_CODE && PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
 
 function companionView(): CompanionView {
   if (calibration) return { mood: "menunggu", label: "Kalibrasi…", note: "Lihat ke layar seperti biasa." };
@@ -1094,6 +1097,8 @@ calibButton.addEventListener("click", () => {
     return;
   }
   void runCalibration();
+  // After the AudioContext is made: opening the window may use up the click.
+  if (TEST_CODE && PipCompanion.supported()) openCompanion();
 });
 // The hero's "Mulai kalibrasi" runs the same calibration (still inside a click, for the beep).
 heroCalib.addEventListener("click", () => calibButton.click());

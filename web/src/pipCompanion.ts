@@ -103,6 +103,19 @@ export class PipCompanion {
     return documentPiP() !== null;
   }
 
+  // Automatic picture-in-picture (Chrome 120+ desktop): while the page captures the camera, the
+  // browser runs this handler when the user switches to another tab, and the window may open
+  // without a click. The browser closes a window opened this way once the tab is visible again.
+  // It does not fire when the user switches to another application, nor while a PiP window is open.
+  // https://developer.chrome.com/blog/automatic-picture-in-picture
+  static openOnTabSwitch(open: () => void): void {
+    try {
+      navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, open);
+    } catch {
+      // The action (or the Media Session API) is not supported: the button stays the only way in.
+    }
+  }
+
   constructor(deps: PipCompanionDeps) {
     this.deps = deps;
   }
