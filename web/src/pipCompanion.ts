@@ -13,6 +13,9 @@ type DocumentPiP = {
 const documentPiP = (): DocumentPiP | null =>
   (window as Window & { documentPictureInPicture?: DocumentPiP }).documentPictureInPicture ?? null;
 
+// The requested inner size; Chrome raises the width to its minimum.
+const SIZE = { width: 220, height: 300 };
+
 export type CompanionView = {
   mood: Mood;
   label: string; // the badge text: the shown label, or "Kalibrasi…", "Belum dikalibrasi", …
@@ -100,6 +103,8 @@ export class PipCompanion {
   } | null = null;
   private bubbleTimer = 0;
   private view: CompanionView = { mood: "menunggu", label: "Memuat…", note: "" };
+  // outerWidth of a window that opened too wide (G-71), until it is narrowed or resized by the user
+  private oversized: number | null = null;
 
   static supported(): boolean {
     return documentPiP() !== null;
@@ -120,6 +125,7 @@ export class PipCompanion {
 
   constructor(deps: PipCompanionDeps) {
     this.deps = deps;
+    for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, this.fit, true);
   }
 
   get isOpen(): boolean {
@@ -137,8 +143,14 @@ export class PipCompanion {
   async open(): Promise<void> {
     const api = documentPiP();
     if (!api || this.win) return;
-    const win = await api.requestWindow({ width: 220, height: 300, preferInitialWindowPlacement: true });
+    const win = await api.requestWindow({ ...SIZE, preferInitialWindowPlacement: true });
     this.win = win;
+    // On a 100% monitor next to a 200% primary display, Chrome opens the window at twice its minimum
+    // width but places it as if it were narrow, so part of it is off-screen (G-71). resizeTo needs a
+    // user activation and requestWindow has just used this one up: the next click or key press in
+    // either window narrows it.
+    this.oversized = win.innerWidth > SIZE.width * 1.5 ? win.outerWidth : null;
+    for (const type of ["pointerdown", "keydown"]) win.addEventListener(type, this.fit, true);
     this.build(win.document);
     win.addEventListener("pagehide", () => this.closed(), { once: true });
     this.render(this.view);
@@ -148,6 +160,22 @@ export class PipCompanion {
   close(): void {
     this.win?.close();
   }
+
+  // Narrows a window that opened too wide, unless the user has resized it since.
+  private readonly fit = () => {
+    const win = this.win;
+    if (!win || this.oversized === null) return;
+    if (win.outerWidth !== this.oversized) {
+      this.oversized = null;
+      return;
+    }
+    try {
+      win.resizeTo(SIZE.width + win.outerWidth - win.innerWidth, win.outerHeight);
+      this.oversized = null;
+    } catch {
+      // No user activation (e.g. Escape): the next click or key press tries again.
+    }
+  };
 
   render(view: CompanionView): void {
     this.view = view;
