@@ -185,7 +185,7 @@ dan tab pindah ke bawah.
 | **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
 | **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
 | **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
-| **Teknis** (tidak ada di menu: buka `#teknis` di akhir alamat, atau tautan "Teknis" di halaman Privasi) | Grafik EAR 20 detik terakhir dengan batas pribadi dari kalibrasi (`earChart.ts`), titik mata dan mask tubuh di atas video, sinyal per frame, fitur jendela, skor pola kedip, baseline, JSON yang dikirim, unduh log CSV |
+| **Teknis** (tidak ada di menu: buka dengan `#teknis` di akhir alamat) | Grafik EAR 20 detik terakhir dengan batas pribadi dari kalibrasi (`earChart.ts`), titik mata dan mask tubuh di atas video, sinyal per frame, fitur jendela, skor pola kedip, baseline, JSON yang dikirim, unduh log CSV |
 
 Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
 bentuk, dan teks: ● normal, ◆ lelah ringan, ▲ lelah, ■ tertidur, ○ tidak di depan layar), panduan grafik Apple HIG, mode terang
