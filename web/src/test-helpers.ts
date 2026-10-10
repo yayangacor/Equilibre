@@ -41,7 +41,8 @@ export function jawSeries(values: readonly (number | null)[], start = 0): FrameS
 
 export const repeat = <T>(value: T, n: number): T[] => Array.from({ length: n }, () => value);
 
-// Open 0.30, closed 0.10 → blink threshold 0.20, PERCLOS threshold 0.14.
+// Open 0.30, closed 0.10 → blink threshold 0.20. The closed EAR is above MAX_CLOSED_EAR_RATIO,
+// so the closed thresholds use 0.045: PERCLOS 0.0654, long closure confirmed 0.0782.
 export const BASELINE: Baseline = {
   earOpen: 0.3,
   earClosed: 0.1,

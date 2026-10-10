@@ -58,6 +58,8 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 **Fitur tiap jendela 60 detik, dievaluasi tiap 10 detik** (`web/src/features.ts`, `blink.ts`, `yawn.ts`, `body.ts`):
 
 - PERCLOS: porsi frame dengan mata tertutup (EAR di bawah 8% rentang terbuka–terpejam); kedip pendek < 500 ms tidak dihitung.
+  Untuk batas mata tertutup (PERCLOS dan konfirmasi pejaman ≥ 1 detik), EAR terpejam hasil kalibrasi dipakai paling tinggi 15% EAR
+  terbuka: dua penguji berkacamata terkalibrasi di 50–56%, sehingga mata yang menyipit terbaca tertutup.
 - Kedip per menit dan durasi kedip rata-rata; mata terpejam ≥ 1 detik dihitung terpisah.
 - Menguap: `jawOpen` ≥ 0,5 selama ≥ 1,5 detik.
 - Kepala menunduk ≤ −15° dari sudut kalibrasi: mata tidak dinilai (kelopak ikut turun saat melihat HP/dokumen), hanya dicatat.

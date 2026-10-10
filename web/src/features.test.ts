@@ -24,13 +24,20 @@ const compute = (frames: FrameSignal[], closures: EyeClosure[] = [], yawns: Yawn
   computeWindowFeatures({ frames, closures, yawns, bodies }, BASELINE, NOW, WINDOW);
 
 describe("computeWindowFeatures", () => {
-  it("computes PERCLOS from face frames under the closed threshold (0.116)", () => {
-    const f = compute(tenFps((t, i) => frame(t, { ear: i < 90 ? 0.11 : 0.3 }))); // 15% closed
+  it("computes PERCLOS from face frames under the closed threshold (0.065)", () => {
+    const f = compute(tenFps((t, i) => frame(t, { ear: i < 90 ? 0.06 : 0.3 }))); // 15% closed
     expect(f.perclos).toBeCloseTo(0.15);
     expect(f.pct_mata_terbuka).toBeCloseTo(0.85);
     expect(f.n_frame).toBe(600);
     expect(f.pct_wajah_hilang).toBe(0);
     expect(f.durasi_jendela_detik).toBeCloseTo(59.9);
+  });
+
+  it("does not count a narrowed eye as closed when the calibrated closed EAR is high", () => {
+    // EAR 0.11 = 37% of the open EAR: under the 0.116 the uncapped closed reference (0.10) gave.
+    const f = compute(tenFps((t, i) => frame(t, { ear: i < 90 ? 0.11 : 0.3 })));
+    expect(f.perclos).toBe(0);
+    expect(f.pct_mata_terbuka).toBe(1);
   });
 
   it("excludes frames outside the window", () => {

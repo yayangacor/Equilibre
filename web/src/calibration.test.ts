@@ -6,6 +6,7 @@ import {
   closureConfirmThreshold,
   computeBaseline,
   loadBaseline,
+  MAX_CLOSED_EAR_RATIO,
   median,
   percentile,
   perclosThreshold,
@@ -36,9 +37,21 @@ describe("median / percentile", () => {
 
 describe("thresholds", () => {
   it("sit at 50% (blink), 8% (closed) and 13% (long closure confirmed) of the personal range", () => {
+    const range = { earOpen: 0.3, earClosed: 0.03 }; // closed at 10% of open, under the cap
+    expect(blinkThreshold(range)).toBeCloseTo(0.165);
+    expect(perclosThreshold(range)).toBeCloseTo(0.0516);
+    expect(closureConfirmThreshold(range)).toBeCloseTo(0.0651);
+  });
+
+  it("place a closed EAR above MAX_CLOSED_EAR_RATIO of the open EAR at the cap, except the blink midpoint", () => {
+    // BASELINE: 0.10 against 0.30 open → closed thresholds as if 0.045; the blink midpoint stays 0.20.
     expect(blinkThreshold(BASELINE)).toBeCloseTo(0.2);
-    expect(perclosThreshold(BASELINE)).toBeCloseTo(0.116);
-    expect(closureConfirmThreshold(BASELINE)).toBeCloseTo(0.126);
+    expect(perclosThreshold(BASELINE)).toBeCloseTo(0.0654);
+    expect(closureConfirmThreshold(BASELINE)).toBeCloseTo(0.0782);
+    expect(perclosThreshold({ earOpen: 0.3, earClosed: 0.045 })).toBeCloseTo(perclosThreshold(BASELINE));
+    // Tester with glasses, 7 Oct (NOTES G-73): 0.160 without the cap.
+    expect(perclosThreshold({ earOpen: 0.269, earClosed: 0.15 })).toBeCloseTo(0.0587, 3);
+    expect(MAX_CLOSED_EAR_RATIO).toBe(0.15);
   });
 });
 
