@@ -5,7 +5,7 @@ import { openHistory, type HistoryDb, type StoreName, type Stores } from "./hist
 
 // The local history as the page uses it: opening it (days past the retention go, NOTES
 // D-38), writing records without ever blocking the monitoring, the "Insight" page (dashboard.ts),
-// today's numbers for the "Sekarang" page (onToday), and the export and delete buttons.
+// today's numbers for the dashboard (onToday), and the export and delete buttons.
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const CLEAR_CONFIRM_MS = 5_000;

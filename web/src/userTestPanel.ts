@@ -35,7 +35,7 @@ import {
   type TestState,
 } from "./userTest.ts";
 
-// The "Uji coba" card at the top of the Sekarang page, shown only with ?kode= (plans/P08, NOTES D-57).
+// The "Uji coba" card at the top of the dashboard, shown only with ?kode= (plans/P08, NOTES D-57).
 // It walks a tester through consent, calibration, TEST_MINUTES of normal work and the feedback form,
 // then sends one submission. The card is rebuilt only when the phase changes, so answers being typed
 // survive the periodic refresh. Text goes in via textContent.
@@ -305,7 +305,7 @@ export class UserTestPanel {
         this.deps.openCompanion
           ? "Biarkan jendela beruang (pendamping) terbuka saat pindah ke aplikasi lain. Tertutup? Tekan \"Buka pendamping\"."
           : "Biarkan tab ini terlihat: tanpa jendela pendamping, pemantauan berhenti saat tab ini tertutup jendela lain.",
-        "Label terasa salah? Buka \"Kenapa Equilibre menilai begini?\" lalu \"Label ini tidak sesuai?\".",
+        "Label terasa salah? Buka \"Kenapa label ini?\" di Dashboard lalu \"Label ini tidak sesuai?\".",
       ]),
       actions,
       el("p", `"Selesai lebih awal" aktif mulai menit ${EARLY_FINISH_MINUTES}.`, "helper"),

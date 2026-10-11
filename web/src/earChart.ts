@@ -1,7 +1,7 @@
 import { blinkThreshold, perclosThreshold, type Baseline } from "./calibration.ts";
 
-// Live Eye Aspect Ratio chart on the "Teknis" page (plan P14), after the EAR plot of the UTA-RLDD
-// demo: the last WINDOW_MS of the averaged EAR, with the personal thresholds the pipeline uses
+// Live Eye Aspect Ratio chart on the Debug page and in the dashboard live view (plan P14), after the
+// EAR plot of the UTA-RLDD demo: the last WINDOW_MS of the averaged EAR, with the personal thresholds the pipeline uses
 // (calibration.ts) as labeled reference lines. Canvas, since it redraws several times a second.
 // Frames without a face break the line.
 

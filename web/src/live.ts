@@ -4,7 +4,7 @@ import type { Label } from "./rules.ts";
 import type { FrameSignal } from "./signals.ts";
 import { YAWN_JAW_OPEN, YAWN_MIN_MS } from "./yawn.ts";
 
-// Numbers of the live view on the Insight page (NOTES D-63), pure so they can be tested: the eye
+// Numbers of the live view on the dashboard (NOTES D-63, D-65), pure so they can be tested: the eye
 // state the mesh is colored by, and the tiles with one line on how to read each. They are the
 // numbers the rules read (features.ts); nothing here changes a label.
 
@@ -42,37 +42,37 @@ export function liveTiles(
       key: "mata",
       label: "Mata sekarang",
       value: cap(eye),
-      sub: baseline ? `EAR ${ear}; di bawah ${fmt3.format(blinkThreshold(baseline))} dihitung tertutup.` : `EAR ${ear}.`,
+      sub: baseline ? `EAR ${ear}; tertutup di bawah ${fmt3.format(blinkThreshold(baseline))}.` : `EAR ${ear}.`,
     },
     {
       key: "kedip",
       label: "Kedip per menit",
       value: f?.kedip_per_menit === null || f?.kedip_per_menit === undefined ? "–" : fmt.format(f.kedip_per_menit),
-      sub: baseline ? `Saat kalibrasi ${fmt.format(baseline.blinkPerMin)}. Kedip yang jauh lebih sering bisa tanda mata lelah.` : later,
+      sub: baseline ? `Normalmu ${fmt.format(baseline.blinkPerMin)}; jauh lebih sering bisa tanda mata lelah.` : later,
     },
     {
       key: "perclos",
       label: "Mata terpejam (PERCLOS)",
       value: f ? pct(f.perclos) : "–",
-      sub: f ? `Porsi waktu mata terpejam di ${windowSeconds} detik terakhir. Makin tinggi, makin mengantuk.` : later,
+      sub: f ? `Waktu mata terpejam, ${windowSeconds} detik terakhir.` : later,
     },
     {
       key: "menguap",
       label: "Menguap",
       value: f ? `${f.menguap}×` : "–",
-      sub: f ? `Mulut terbuka lebar ${fmt.format(YAWN_MIN_MS / 1000)} detik atau lebih, ${windowSeconds} detik terakhir.` : later,
+      sub: f ? `Mulut terbuka lebar ≥ ${fmt.format(YAWN_MIN_MS / 1000)} detik, ${windowSeconds} detik terakhir.` : later,
     },
     {
       key: "menunduk",
       label: "Kepala menunduk",
       value: f ? pct(f.pct_kepala_menunduk) : "–",
-      sub: f ? `Waktu kepala lebih dari ${Math.abs(HEAD_DOWN_DEG)}° di bawah posisi saat kalibrasi.` : later,
+      sub: f ? `Kepala > ${Math.abs(HEAD_DOWN_DEG)}° di bawah posisi kalibrasi.` : later,
     },
     {
       key: "label",
       label: "Label sekarang",
       value: label ? cap(label) : "–",
-      sub: label ? "Dinilai tiap 10 detik dari tanda-tanda di atas." : "Muncul setelah kalibrasi dan penilaian pertama.",
+      sub: label ? "Dinilai tiap 10 detik dari tanda di atas." : "Muncul setelah kalibrasi dan penilaian pertama.",
     },
   ];
 }

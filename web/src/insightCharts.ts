@@ -3,7 +3,7 @@ import { AT_SCREEN, formatDuration, LEVEL_LABELS, type LevelPoint } from "./insi
 import { LABELS, type Label } from "./rules.ts";
 import { capitalize } from "./statusCopy.ts";
 
-// Charts of the Insight and Sekarang pages (plan P14), after the UTA-RLDD demo the user pointed
+// Charts of the Insight page and the dashboard (plan P14), after the UTA-RLDD demo the user pointed
 // at: time per label as bars, and the fatigue level over the day as a line. Colors come from the
 // label tokens in style.css (--chart, validated with the dataviz validator); text stays in text
 // colors and every label also carries its shape. Data text goes in through textContent only.
@@ -63,7 +63,7 @@ export function renderLabelBars(container: HTMLElement, note: HTMLElement, s: Da
         `mata tidak terlihat ${formatDuration(s.ditahan.mata)}. Label terakhir ditahan selama itu.`;
 }
 
-// ── Today strip (Sekarang): the day so far as one stacked bar ──────────────────
+// ── Today strip (dashboard): the day so far as one stacked bar ──────────────────
 
 export function renderTodayStrip(strip: HTMLElement, legend: HTMLElement, s: DaySummary | null) {
   const parts = s ? AT_SCREEN.map((label) => ({ label, minutes: s.menit[label] })).filter((p) => p.minutes > 0) : [];

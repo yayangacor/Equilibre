@@ -1,8 +1,8 @@
 import type { Label } from "./rules.ts";
 
-// The words of the "Sekarang" hero (plan P14): the label in plain, kind language, in the tone of
-// Gentler Streak and LookAway (no blame, no alarm, a next step). The label name itself stays in
-// the chip next to it; specific advice comes from the Langflow flow, so no durations here.
+// The words of the dashboard hero (plan P14): the label in plain, kind language, in the tone of
+// Gentler Streak and LookAway (no blame, no alarm, a next step), one short line each (D-64). The
+// label name itself stays in the chip next to it; specific advice comes from the Langflow flow.
 
 export type HeroState =
   | { kind: "loading" }
@@ -17,15 +17,15 @@ export type HeroCopy = { chip: string; title: string; text: string };
 const LABEL_COPY: Record<Label, { title: string; text: string }> = {
   normal: {
     title: "Kamu tampak segar",
-    text: "Tidak ada tanda lelah di menit terakhir. Lanjutkan, dan tetap sisipkan jeda sesekali.",
+    text: "Tidak ada tanda lelah di menit terakhir.",
   },
   "lelah ringan": {
     title: "Mulai ada tanda lelah",
-    text: "Belum perlu berhenti. Istirahatkan mata sebentar atau minta saran untuk langkah yang pas.",
+    text: "Istirahatkan mata sebentar.",
   },
   lelah: {
     title: "Kamu tampak lelah",
-    text: "Tubuhmu memberi sinyal butuh jeda. Berhenti sebentar akan lebih membantu daripada memaksakan diri.",
+    text: "Saatnya jeda sebentar.",
   },
   tertidur: {
     title: "Sepertinya kamu tertidur",
@@ -51,9 +51,7 @@ export function heroCopy(state: HeroState): HeroCopy {
       return {
         chip: "Belum dikalibrasi",
         title: "Kenalan dulu, yuk",
-        text:
-          "Kalibrasi sekitar 5 menit supaya Equilibre mengenal kondisi normalmu: pejamkan mata sebentar saat aba-aba, " +
-          "lalu bekerja seperti biasa.",
+        text: "Kalibrasi ±5 menit supaya Equilibre kenal kondisi normalmu.",
       };
     case "calibrating":
       return { chip: "Kalibrasi…", title: "Kalibrasi berjalan", text: "Ikuti aba-aba di kamera." };

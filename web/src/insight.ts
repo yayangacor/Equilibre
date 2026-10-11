@@ -1,7 +1,7 @@
 import type { DaySummary, EvaluationRecord } from "./history.ts";
 import type { Label } from "./rules.ts";
 
-// What the "Insight" and "Sekarang" pages say about a day (plan P14): the fatigue level over time,
+// What the Insight page and the dashboard say about a day (plan P14): the fatigue level over time,
 // plain sentences and stat tiles. Pure, no DOM (insightCharts.ts and dashboard.ts draw). Everything
 // comes from the local history; nothing here leaves the device.
 

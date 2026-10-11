@@ -474,10 +474,6 @@ a {
   padding: 24px 16px 48px;
 }
 
-body[data-page="teknis"] .shell {
-  grid-template-columns: minmax(0, 1fr) 420px;
-}
-
 .pages {
   min-width: 0;
 }
@@ -950,7 +946,7 @@ button:disabled,
   margin-bottom: 0;
 }
 
-/* ── Sekarang ─────────────────────────────────────────────────────────────── */
+/* ── Dashboard ───────────────────────────────────────────────────────────── */
 
 .hero {
   display: grid;
@@ -1176,6 +1172,19 @@ details[open] > summary {
 
 .why .callout {
   margin-top: 12px;
+}
+
+.hero .why {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--outline-variant);
+}
+
+/* Today and advice side by side on wide screens, equal height. */
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 /* Today: one stacked bar for the day so far (part-to-whole at a glance). */
@@ -2063,13 +2072,7 @@ body[data-calibrated] .steps {
   padding-left: 20px;
 }
 
-/* ── Teknis ───────────────────────────────────────────────────────────────── */
-
-.metrics {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 12px;
-}
+/* ── Debug ────────────────────────────────────────────────────────────────── */
 
 .metric {
   display: grid;
@@ -2078,19 +2081,10 @@ body[data-calibrated] .steps {
   gap: 8px;
 }
 
-.metrics.wide .metric {
-  grid-template-columns: 12rem minmax(0, 1fr);
-}
-
 .metric dt {
   font-family: var(--mono);
   font-size: 0.8125rem;
   color: var(--on-surface-variant);
-}
-
-.metrics.wide .metric dt {
-  font-family: inherit;
-  font-size: 0.875rem;
 }
 
 .metric dd {
@@ -2132,19 +2126,17 @@ pre {
   font-weight: 600;
 }
 
-/* ── Insight: live view (D-63) ────────────────────────────────────────────── */
+/* ── Live view (D-63), on the dashboard; the Debug page uses the same card (D-65) ── */
 
-/* The camera box moves into the live view on this page, so the dock and its column go. */
-body[data-page="insight"] .shell {
+/* The camera box moves into these two pages, so the dock and its column go. */
+body[data-page="dashboard"] .shell,
+body[data-page="debug"] .shell {
   grid-template-columns: minmax(0, 1fr);
 }
 
-body[data-page="insight"] .dock {
+body[data-page="dashboard"] .dock,
+body[data-page="debug"] .dock {
   display: none;
-}
-
-.page-head.sub {
-  margin-top: 8px;
 }
 
 .live {
@@ -2227,6 +2219,18 @@ body[data-page="insight"] .dock {
   background: #ffc233;
 }
 
+.eye-key[data-eye="kanan"]::before {
+  background: #ff4d6d;
+}
+
+.eye-key[data-eye="kiri"]::before {
+  background: #4dd2ff;
+}
+
+.eye-key[data-eye="tubuh"]::before {
+  background: #7c5cff;
+}
+
 .live-tiles {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -2248,6 +2252,38 @@ body[data-page="insight"] .dock {
   margin: 4px 0 2px;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.ear-chart.tall {
+  height: 260px;
+}
+
+.debug-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.debug-tiles .tile-value {
+  font-size: 1.0625rem;
+  overflow-wrap: anywhere;
+}
+
+.debug-tiles .tile-value output {
+  min-width: 0;
+  text-align: left;
+}
+
+.debug-tiles .bar {
+  height: 4px;
+  margin-top: 6px;
+}
+
+.debug-tiles .tile-sub {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.pill output {
+  min-width: 0;
 }
 
 /* ── Calibration screen (D-63): big headings, one thing per screen ───────── */
@@ -2484,8 +2520,7 @@ html:has(.calib-screen[open]) {
 }
 
 @media (max-width: 860px) {
-  .shell,
-  body[data-page="teknis"] .shell {
+  .shell {
     grid-template-columns: minmax(0, 1fr);
     padding-bottom: 96px;
   }
@@ -2503,8 +2538,7 @@ html:has(.calib-screen[open]) {
     box-shadow: var(--shadow-2);
   }
 
-  body[data-calibrating] .dock,
-  body[data-page="teknis"] .dock {
+  body[data-calibrating] .dock {
     position: static;
     width: auto;
     order: -1;
@@ -2515,18 +2549,13 @@ html:has(.calib-screen[open]) {
     display: none;
   }
 
-  body[data-page="teknis"] .dock .dock-note,
-  body[data-page="teknis"] .dock #pip-open {
-    display: flex;
-  }
-
   .cam-badge {
     font-size: 0;
     padding: 4px;
   }
 
-  body[data-page="teknis"] .cam-badge,
-  body[data-page="insight"] .cam-badge,
+  body[data-page="dashboard"] .cam-badge,
+  body[data-page="debug"] .cam-badge,
   body[data-calibrating] .cam-badge {
     font-size: 0.75rem;
     padding: 3px 10px 3px 8px;
@@ -2534,6 +2563,10 @@ html:has(.calib-screen[open]) {
 
   .live-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
   }
 
 

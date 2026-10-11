@@ -2,13 +2,19 @@
 // so the query string keeps its dev switches (?debug=1, ?riwayat=uji) and every page stays in the
 // DOM. The camera dock lives outside the pages, so the detector keeps reading the video on all of them.
 
-export const PAGES = ["sekarang", "insight", "tanya", "privasi", "teknis"] as const;
+export const PAGES = ["dashboard", "insight", "tanya", "privasi", "debug"] as const;
 export type Page = (typeof PAGES)[number];
 
 export const isPage = (name: string): name is Page => (PAGES as readonly string[]).includes(name);
 
+// Names before NOTES D-65, still in shared links and older documents.
+const OLD_NAMES = new Map<string, Page>([
+  ["sekarang", "dashboard"],
+  ["teknis", "debug"],
+]);
+
 export class Router {
-  private current: Page = "sekarang";
+  private current: Page = "dashboard";
   private readonly listeners: ((page: Page) => void)[] = [];
 
   constructor() {
@@ -24,17 +30,18 @@ export class Router {
     this.listeners.push(listener);
   }
 
-  // A page name opens that page; the id of an element inside a page (#saran) opens its page and
-  // scrolls to it; anything else opens "sekarang".
+  // A page name (or its old name) opens that page; the id of an element inside a page (#saran) opens
+  // its page and scrolls to it; anything else opens the dashboard.
   private resolve(moveFocus: boolean) {
     const name = location.hash.slice(1);
-    if (isPage(name)) {
-      this.show(name, null, moveFocus);
+    const named = isPage(name) ? name : OLD_NAMES.get(name);
+    if (named) {
+      this.show(named, null, moveFocus);
       return;
     }
     const target = name ? document.getElementById(name) : null;
     const page = target?.closest<HTMLElement>(".page")?.dataset.page;
-    this.show(page && isPage(page) ? page : "sekarang", target, moveFocus);
+    this.show(page && isPage(page) ? page : "dashboard", target, moveFocus);
   }
 
   private show(page: Page, target: HTMLElement | null, moveFocus: boolean) {

@@ -1,7 +1,7 @@
 import type { Mood } from "./companion.ts";
 
 // The companion bear (plan P13, NOTES D-24), shared by the Picture-in-Picture window and the
-// "Sekarang" page (plan P14): one picture, with upper lids drawn over its eyes so it can look
+// dashboard (plan P14): one picture, with upper lids drawn over its eyes so it can look
 // open, drowsy or asleep, and "Z" letters that float up while asleep. Each document styles the
 // .bear class itself (style.css, pipCompanion.ts STYLE); this module only builds the parts.
 

@@ -51,9 +51,9 @@ describe("liveTiles", () => {
     const byKey = Object.fromEntries(tiles.map((t) => [t.key, t]));
     expect(tiles.map((t) => t.key)).toEqual(["mata", "kedip", "perclos", "menguap", "menunduk", "label"]);
     expect(byKey.mata.value).toBe("Terbuka");
-    expect(byKey.mata.sub).toBe("EAR 0,281; di bawah 0,200 dihitung tertutup.");
+    expect(byKey.mata.sub).toBe("EAR 0,281; tertutup di bawah 0,200.");
     expect(byKey.kedip.value).toBe("17,5");
-    expect(byKey.kedip.sub).toContain("Saat kalibrasi 15.");
+    expect(byKey.kedip.sub).toContain("Normalmu 15;");
     expect(byKey.perclos.value).toBe("12%");
     expect(byKey.perclos.sub).toContain("60 detik terakhir");
     expect(byKey.menguap.value).toBe("1×");

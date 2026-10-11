@@ -1,12 +1,7 @@
-import { parseCode } from "./userTest.ts";
-
 // Hosted demo build (`npm run build:demo`): only the browser part is deployed and no backend sits behind it,
 // so the two features that need the backend, Langflow and IBM Bob say so instead of failing. Detection,
 // history, Insight and the companion run entirely in the browser and are the same as in a local run.
 export const DEMO = import.meta.env.MODE === "demo";
-
-// A tester's link (?kode=, plans/P08) leaves out the link to the repository.
-const SHOW_REPO_LINK = parseCode(new URLSearchParams(location.search).get("kode")) === null;
 
 export const REPO_URL = "https://github.com/yayangacor/Equilibre";
 
@@ -18,14 +13,11 @@ export const DEMO_NOTE = {
   tanya: "Di demo online, Tanya Equilibre tidak aktif: IBM Bob dan flow Langflow berjalan di laptop pengembang.",
 } as const;
 
-// The note as a callout, with a link to the README that explains the feature and how to run it.
+// The note as a callout, with a link to the README that explains the feature and how to run it. A
+// tester's link (?kode=) shows it too: hiding it there (D-60) was reversed by the user (D-64).
 export function demoCallout(text: string): HTMLElement {
   const note = document.createElement("p");
   note.className = "callout info";
-  if (!SHOW_REPO_LINK) {
-    note.textContent = text;
-    return note;
-  }
   const link = document.createElement("a");
   link.href = REPO_URL;
   link.target = "_blank";

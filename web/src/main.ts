@@ -29,6 +29,7 @@ import { createDetectors, segmentBody, type Detectors } from "./face.ts";
 import {
   breakEnded,
   eyesReadable,
+  HEAD_DOWN_DEG,
   headDown,
   initialBreakState,
   minutesSinceBreak,
@@ -73,6 +74,7 @@ import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
+import { YAWN_JAW_OPEN, YAWN_MIN_MS } from "./yawn.ts";
 
 // ── Config. Dev shortcuts: ?calib=30&window=20&tidur=1&debug=1 · test: ?uji=1&riwayat=uji ──
 
@@ -144,7 +146,7 @@ const autoSendToggle = byId<HTMLInputElement>("auto-send");
 const autoSendNote = byId("auto-send-note");
 const pipButton = byId<HTMLButtonElement>("pip-open");
 const pipNote = byId("pip-note");
-// Pages (plan P14): the header chip, the "Sekarang" hero and today's tiles, the Teknis EAR chart.
+// Pages (plan P14, D-65): the header chip, the dashboard hero and today's tiles, the Debug EAR chart.
 const topStatus = byId("top-status");
 const hero = byId("hero");
 const heroTitle = byId("hero-title");
@@ -152,17 +154,20 @@ const heroText = byId("hero-text");
 const heroProgress = byId("hero-progress");
 const heroCalib = byId<HTMLButtonElement>("hero-calib");
 const heroSaran = byId("hero-saran");
-const whyHint = byId("why").querySelector<HTMLElement>(".summary-hint")!;
+const why = byId<HTMLDetailsElement>("why");
+const whyHint = why.querySelector<HTMLElement>(".summary-hint")!;
 const sinceBreakValue = byId("since-break");
 const autoPill = byId("auto-pill");
 const heroBear = createBear(document, "", "hero-eye");
 byId("hero-bear").append(heroBear.root);
 const earChart = new EarChart(byId<HTMLCanvasElement>("ear-chart"), byId("ear-legend"));
 const router = new Router();
-// Insight live view (D-63): the dock's camera box (video, overlay, badge) moves into #live-slot on that page.
+// Live view (D-63, D-65): the dock's camera box (video, overlay, badge) moves into #live-slot on the
+// dashboard and into #debug-slot on the Debug page.
 const cameraBox = video.parentElement!;
 const dock = cameraBox.parentElement!;
 const liveSlot = byId("live-slot");
+const debugSlot = byId("debug-slot");
 const live = new LiveView({
   tiles: byId("live-tiles"),
   chart: byId<HTMLCanvasElement>("live-ear-chart"),
@@ -200,22 +205,22 @@ function el(tag: string, text: string, className?: string): HTMLElement {
   return node;
 }
 
-// A <dt>/<dd> row; `fraction` (0–1) drives the optional bar.
-function metricRow(list: HTMLElement, name: string, withBar = false) {
+// A tile on the Debug page, like the live view's (D-65): name, value, an optional bar driven by
+// `fraction` (0–1), and one line on how to read it.
+function metricTile(box: HTMLElement, name: string, sub = "", withBar = false) {
   const value = el("output", "–");
-  const dd = document.createElement("dd");
+  const valueLine = el("p", "", "tile-value");
+  valueLine.append(value);
+  const tile = el("div", "", "tile");
+  tile.append(el("p", name, "tile-label"), valueLine);
   const bar = document.createElement("span");
   if (withBar) {
-    const track = document.createElement("div");
-    track.className = "bar";
+    const track = el("div", "", "bar");
     track.append(bar);
-    dd.append(track);
+    tile.append(track);
   }
-  dd.append(value);
-  const row = document.createElement("div");
-  row.className = "metric";
-  row.append(el("dt", name), dd);
-  list.append(row);
+  if (sub) tile.append(el("p", sub, "tile-sub"));
+  box.append(tile);
   return (text: string, fraction = 0) => {
     value.textContent = text;
     bar.style.width = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
@@ -233,36 +238,45 @@ const clock = (d: Date) => d.toLocaleTimeString("id-ID", { hour: "2-digit", minu
 
 const signalsList = byId("signals");
 const signalRows = {
-  earLeft: metricRow(signalsList, "EAR kiri", true),
-  earRight: metricRow(signalsList, "EAR kanan", true),
-  ear: metricRow(signalsList, "EAR rata-rata", true),
-  pitch: metricRow(signalsList, "pitch absolut"),
-  pitchRel: metricRow(signalsList, "pitch relatif"),
-  jawOpen: metricRow(signalsList, "jawOpen", true),
-  blinkLeft: metricRow(signalsList, "eyeBlinkLeft", true),
-  blinkRight: metricRow(signalsList, "eyeBlinkRight", true),
-  lookDown: metricRow(signalsList, "eyeLookDown", true),
-  eyes: metricRow(signalsList, "Mata dinilai?"),
-  bodyArea: metricRow(signalsList, "Tubuh (luas mask)", true),
-  bodyMotion: metricRow(signalsList, "Gerak tubuh"),
+  earLeft: metricTile(signalsList, "EAR kiri", "Bukaan mata kiri.", true),
+  earRight: metricTile(signalsList, "EAR kanan", "Bukaan mata kanan.", true),
+  ear: metricTile(signalsList, "EAR rata-rata", "Yang dibaca aturan; turun saat berkedip.", true),
+  pitch: metricTile(signalsList, "Pitch absolut", "Sudut kepala naik-turun."),
+  pitchRel: metricTile(signalsList, "Pitch relatif", `Terhadap kalibrasi; ${fmt.format(HEAD_DOWN_DEG)}° atau kurang = menunduk.`),
+  jawOpen: metricTile(
+    signalsList,
+    "jawOpen",
+    `≥ ${fmt.format(YAWN_JAW_OPEN)} selama ${fmt.format(YAWN_MIN_MS / 1000)} detik = menguap.`,
+    true,
+  ),
+  blinkLeft: metricTile(signalsList, "eyeBlinkLeft", "Blendshape kedip, 0–1.", true),
+  blinkRight: metricTile(signalsList, "eyeBlinkRight", "Blendshape kedip, 0–1.", true),
+  lookDown: metricTile(signalsList, "eyeLookDown", "Blendshape lirikan ke bawah, 0–1.", true),
+  eyes: metricTile(signalsList, "Mata dinilai?", "Tidak saat wajah hilang atau menunduk."),
+  bodyArea: metricTile(signalsList, "Tubuh (luas mask)", "Porsi frame berisi tubuh.", true),
+  bodyMotion: metricTile(signalsList, "Gerak tubuh", "Perubahan mask antar sampel."),
 };
 
 const featuresList = byId("features");
 const featureRows = {
-  perclos: metricRow(featuresList, "Mata tertutup (PERCLOS)"),
-  kedip: metricRow(featuresList, "Kedip per menit"),
-  durasi: metricRow(featuresList, "Durasi kedip rata-rata"),
-  lama: metricRow(featuresList, "Mata terpejam ≥1 detik"),
-  menguap: metricRow(featuresList, "Menguap"),
-  menunduk: metricRow(featuresList, "Kepala menunduk"),
-  hilang: metricRow(featuresList, "Wajah tidak terdeteksi"),
-  terbuka: metricRow(featuresList, "Mata terlihat terbuka"),
-  terpejam: metricRow(featuresList, "Mata terlihat terpejam"),
-  tubuh: metricRow(featuresList, "Tubuh terdeteksi"),
-  diam: metricRow(featuresList, "Tubuh diam"),
-  gerak: metricRow(featuresList, "Gerak tubuh (median)"),
-  menitLelah: metricRow(featuresList, `Menit "lelah"/"tertidur" (${ADVICE.historyMinutes} menit)`),
-  frame: metricRow(featuresList, "Jumlah frame"),
+  perclos: metricTile(featuresList, "Mata tertutup (PERCLOS)", "Porsi waktu mata terpejam."),
+  kedip: metricTile(featuresList, "Kedip per menit", "Bandingkan dengan baseline."),
+  durasi: metricTile(featuresList, "Durasi kedip rata-rata", "Kedip lambat = tanda kantuk."),
+  lama: metricTile(featuresList, "Mata terpejam ≥1 detik", "Jumlah pejaman panjang."),
+  menguap: metricTile(featuresList, "Menguap", `Mulut terbuka lebar ≥ ${fmt.format(YAWN_MIN_MS / 1000)} detik.`),
+  menunduk: metricTile(featuresList, "Kepala menunduk", "Porsi waktu menunduk."),
+  hilang: metricTile(featuresList, "Wajah tidak terdeteksi", "Porsi frame tanpa wajah."),
+  terbuka: metricTile(featuresList, "Mata terlihat terbuka", "Porsi frame, menunduk ikut dihitung."),
+  terpejam: metricTile(featuresList, "Mata terlihat terpejam", "Porsi frame, kepala tegak saja."),
+  tubuh: metricTile(featuresList, "Tubuh terdeteksi", "Porsi sampel ada orang."),
+  diam: metricTile(featuresList, "Tubuh diam", "Porsi sampel tanpa gerak."),
+  gerak: metricTile(featuresList, "Gerak tubuh (median)", "Median perubahan mask."),
+  menitLelah: metricTile(
+    featuresList,
+    `Menit "lelah"/"tertidur" (${ADVICE.historyMinutes} menit)`,
+    `≥ ${ADVICE.longRestMinutes} menit = saran istirahat panjang.`,
+  ),
+  frame: metricTile(featuresList, "Jumlah frame", "Frame di jendela ini."),
 };
 
 // ── State ───────────────────────────────────────────────────────────────────────
@@ -446,7 +460,7 @@ const userTest: UserTestPanel | null = TEST_CODE
     })
   : null;
 
-// Today's numbers on the "Sekarang" page, from the same refresh as the Insight page.
+// Today's numbers on the dashboard, from the same refresh as the Insight page.
 let todaySummary: DaySummary | null = null;
 panel.onToday = (summary) => {
   todaySummary = summary;
@@ -499,8 +513,7 @@ const companion = new PipCompanion({
 function renderPipButton() {
   if (!PipCompanion.supported()) {
     pipButton.disabled = true;
-    pipNote.textContent =
-      "Browser ini belum mendukung jendela pendamping (Document Picture-in-Picture, ada di Chrome dan Edge versi baru).";
+    pipNote.textContent = "Butuh Chrome atau Edge versi baru (Document Picture-in-Picture).";
     return;
   }
   pipButton.textContent = companion.isOpen ? "Tutup pendamping" : "Buka pendamping";
@@ -508,8 +521,8 @@ function renderPipButton() {
     greeting.snoozeUntil > Date.now() ? ` Sapaan ditunda sampai ${clock(new Date(greeting.snoozeUntil))}.` : "";
   pipNote.textContent =
     (companion.isOpen
-      ? "Pendamping tetap terlihat di atas jendela lain, dan pemantauan tetap berjalan saat kamu bekerja di aplikasi lain."
-      : "Jendela kecil berisi beruang yang ikut menunjukkan status. Buka sebelum pindah ke aplikasi lain supaya pemantauan tidak melambat.") +
+      ? "Terbuka: pemantauan tetap jalan saat kamu di aplikasi lain."
+      : "Jendela kecil beruang. Buka sebelum pindah aplikasi supaya pemantauan tetap jalan.") +
     snoozed;
 }
 
@@ -598,7 +611,7 @@ function renderSignals(s: FrameSignal) {
   setFaceStatus(s.face ? "found" : "missing", s.face ? "Wajah terdeteksi" : "Wajah tidak terdeteksi");
   earChart.push(s.t, s.face ? s.ear : null);
   live.chart.push(s.t, s.face ? s.ear : null);
-  if (router.page === "teknis" && s.t - lastEarDraw >= 100) {
+  if (router.page === "debug" && s.t - lastEarDraw >= 100) {
     lastEarDraw = s.t;
     earChart.draw(baseline);
   }
@@ -651,7 +664,7 @@ function renderFeatures() {
   featureRows.frame(f ? `${f.n_frame} (data ${Math.round(f.durasi_jendela_detik)} detik)` : "–");
 }
 
-// The label in the "Sekarang" chip and in the header chip on every page (shape + text, never color alone).
+// The label in the dashboard chip and in the header chip on every page (shape + text, never color alone).
 function setLabel(text: string, label: Label | "none" = "none") {
   labelBadge.textContent = text;
   labelBadge.dataset.label = label;
@@ -659,7 +672,7 @@ function setLabel(text: string, label: Label | "none" = "none") {
   topStatus.querySelector(".status-text")!.textContent = text;
 }
 
-// Blink-pattern score (NOTES D-49): information only, on the Teknis page, never changing the label.
+// Blink-pattern score (NOTES D-49): information only, on the Debug page, never changing the label.
 function renderBlinkScore() {
   const score = calibration || !baseline ? null : monitor?.blinkScore(lastEvalT);
   if (!monitor?.labelState.shown || calibration) {
@@ -712,12 +725,10 @@ function renderStatus() {
   const labelState = monitor?.labelState;
   const shown = state.kind === "label" ? labelState?.shown : undefined;
   if (state.kind === "analyzing" && hold) labelMeta.textContent = hold;
-  if (!labelState || !shown) {
-    whyHint.textContent = "Muncul setelah label pertama.";
-    return;
-  }
+  why.hidden = !labelState || !shown; // nothing to explain before the first label
+  if (!labelState || !shown) return;
 
-  labelMeta.textContent = `Diperbarui ${clock(new Date())} · dinilai tiap ${EVAL_INTERVAL_MS / 1000} detik dari ${WINDOW_MS / 1000} detik terakhir`;
+  labelMeta.textContent = `Diperbarui ${clock(new Date())}`;
   whyHint.textContent =
     shown.alasan.length === 0
       ? "Tidak ada tanda lelah di jendela terakhir."
@@ -762,21 +773,23 @@ function renderBaseline() {
   baselineList.replaceChildren();
   if (!baseline) return;
   const b = baseline;
-  const rows: [string, string][] = [
-    ["EAR mata terbuka", fmt3.format(b.earOpen)],
-    ["EAR mata terpejam", fmt3.format(b.earClosed)],
-    ["Kedip per menit", fmt.format(b.blinkPerMin)],
-    ["Durasi kedip", b.blinkDurationMs === null ? "tidak ada kedip terekam" : `${Math.round(b.blinkDurationMs)} ms`],
-    ["Pitch normal", asDeg(b.pitchDeg)],
-    ["jawOpen P95", fmt2.format(b.jawOpenP95)],
-    ["Luas tubuh normal", b.bodyArea === null ? "belum ada (kalibrasi ulang)" : asPct(b.bodyArea)],
+  const rows: [string, string, string][] = [
+    ["EAR mata terbuka", fmt3.format(b.earOpen), "Median saat bekerja biasa (tahap B)."],
+    // The ratio shows a narrowed eye recorded as "closed" (G-73): developer 0.05–0.15, tester B 0.56 (D-62).
+    ["EAR mata terpejam", fmt3.format(b.earClosed), `${fmt2.format(b.earClosed / b.earOpen)} × EAR terbuka.`],
+    ["Kedip per menit", fmt.format(b.blinkPerMin), "Normalmu saat kalibrasi."],
+    ["Durasi kedip", b.blinkDurationMs === null ? "tidak ada kedip terekam" : `${Math.round(b.blinkDurationMs)} ms`, ""],
+    ["Pitch normal", asDeg(b.pitchDeg), "Acuan pitch relatif."],
+    ["jawOpen P95", fmt2.format(b.jawOpenP95), "Mulut saat bekerja biasa."],
+    ["Luas tubuh normal", b.bodyArea === null ? "belum ada (kalibrasi ulang)" : asPct(b.bodyArea), ""],
     [
       "Kedip untuk pola kedip",
       b.kedip ? `${b.kedip.n} kedip, ${Math.round(b.kedip.durasi.mean)} ms, ${fmt.format(b.kedip.perMenit)}/menit` : "belum ada (kalibrasi ulang)",
+      "",
     ],
-    ["Dibuat", new Date(b.createdAt).toLocaleString("id-ID")],
+    ["Dibuat", new Date(b.createdAt).toLocaleString("id-ID"), ""],
   ];
-  for (const [name, value] of rows) metricRow(baselineList, name)(value);
+  for (const [name, value, sub] of rows) metricTile(baselineList, name, sub)(value);
 }
 
 // About how long a calibration takes, as the user reads it (±5 menit; seconds for ?calib=30).
@@ -814,7 +827,7 @@ function overlayContext(): CanvasRenderingContext2D | null {
   return ctx;
 }
 
-// Insight live view (D-63): the face mesh every frame, the tiles ±4×/second, the EAR chart ±10×/second.
+// Live view (D-63): the face mesh every frame, the tiles ±4×/second, the EAR chart ±10×/second.
 let lastLiveTiles = 0;
 let lastLiveChart = 0;
 function renderLive(result: FaceLandmarkerResult, s: FrameSignal) {
@@ -958,8 +971,8 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);
       onFrame(signal);
       renderSignals(signal);
-      if (router.page === "insight") renderLive(result, signal);
-      else if (DEBUG || router.page === "teknis") renderDebug(result, grid);
+      if (router.page === "dashboard") renderLive(result, signal);
+      else if (DEBUG || router.page === "debug") renderDebug(result, grid);
       fpsFrames++;
     }
     if (now - fpsWindowStart >= 1000) {
@@ -981,14 +994,14 @@ function renderPower() {
   const battery = batteryLevel === null ? "" : `baterai ${asPct(batteryLevel)}`;
   powerNote.textContent =
     reason === "baterai"
-      ? `Aktif otomatis: ${battery} dan tidak sedang diisi. Deteksi ±5 fps, kalibrasi tetap ±10 fps.`
+      ? `Aktif otomatis: ${battery}, tidak diisi.`
       : reason === "pilihan"
-        ? "Deteksi ±5 fps: baterai lebih awet, tapi sebagian kedip singkat tidak terbaca. Kalibrasi tetap ±10 fps."
+        ? "Baterai lebih awet, tapi sebagian kedip singkat terlewat."
         : power.dismissed
-          ? `Dimatikan (${battery}). Tidak menyala otomatis lagi sampai baterai diisi.`
+          ? "Dimatikan; tidak menyala otomatis sampai baterai diisi."
           : batteryLevel !== null
-            ? `Deteksi ±10 fps. Menyala otomatis saat baterai di bawah ${asPct(LOW_BATTERY)} dan tidak diisi.`
-            : "Deteksi ±10 fps.";
+            ? `±10 fps. Menyala otomatis saat baterai < ${asPct(LOW_BATTERY)} dan tidak diisi.`
+            : "±10 fps.";
 }
 
 function setPower(next: PowerState) {
@@ -1055,7 +1068,7 @@ function reminderBeep() {
   }
 }
 
-// The calibration card (Privasi page) and the hero (Sekarang page) show the same step.
+// The calibration card (Privasi page) and the hero (dashboard) show the same step.
 function setCalibStatus(text: string) {
   calibStatus.dataset.state = "";
   calibStatus.textContent = text;
@@ -1144,10 +1157,7 @@ async function runCalibration() {
   try {
     cameraPrompt.hidden = false;
     for (const n of [3, 2, 1]) {
-      setCalibStatus(
-        `Tahap 1 dari 2: lihat ke layar dengan mata terbuka. Saat hitungan habis, pejamkan mata rapat ` +
-          `dan tahan sampai terdengar bunyi beep panjang (±3 detik). ${n}…`,
-      );
+      setCalibStatus(`Tahap 1/2: pejamkan mata saat hitungan habis. ${n}…`);
       cameraPrompt.textContent = String(n);
       setCalibScreen("countdown", String(n));
       tone(audio, 440, 0.08);
@@ -1157,7 +1167,7 @@ async function runCalibration() {
 
     run.openRef = median(run.open.filter((f) => f.face && Number.isFinite(f.ear)).map((f) => f.ear));
     run.phase = "waiting";
-    setCalibStatus("Tahap 1 dari 2: pejamkan mata rapat dan tahan sampai terdengar bunyi beep panjang.");
+    setCalibStatus("Tahap 1/2: pejamkan mata sampai terdengar beep.");
     cameraPrompt.textContent = "Pejamkan mata";
     setCalibScreen("closing");
     const waitStart = performance.now();
@@ -1194,8 +1204,8 @@ async function runCalibration() {
       calibBar.querySelector("span")!.style.width = `${fraction * 100}%`;
       calibLeft.textContent = `Sisa ${calibRemaining}`;
       setCalibStatus(
-        `Tahap 2 dari 2: buka mata dan bekerja seperti biasa di depan kamera. ` +
-          (companion.isOpen ? "Pendamping terbuka, boleh pindah ke aplikasi lain. " : "Biarkan tab ini tetap terlihat. ") +
+        `Tahap 2/2: bekerja seperti biasa. ` +
+          (companion.isOpen ? "Boleh pindah aplikasi. " : "Tab ini tetap terlihat. ") +
           `Sisa ${calibRemaining}.`,
       );
       renderCompanion();
@@ -1278,22 +1288,24 @@ calibScreen.addEventListener("cancel", (event) => {
 });
 heroCalib.addEventListener("click", () => calibButton.click());
 
-// The landmark overlay is drawn on the Teknis page (and with ?debug=1); the EAR chart only there.
-// On the Insight page the camera box moves out of the dock into the live view, where the overlay
-// draws the face mesh, and the plain view plays the same stream beside it (D-63). The detector keeps
-// reading the same <video>, which stays rendered either way; play() again in case the move paused it.
+// The camera box leaves the dock on two pages (D-63, D-65): on the dashboard it goes into the live view,
+// where the overlay draws the face mesh and the plain view plays the same stream beside it; on the
+// Debug page it goes beside the EAR chart, with the eye points and body mask (also on every page with
+// ?debug=1). The detector keeps reading the same <video>, which stays rendered either way; play()
+// again in case the move paused it.
 function onPage(page: string) {
-  const liveOn = page === "insight";
-  const home = liveOn ? liveSlot : dock;
+  const liveOn = page === "dashboard";
+  const debugOn = page === "debug";
+  const home = liveOn ? liveSlot : debugOn ? debugSlot : dock;
   if (cameraBox.parentElement !== home) {
     home.prepend(cameraBox);
     if (video.srcObject) void video.play().catch(() => {});
   }
   live.attach(liveOn ? video.srcObject : null);
-  const overlayOn = DEBUG || page === "teknis" || liveOn;
+  const overlayOn = DEBUG || debugOn || liveOn;
   overlay.hidden = !overlayOn;
   overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
-  if (page === "teknis") earChart.draw(baseline);
+  if (debugOn) earChart.draw(baseline);
   if (liveOn) {
     live.chart.draw(baseline);
     renderLiveTiles();
@@ -1370,12 +1382,9 @@ function renderAutoSend() {
     autoSendNote.textContent = DEMO_NOTE.autoSend;
     return;
   }
-  const rule =
-    "saat label menjadi lelah ringan, lelah, atau tertidur, atau saat saran istirahat panjang muncul, " +
-    `paling sering 1× per ${AUTO_SEND.minGapMs / 60_000} menit; tertidur dan saran istirahat panjang boleh ` +
-    "menyela sekali. Tiap permintaan memakai satu panggilan LLM.";
+  const rule = `saran diminta sendiri saat label lelah ringan atau lebih, maks. 1× per ${AUTO_SEND.minGapMs / 60_000} menit.`;
   if (!autoSendOn) {
-    autoSendNote.textContent = `Mati: saran hanya diminta lewat tombol "Minta saran sekarang". Kalau dinyalakan, saran diminta sendiri ${rule}`;
+    autoSendNote.textContent = `Mati. Kalau dinyalakan, ${rule}`;
     return;
   }
   const last =
@@ -1387,7 +1396,7 @@ function renderAutoSend() {
           : lastAuto.ok
             ? "terkirim."
             : `gagal, dicoba lagi paling cepat ${minuteClock(lastAuto.t + AUTO_SEND.minGapMs)}.`);
-  autoSendNote.textContent = `Menyala: saran diminta sendiri ${rule}${last}`;
+  autoSendNote.textContent = `Menyala: ${rule}${last}`;
 }
 
 autoSendToggle.addEventListener("change", () => {
@@ -1492,7 +1501,7 @@ async function main() {
     return;
   }
 
-  if (router.page === "insight") live.attach(video.srcObject);
+  if (router.page === "dashboard") live.attach(video.srcObject);
   bodyDetection = model.value.segmenter !== null;
   delegateOutput.textContent = `${model.value.delegate} · tubuh ${bodyDetection ? "CPU" : "nonaktif"}`;
   resetWindow(performance.now());
