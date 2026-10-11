@@ -90,8 +90,8 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 - **Mode hemat daya:** deteksi 5 fps (bawaan 10 fps), menyala sendiri saat baterai < 20% dan tidak diisi.
 - **Pendamping (Picture-in-Picture):** jendela kecil berisi karakter beruang yang ekspresinya mengikuti label dan menyapa saat
   `lelah`/`tertidur`. Selama jendela ini terbuka, deteksi tetap ±10 fps walau tab Equilibre tersembunyi (terukur 9,9 fps).
-  Dibuka lewat tombol, dan di Chrome terbuka sendiri saat pindah tab (auto-PiP Media Session, hanya selama kamera aktif);
-  pindah ke aplikasi lain tetap butuh tombol.
+  Dibuka lewat tombol atau ikut terbuka saat klik "Mulai" kalibrasi, dan di Chrome terbuka sendiri saat pindah tab (auto-PiP
+  Media Session, hanya selama kamera aktif); pindah ke aplikasi lain tetap butuh tombol.
 - Semua threshold adalah konstanta bernama di modulnya; yang masih nilai awal ditandai ⚠️ di kode.
 
 ### Skor pola kedip (UTA-RLDD)
@@ -189,7 +189,7 @@ pindah ke bawah. Istilah yang janggal bila diterjemahkan memakai bahasa Inggris 
 | **Dashboard** | Label saat ini dalam satu kalimat bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`), dengan "Kenapa label ini?" (kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"); **Live view**: kamera biasa di samping kamera dengan jaring wajah MediaPipe (garis mata hijau/merah menurut batas kedip pribadi, mulut kuning saat menguap), 6 tile dengan satu kalimat cara membaca, grafik EAR 20 detik (`live.ts`, `liveView.ts`); ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label) di samping "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
 | **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
 | **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
-| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
+| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, pengingat cek kantuk tiap 15 menit, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
 | **Debug** | Kamera besar dengan 6 titik EAR per mata dan mask tubuh, di samping grafik EAR 20 detik dengan batas pribadi dari kalibrasi (`earChart.ts`); tile sinyal per frame, fitur jendela, dan baseline (termasuk EAR terpejam ÷ EAR terbuka), masing-masing dengan satu kalimat cara membaca; skor pola kedip, JSON yang dikirim, unduh log CSV |
 
 Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
@@ -216,7 +216,7 @@ Parameter URL untuk pengembangan dan uji coba:
 |---|---|
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
 | `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Debug |
-| `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit |
+| `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit selalu menyala (di luar uji: sakelar di Privasi, bawaan mati) |
 | `?kode=EQ-XXXX` | uji pengguna jarak jauh: kartu persetujuan → kalibrasi → 60 menit kerja dengan KSS tiap 15 menit → feedback → satu kiriman ke Google Sheet pengembang; riwayat uji di database terpisah (`uji-pengguna/README.md`) |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |

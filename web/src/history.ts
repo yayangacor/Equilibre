@@ -68,7 +68,7 @@ export type KssRecord = Stamp & {
   t: number;
   kss: number; // Karolinska Sleepiness Scale, 1 (very alert) to 9 (fighting sleep)
   label_tampil: Label | null;
-  pengingat: boolean; // entered after the 15-minute reminder (?uji=1)
+  pengingat: boolean; // entered after the 15-minute reminder (user test, or switched on: D-67)
 };
 
 const two = (n: number) => String(n).padStart(2, "0");

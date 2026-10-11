@@ -15,8 +15,10 @@ import type { Evaluation, Label } from "./rules.ts";
 
 // What the user tells Equilibre back, all kept on the device (NOTES D-06, D-36):
 // feedback on a recommendation, a correction of the shown label, a KSS rating (with a
-// reminder every 15 minutes in test mode, ?uji=1), and a break the camera missed (D-42).
+// reminder every 15 minutes in a user test or when switched on, D-67), and a break the camera missed (D-42).
 // Text goes in via textContent.
+
+const KSS_PROMPT = "Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.";
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -35,7 +37,7 @@ export type SelfReportDeps = {
   panel: HistoryPanel;
   session: number;
   shown: () => Evaluation | null; // the label on screen right now
-  testMode: () => boolean; // KSS reminders on (?uji=1, or a ?kode= test that is running)
+  reminders: () => boolean; // KSS reminders on (?uji=1, a ?kode= test that is running, or the user's switch)
   beep: () => void;
   lastCameraBreak: () => number | null; // wall clock end of the last break the camera counted
   breakTaken: () => void; // restarts menit_sejak_jeda
@@ -100,11 +102,12 @@ export class SelfReport {
     if (Number.isFinite(last)) this.lastKss = last;
   }
 
-  // A user test just started: the first reminder comes 15 minutes later.
+  // A user test just started, or the reminder was switched on or off: the next one comes 15 minutes later.
   resetKssClock(t: number) {
     this.lastKss = t;
     this.kssDueNow = false;
     delete this.kssPanel.dataset.due;
+    this.kssPrompt.textContent = KSS_PROMPT;
   }
 
   // ── Label correction ──────────────────────────────────────────────────────────
@@ -167,9 +170,9 @@ export class SelfReport {
 
   // ── KSS ───────────────────────────────────────────────────────────────────────
 
-  // Test mode only: flags the panel once the rating is due, and beeps once.
+  // With reminders on: flags the panel once the rating is due, and beeps once.
   tick(now: number) {
-    if (!this.deps.testMode() || this.kssDueNow || !kssDue(this.lastKss, now)) return;
+    if (!this.deps.reminders() || this.kssDueNow || !kssDue(this.lastKss, now)) return;
     this.kssDueNow = true;
     this.kssPanel.dataset.due = "1";
     this.kssPrompt.textContent = "Waktunya mengisi KSS (tiap 15 menit): seberapa mengantuk kamu dalam 5 menit terakhir?";
@@ -189,8 +192,8 @@ export class SelfReport {
     this.lastKss = t;
     this.kssDueNow = false;
     delete this.kssPanel.dataset.due;
-    this.kssPrompt.textContent = "Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.";
-    this.kssNote.textContent = `KSS ${kss} tersimpan pukul ${clock(t)}.${this.deps.testMode() ? " Pengingat berikutnya 15 menit lagi." : ""}`;
+    this.kssPrompt.textContent = KSS_PROMPT;
+    this.kssNote.textContent = `KSS ${kss} tersimpan pukul ${clock(t)}.${this.deps.reminders() ? " Pengingat berikutnya 15 menit lagi." : ""}`;
   }
 
   // ── Feedback on the answer in the Langflow panel ──────────────────────────────

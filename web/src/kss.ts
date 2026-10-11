@@ -1,3 +1,5 @@
+import type { KeyValueStore } from "./calibration.ts";
+
 // Karolinska Sleepiness Scale (Åkerstedt & Gillberg, 1990), in the version with a label
 // on every step (Baulk et al., 2001), as listed in Miley, Kecklund & Åkerstedt (2016),
 // Sleep Biol Rhythms 14:257–260. A rating covers the 5 minutes before it, because being
@@ -22,10 +24,31 @@ export const KSS_SCALE = [
   },
 ] as const;
 
-// Test mode (?uji=1) asks for a rating every 15 minutes (NOTES D-20).
+// The reminder asks for a rating every 15 minutes (NOTES D-20): always in a user test (?uji=1, ?kode=),
+// otherwise when the user switches it on (D-67).
 export const KSS_REMINDER_MS = 15 * 60_000;
 
 // `since`: the last rating, or when monitoring started if there is none yet.
 export const kssDue = (since: number, now: number) => now - since >= KSS_REMINDER_MS;
 
 export const isKss = (x: unknown): x is number => Number.isInteger(x) && (x as number) >= 1 && (x as number) <= 9;
+
+// The user's choice for the reminder outside a user test, remembered on this device; off unless switched on.
+export const KSS_REMINDER_KEY = "equilibre.pengingat-kss.v1";
+
+export function loadKssReminder(store: KeyValueStore): boolean {
+  try {
+    return store.getItem(KSS_REMINDER_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveKssReminder(store: KeyValueStore, on: boolean): boolean {
+  try {
+    store.setItem(KSS_REMINDER_KEY, on ? "1" : "0");
+    return true;
+  } catch {
+    return false;
+  }
+}

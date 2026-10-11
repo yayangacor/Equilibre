@@ -44,6 +44,7 @@ import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySumm
 import { DB_NAME } from "./historyDb.ts";
 import { HistoryPanel } from "./historyPanel.ts";
 import { formatDuration, monitoredMinutes } from "./insight.ts";
+import { loadKssReminder, saveKssReminder } from "./kss.ts";
 import { renderTodayStrip } from "./insightCharts.ts";
 import { eyeState, liveTiles, yawning } from "./live.ts";
 import { drawFaceMesh, LiveView } from "./liveView.ts";
@@ -106,7 +107,7 @@ const HISTORY_DB = TEST_CODE
   : HISTORY_SUFFIX
     ? `${DB_NAME}-${HISTORY_SUFFIX}`
     : DB_NAME;
-// ?uji=1 (or a ?kode= test): user test mode, a KSS reminder every 15 minutes.
+// ?uji=1 (or a ?kode= test): user test mode, the KSS reminder every 15 minutes is always on.
 const TEST_MODE = params.get("uji") === "1" || TEST_CODE !== null;
 // ?kamera=0: the page without camera and models (automated checks, screenshots of the history).
 const NO_CAMERA = params.get("kamera") === "0";
@@ -144,6 +145,8 @@ const powerToggle = byId<HTMLInputElement>("power-saving");
 const powerNote = byId("power-note");
 const autoSendToggle = byId<HTMLInputElement>("auto-send");
 const autoSendNote = byId("auto-send-note");
+const kssReminderToggle = byId<HTMLInputElement>("kss-reminder");
+const kssReminderNote = byId("kss-reminder-note");
 const pipButton = byId<HTMLButtonElement>("pip-open");
 const pipNote = byId("pip-note");
 // Pages (plan P14, D-65): the header chip, the dashboard hero and today's tiles, the Debug EAR chart.
@@ -336,6 +339,8 @@ let sending = false;
 
 // Automatic sending (NOTES D-37): off unless switched on, remembered on this device. Never in the demo build.
 let autoSendOn = !DEMO && store ? loadAutoSend(store) : false;
+// The KSS reminder outside a user test (D-67): off unless switched on, remembered on this device.
+let kssReminderOn = store ? loadKssReminder(store) : false;
 let autoState = initialAutoSendState();
 let lastAuto: { t: number; target: AutoTarget; ok: boolean | null } | null = null;
 
@@ -413,7 +418,7 @@ const selfReport = new SelfReport({
   session: SESSION,
   shown: () => (calibration ? null : (monitor?.labelState.shown ?? null)),
   // With a test code the reminders run only while the test does (after consent and calibration).
-  testMode: () => TEST_MODE && (userTest === null || userTest.running()),
+  reminders: () => (TEST_MODE ? userTest === null || userTest.running() : kssReminderOn),
   beep: reminderBeep,
   lastCameraBreak: () => lastCameraBreak,
   // Before the first frame there is nothing to restart: the count starts at that frame anyway.
@@ -541,7 +546,7 @@ pipButton.addEventListener("click", () => {
 });
 
 // A hidden tab without the companion pauses monitoring (G-56), so switching tabs opens it on every link,
-// even after it was closed (D-66). A tester's link (?kode=) also opens it with the calibration click.
+// even after it was closed (D-66). The calibration click opens it too (D-67).
 if (PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
 
 function companionView(): CompanionView {
@@ -1264,8 +1269,9 @@ calibButton.addEventListener("click", () => {
 function startCalibration() {
   if (calibration || !detecting) return;
   void runCalibration();
-  // After the AudioContext is made: opening the window may use up the click.
-  if (TEST_CODE && PipCompanion.supported()) openCompanion();
+  // After the AudioContext is made: opening the window may use up the click. Every link (D-67): stage B
+  // keeps running at full speed while the user works in another app.
+  if (PipCompanion.supported()) openCompanion();
 }
 calibGo.addEventListener("click", startCalibration);
 calibRetry.addEventListener("click", startCalibration);
@@ -1405,6 +1411,25 @@ autoSendToggle.addEventListener("change", () => {
   renderAutoSend();
 });
 
+// ── KSS reminder (D-67): a user's choice, always on in a user test ──────────────
+
+function renderKssReminder() {
+  kssReminderToggle.checked = TEST_MODE || kssReminderOn;
+  kssReminderToggle.disabled = TEST_MODE;
+  kssReminderNote.textContent = TEST_MODE
+    ? "Selalu aktif selama uji coba."
+    : kssReminderOn
+      ? "Bunyi tiap 15 menit, lalu isi Cek kantuk di Dashboard."
+      : "Mati. Kalau dinyalakan, ada bunyi tiap 15 menit untuk mengisi Cek kantuk.";
+}
+
+kssReminderToggle.addEventListener("change", () => {
+  kssReminderOn = kssReminderToggle.checked;
+  if (store) saveKssReminder(store, kssReminderOn);
+  selfReport.resetKssClock(Date.now()); // the first reminder 15 minutes after switching it on
+  renderKssReminder();
+});
+
 // How an automatic send ended. A failure lets the same condition be tried after the gap.
 function autoSendDone(ok: boolean) {
   if (!ok) autoState = afterFailedSend(autoState);
@@ -1470,6 +1495,7 @@ async function main() {
   renderCalibrationIdle();
   renderPower();
   renderAutoSend();
+  renderKssReminder();
   if (DEMO) answer.replaceChildren(demoCallout(DEMO_NOTE.saran));
   renderPipButton();
   void watchBattery();
@@ -1477,13 +1503,12 @@ async function main() {
   void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock(userTest?.started ?? null));
   setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
   userTest?.render();
-  if (TEST_MODE) {
-    setInterval(() => {
-      const now = Date.now();
-      selfReport.tick(now);
-      userTest?.render(now);
-    }, KSS_CHECK_MS);
-  }
+  // KSS reminders (when on) and the test card's clock.
+  setInterval(() => {
+    const now = Date.now();
+    selfReport.tick(now);
+    userTest?.render(now);
+  }, KSS_CHECK_MS);
   if (NO_CAMERA) {
     cameraFailed("Kamera tidak dinyalakan (?kamera=0).");
     return;
