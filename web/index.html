@@ -164,6 +164,48 @@
         <section class="page" data-page="insight" aria-labelledby="h-insight" hidden>
           <div class="page-head">
             <h1 id="h-insight" tabindex="-1">Insight</h1>
+          </div>
+
+          <!-- Live view (D-63): the dock's camera moves into #live-slot on this page, with the face mesh drawn over it. -->
+          <section id="live" class="card live" aria-labelledby="h-live">
+            <div class="card-head">
+              <h2 id="h-live">Yang dilihat Equilibre sekarang</h2>
+              <span class="pill live-pill"><span class="live-dot" aria-hidden="true"></span>Langsung, di perangkat ini</span>
+            </div>
+            <p class="muted">
+              Kiri, kamera biasa. Kanan, yang dibaca Equilibre: 478 titik wajah dari MediaPipe Face Landmarker, dihitung di browser
+              ini sekitar 10 kali per detik. Dari titik-titik ini hanya angka yang disimpan, seperti seberapa terbuka mata. Video tidak
+              pernah dikirim.
+            </p>
+            <div class="live-views">
+              <figure class="live-view">
+                <div class="live-frame"><video id="live-raw" autoplay playsinline muted></video></div>
+                <figcaption>Kamera biasa</figcaption>
+              </figure>
+              <figure class="live-view">
+                <div id="live-slot" class="live-frame"></div>
+                <figcaption>
+                  Yang dibaca Equilibre ·
+                  <span class="eye-key" data-eye="terbuka">garis mata hijau = terbuka</span>,
+                  <span class="eye-key" data-eye="tertutup">merah = tertutup</span>,
+                  <span class="eye-key" data-eye="mulut">mulut kuning = menguap</span>
+                </figcaption>
+              </figure>
+            </div>
+            <div id="live-tiles" class="tiles live-tiles"></div>
+            <div class="live-chart">
+              <h3 class="live-chart-title">Eye Aspect Ratio, 20 detik terakhir</h3>
+              <p class="muted small">
+                EAR = tinggi bukaan mata dibagi lebarnya. Turun tajam sesaat tiap berkedip dan mendekati 0 saat terpejam. Garis
+                putus-putus adalah batas pribadimu dari kalibrasi.
+              </p>
+              <ul id="live-ear-legend" class="legend"></ul>
+              <canvas id="live-ear-chart" class="ear-chart" role="img" aria-label="Grafik EAR 20 detik terakhir"></canvas>
+            </div>
+          </section>
+
+          <div class="page-head sub">
+            <h2 id="h-history">Riwayat per hari</h2>
             <label class="day-pick">Hari <select id="day-select"></select></label>
           </div>
           <p id="history-note" class="callout info" hidden></p>
@@ -310,7 +352,7 @@
               <h2 id="h-calib">Kalibrasi</h2>
             </div>
             <ol class="steps">
-              <li>Saat hitungan habis, pejamkan mata ±3 detik sampai terdengar bunyi panjang.</li>
+              <li>Saat hitungan habis, pejamkan mata rapat (jangan menyipit) ±3 detik sampai terdengar bunyi panjang.</li>
               <li>Buka mata dan bekerja seperti biasa ±5 menit. Tab ini harus tetap terlihat.</li>
             </ol>
             <p id="calib-status" class="calib-status" aria-live="polite"></p>
@@ -458,6 +500,48 @@
         <button id="pip-open" type="button" class="btn tonal block">Buka pendamping</button>
       </aside>
     </div>
+
+    <!-- Calibration instructions, full screen, before stage A starts: a narrowed eye recorded as "closed"
+         raises the personal thresholds (NOTES G-73, D-63). -->
+    <dialog id="calib-screen" class="calib-screen" aria-labelledby="calib-screen-title" data-phase="intro">
+      <div class="calib-layout">
+        <div class="calib-stage">
+          <div id="calib-bear" class="calib-bear" data-mood="normal"></div>
+          <p id="calib-count" class="calib-count" aria-live="assertive"></p>
+        </div>
+        <div class="calib-copy">
+          <p id="calib-kicker" class="calib-kicker">Kalibrasi · tahap 1 dari 2</p>
+          <h2 id="calib-screen-title" class="calib-title">Pejamkan mata rapat saat diminta</h2>
+          <p id="calib-lead" class="calib-lead">
+            Equilibre perlu tahu seperti apa matamu saat benar-benar terpejam. Mata yang hanya menyipit membuat Equilibre
+            salah mengira kamu mengantuk nanti.
+          </p>
+          <ol id="calib-steps" class="calib-steps">
+            <li>Duduk seperti biasa kamu bekerja, wajah terlihat kamera. Kacamata yang biasa dipakai tetap dipakai.</li>
+            <li>Tekan <strong>Mulai</strong>. Selama hitungan 3, 2, 1, lihat ke layar dengan mata terbuka.</li>
+            <li>Saat hitungan habis, <strong>pejamkan kedua mata rapat seperti tidur</strong>. Jangan mengintip, jangan menyipit.</li>
+            <li>Tahan sampai terdengar <strong>beep panjang</strong> (±3 detik). Setelah itu buka mata dan bekerja seperti biasa.</li>
+          </ol>
+          <div id="calib-examples" class="calib-examples">
+            <figure class="calib-example" data-ok="0">
+              <div id="calib-bad" class="calib-mini"></div>
+              <figcaption><span class="mark" aria-hidden="true">✕</span> Menyipit atau mengintip</figcaption>
+            </figure>
+            <figure class="calib-example" data-ok="1">
+              <div id="calib-good" class="calib-mini"></div>
+              <figcaption><span class="mark" aria-hidden="true">✓</span> Terpejam rapat</figcaption>
+            </figure>
+          </div>
+          <p id="calib-error" class="callout danger" role="alert" hidden></p>
+          <p id="calib-face" class="calib-face" data-state="loading">Memuat kamera…</p>
+          <p id="calib-sound" class="helper">Nyalakan suara: saat mata terpejam, bunyi beep yang memberi tahu kapan selesai.</p>
+          <div class="calib-actions">
+            <button id="calib-go" type="button" class="btn primary">Mulai</button>
+            <button id="calib-close" type="button" class="btn text">Batal</button>
+          </div>
+        </div>
+      </div>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

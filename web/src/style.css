@@ -2132,6 +2132,317 @@ pre {
   font-weight: 600;
 }
 
+/* ── Insight: live view (D-63) ────────────────────────────────────────────── */
+
+/* The camera box moves into the live view on this page, so the dock and its column go. */
+body[data-page="insight"] .shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body[data-page="insight"] .dock {
+  display: none;
+}
+
+.page-head.sub {
+  margin-top: 8px;
+}
+
+.live {
+  display: grid;
+  gap: 14px;
+}
+
+.live .card-head {
+  margin-bottom: 0;
+}
+
+.live-pill {
+  color: var(--on-st-normal-container);
+  background: var(--st-normal-container);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--st-normal);
+  border-radius: 50%;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.live-views {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.live-view {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  margin: 0;
+}
+
+.live-frame {
+  position: relative;
+  min-height: 120px;
+  background: #0d1014;
+  border-radius: var(--radius-md);
+}
+
+.live-view figcaption {
+  color: var(--on-surface-variant);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.eye-key {
+  white-space: nowrap;
+}
+
+.eye-key::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  margin: 0 5px 3px 0;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+.eye-key[data-eye="terbuka"]::before {
+  background: #3ddc97;
+}
+
+.eye-key[data-eye="tertutup"]::before {
+  background: #ff5a5f;
+}
+
+.eye-key[data-eye="mulut"]::before {
+  background: #ffc233;
+}
+
+.live-tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.live-tiles .tile-sub {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.live-tiles .tile-value[data-eye="terbuka"] {
+  color: var(--st-normal);
+}
+
+.live-tiles .tile-value[data-eye="tertutup"] {
+  color: var(--st-lelah);
+}
+
+.live-chart-title {
+  margin: 4px 0 2px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ── Calibration instructions (D-63) ──────────────────────────────────────── */
+
+.calib-screen {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 24px 16px;
+  overflow-y: auto;
+  color: var(--on-surface);
+  background: var(--surface);
+  border: 0;
+}
+
+.calib-screen::backdrop {
+  background: var(--surface);
+}
+
+.calib-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 40px;
+  align-items: center;
+  max-width: 1040px;
+  min-height: 100%;
+  margin: 0 auto;
+}
+
+.calib-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: var(--primary-container);
+  border-radius: var(--radius-xl);
+}
+
+.calib-bear .bear {
+  width: min(210px, 50vw);
+}
+
+.calib-count {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  color: var(--on-primary-container);
+  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.calib-copy {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+
+.calib-kicker {
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.calib-title {
+  font-size: clamp(1.5rem, 2.8vw, 2rem);
+  line-height: 1.2;
+}
+
+.calib-lead {
+  color: var(--on-surface-variant);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.calib-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+
+.calib-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calib-example {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px 8px 8px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md);
+}
+
+/* The eyes only, cropped from a large bear, so a narrowed eye and a closed one look different
+   (eye centre 525,365 of 1082×1454, bear.ts ART). */
+.calib-mini {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 52px;
+  overflow: hidden;
+  background: #fefefe;
+  border-radius: var(--radius-sm);
+}
+
+.calib-mini .bear {
+  position: absolute;
+  top: -62px;
+  left: -69px;
+  width: 260px;
+  animation: none;
+}
+
+.calib-example figcaption {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.calib-example .mark {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 4px;
+  color: #fff;
+  font-size: 0.8125rem;
+  background: var(--st-lelah);
+  border-radius: 50%;
+}
+
+.calib-example[data-ok="1"] .mark {
+  background: var(--st-normal);
+}
+
+.calib-face {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.calib-face::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--outline);
+  border-radius: 50%;
+}
+
+.calib-face[data-state="found"]::before {
+  background: var(--st-normal);
+}
+
+.calib-face[data-state="missing"]::before {
+  background: var(--st-lelah-ringan);
+}
+
+.calib-face[data-state="error"]::before {
+  background: var(--st-lelah);
+}
+
+.calib-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.calib-actions .btn.primary {
+  min-width: 160px;
+}
+
+/* While the run goes the screen is the cue itself: no list, no examples. */
+.calib-screen[data-phase="countdown"] :is(#calib-steps, #calib-examples, #calib-sound),
+.calib-screen[data-phase="closing"] :is(#calib-steps, #calib-examples, #calib-sound) {
+  display: none;
+}
+
+.calib-screen[data-phase="closing"] .calib-stage {
+  background: var(--st-tertidur-container);
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 1080px) {
@@ -2186,9 +2497,32 @@ pre {
   }
 
   body[data-page="teknis"] .cam-badge,
+  body[data-page="insight"] .cam-badge,
   body[data-calibrating] .cam-badge {
     font-size: 0.75rem;
     padding: 3px 10px 3px 8px;
+  }
+
+  .live-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calib-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-content: start;
+  }
+
+  .calib-stage {
+    padding: 20px 16px;
+  }
+
+  .calib-bear .bear {
+    width: min(150px, 40vw);
+  }
+
+  .calib-examples {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* No backdrop-filter here: it would make the bar the containing block of the fixed tabs. */
@@ -2238,8 +2572,15 @@ pre {
   }
 }
 
+@media (max-width: 640px) {
+  .live-views {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 520px) {
-  .tiles.three {
+  .tiles.three,
+  .live-tiles {
     grid-template-columns: minmax(0, 1fr);
   }
 

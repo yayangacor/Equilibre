@@ -44,6 +44,8 @@ import { DB_NAME } from "./historyDb.ts";
 import { HistoryPanel } from "./historyPanel.ts";
 import { formatDuration, monitoredMinutes } from "./insight.ts";
 import { renderTodayStrip } from "./insightCharts.ts";
+import { eyeState, liveTiles, yawning } from "./live.ts";
+import { drawFaceMesh, LiveView } from "./liveView.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
@@ -157,6 +159,34 @@ const heroBear = createBear(document, "", "hero-eye");
 byId("hero-bear").append(heroBear.root);
 const earChart = new EarChart(byId<HTMLCanvasElement>("ear-chart"), byId("ear-legend"));
 const router = new Router();
+// Insight live view (D-63): the dock's camera box (video, overlay, badge) moves into #live-slot on that page.
+const cameraBox = video.parentElement!;
+const dock = cameraBox.parentElement!;
+const liveSlot = byId("live-slot");
+const live = new LiveView({
+  tiles: byId("live-tiles"),
+  chart: byId<HTMLCanvasElement>("live-ear-chart"),
+  legend: byId("live-ear-legend"),
+  raw: byId<HTMLVideoElement>("live-raw"),
+});
+// Calibration instructions (D-63), full screen before stage A.
+const calibScreen = byId<HTMLDialogElement>("calib-screen");
+const calibCount = byId("calib-count");
+const calibKicker = byId("calib-kicker");
+const calibTitle = byId("calib-screen-title");
+const calibLead = byId("calib-lead");
+const calibError = byId("calib-error");
+const calibFace = byId("calib-face");
+const calibGo = byId<HTMLButtonElement>("calib-go");
+const calibClose = byId<HTMLButtonElement>("calib-close");
+const calibBear = createBear(document, "", "calib-eye");
+byId("calib-bear").append(calibBear.root);
+const calibBad = createBear(document, "Beruang dengan mata menyipit", "calib-bad-eye");
+calibBad.setMood("lelah");
+byId("calib-bad").append(calibBad.root);
+const calibGood = createBear(document, "Beruang dengan mata terpejam rapat", "calib-good-eye");
+calibGood.setMood("tertidur");
+byId("calib-good").append(calibGood.root);
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -541,15 +571,24 @@ function onBody(b: BodySample) {
 
 // ── Rendering ───────────────────────────────────────────────────────────────────
 
+const CALIB_FACE_TEXT: Partial<Record<FaceState, string>> = {
+  found: "Wajah terlihat kamera. Siap.",
+  missing: "Wajah belum terlihat kamera. Atur posisi duduk atau cahaya dulu.",
+};
+
 function setFaceStatus(state: FaceState, text: string) {
+  if (faceStatus.dataset.state === state && faceStatus.textContent === text) return;
   faceStatus.dataset.state = state;
   faceStatus.textContent = text;
+  calibFace.dataset.state = state;
+  calibFace.textContent = CALIB_FACE_TEXT[state] ?? text;
 }
 
 let lastEarDraw = 0;
 function renderSignals(s: FrameSignal) {
   setFaceStatus(s.face ? "found" : "missing", s.face ? "Wajah terdeteksi" : "Wajah tidak terdeteksi");
   earChart.push(s.t, s.face ? s.ear : null);
+  live.chart.push(s.t, s.face ? s.ear : null);
   if (router.page === "teknis" && s.t - lastEarDraw >= 100) {
     lastEarDraw = s.t;
     earChart.draw(baseline);
@@ -755,15 +794,43 @@ function renderCalibrationIdle(message?: string, isError = false) {
 
 // ── Debug overlay (?debug=1) ────────────────────────────────────────────────────
 
-let lastMatrixRender = 0;
-function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
+// The overlay canvas in video pixels, cleared; null without a 2D context.
+function overlayContext(): CanvasRenderingContext2D | null {
   if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
     overlay.width = video.videoWidth;
     overlay.height = video.videoHeight;
   }
   const ctx = overlay.getContext("2d");
+  ctx?.clearRect(0, 0, overlay.width, overlay.height);
+  return ctx;
+}
+
+// Insight live view (D-63): the face mesh every frame, the tiles ±4×/second, the EAR chart ±10×/second.
+let lastLiveTiles = 0;
+let lastLiveChart = 0;
+function renderLive(result: FaceLandmarkerResult, s: FrameSignal) {
+  const ctx = overlayContext();
+  const landmarks = result.faceLandmarks[0];
+  if (ctx && landmarks) drawFaceMesh(ctx, landmarks, overlay.width, overlay.height, eyeState(s, baseline), yawning(s));
+  if (s.t - lastLiveChart >= 100) {
+    lastLiveChart = s.t;
+    live.chart.draw(baseline);
+  }
+  if (s.t - lastLiveTiles >= 250) {
+    lastLiveTiles = s.t;
+    renderLiveTiles(s);
+  }
+}
+
+function renderLiveTiles(s: FrameSignal | null = sessionLog.at(-1) ?? null) {
+  const shown = calibration ? null : (monitor?.labelState.shown?.label ?? null);
+  live.render(liveTiles(s, calibration ? null : features, baseline, shown, WINDOW_MS / 1000));
+}
+
+let lastMatrixRender = 0;
+function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
+  const ctx = overlayContext();
   if (!ctx) return;
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
   if (grid) {
     // The coarse person mask the body features are computed from.
     const w = overlay.width / grid.cols;
@@ -882,7 +949,8 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);
       onFrame(signal);
       renderSignals(signal);
-      if (DEBUG || router.page === "teknis") renderDebug(result, grid);
+      if (router.page === "insight") renderLive(result, signal);
+      else if (DEBUG || router.page === "teknis") renderDebug(result, grid);
       fpsFrames++;
     }
     if (now - fpsWindowStart >= 1000) {
@@ -985,6 +1053,49 @@ function setCalibStatus(text: string) {
   if (calibration) heroText.textContent = text;
 }
 
+// The full-screen instructions (D-63): intro → countdown → closing (eyes shut until the long beep),
+// closed after that beep; a stage A error keeps it open with the reason and "Coba lagi".
+type CalibScreenPhase = "intro" | "countdown" | "closing" | "error";
+
+function setCalibScreen(phase: CalibScreenPhase, detail?: string) {
+  calibScreen.dataset.phase = phase;
+  const running = phase === "countdown" || phase === "closing";
+  calibBear.setMood(phase === "closing" ? "tertidur" : "normal");
+  byId("calib-bear").dataset.mood = phase === "closing" ? "tertidur" : "normal";
+  calibCount.textContent = phase === "countdown" ? (detail ?? "") : "";
+  calibKicker.textContent = "Kalibrasi · tahap 1 dari 2";
+  calibTitle.textContent =
+    phase === "countdown"
+      ? "Lihat ke layar, mata terbuka"
+      : phase === "closing"
+        ? "Pejamkan mata rapat…"
+        : phase === "error"
+          ? "Mata belum terbaca terpejam"
+          : "Pejamkan mata rapat saat diminta";
+  calibLead.textContent =
+    phase === "countdown"
+      ? "Saat hitungan habis, pejamkan kedua mata rapat seperti tidur. Jangan mengintip, jangan menyipit."
+      : phase === "closing"
+        ? "Tahan sampai terdengar beep panjang, lalu buka mata."
+        : "Equilibre perlu tahu seperti apa matamu saat benar-benar terpejam. Mata yang hanya menyipit membuat Equilibre salah mengira kamu mengantuk nanti.";
+  calibError.hidden = phase !== "error";
+  calibError.textContent = phase === "error" ? (detail ?? "") : "";
+  calibGo.hidden = running;
+  calibGo.textContent = phase === "error" ? "Coba lagi" : "Mulai";
+  calibClose.textContent = running ? "Batalkan kalibrasi" : phase === "error" ? "Tutup" : "Batal";
+}
+
+function openCalibScreen() {
+  setCalibScreen("intro");
+  if (!calibScreen.open) calibScreen.showModal();
+  calibGo.focus({ preventScroll: true }); // the instructions are read from the top
+  calibScreen.scrollTop = 0;
+}
+
+function closeCalibScreen() {
+  if (calibScreen.open) calibScreen.close();
+}
+
 function setCalibProgress(fraction: number | null) {
   calibProgress.hidden = fraction === null;
   heroProgress.hidden = fraction === null;
@@ -1013,14 +1124,16 @@ async function runCalibration() {
   userTest?.render();
 
   let outcome: { message: string; isError: boolean } | undefined;
+  let keepScreen = false; // a stage A error stays on the full-screen instructions
   try {
     cameraPrompt.hidden = false;
     for (const n of [3, 2, 1]) {
       setCalibStatus(
-        `Tahap 1 dari 2: lihat ke layar dengan mata terbuka. Saat hitungan habis, pejamkan mata ` +
+        `Tahap 1 dari 2: lihat ke layar dengan mata terbuka. Saat hitungan habis, pejamkan mata rapat ` +
           `dan tahan sampai terdengar bunyi beep panjang (±3 detik). ${n}…`,
       );
       cameraPrompt.textContent = String(n);
+      setCalibScreen("countdown", String(n));
       tone(audio, 440, 0.08);
       await sleep(1000);
       if (run.cancelled) return;
@@ -1028,8 +1141,9 @@ async function runCalibration() {
 
     run.openRef = median(run.open.filter((f) => f.face && Number.isFinite(f.ear)).map((f) => f.ear));
     run.phase = "waiting";
-    setCalibStatus("Tahap 1 dari 2: pejamkan mata dan tahan sampai terdengar bunyi beep panjang.");
+    setCalibStatus("Tahap 1 dari 2: pejamkan mata rapat dan tahan sampai terdengar bunyi beep panjang.");
     cameraPrompt.textContent = "Pejamkan mata";
+    setCalibScreen("closing");
     const waitStart = performance.now();
     while (run.closedStreak < CALIB_CONFIRM_CLOSED_FRAMES) {
       if (run.cancelled) return;
@@ -1038,9 +1152,11 @@ async function runCalibration() {
         outcome = {
           message:
             `Mata tidak terdeteksi terpejam dalam ${CALIB_WAIT_CLOSED_MS / 1000} detik setelah aba-aba. ` +
-            "Ulangi, pastikan wajah terlihat jelas, lalu pejamkan mata saat hitungan habis.",
+            "Ulangi, pastikan wajah terlihat jelas, lalu pejamkan mata rapat saat hitungan habis.",
           isError: true,
         };
+        keepScreen = true;
+        setCalibScreen("error", outcome.message);
         return;
       }
       await sleep(50);
@@ -1053,6 +1169,7 @@ async function runCalibration() {
 
     run.phase = "normal";
     cameraPrompt.hidden = true;
+    closeCalibScreen();
     const start = performance.now();
     for (let elapsed = 0; elapsed < CALIB_NORMAL_MS; elapsed = performance.now() - start) {
       if (run.cancelled) return;
@@ -1084,31 +1201,67 @@ async function runCalibration() {
     calibration = null;
     delete document.body.dataset.calibrating;
     void audio.close();
+    if (!keepScreen) closeCalibScreen();
     renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Kalibrasi dibatalkan." : undefined), outcome?.isError);
     renderStatus();
     userTest?.render();
   }
 }
 
+function cancelCalibration() {
+  if (!calibration) return;
+  calibration.cancelled = true;
+  calibButton.disabled = true; // re-enabled once the run notices the cancel
+}
+
+// Every "Mulai kalibrasi" (Privasi card, hero, test card) opens the instructions first; the run
+// starts from their "Mulai" button (D-63).
 calibButton.addEventListener("click", () => {
   if (calibration) {
-    calibration.cancelled = true;
-    calibButton.disabled = true; // re-enabled once the run notices the cancel
+    cancelCalibration();
+    closeCalibScreen();
     return;
   }
+  openCalibScreen();
+});
+// The run starts inside this click, so the browser lets its AudioContext play the beep.
+calibGo.addEventListener("click", () => {
+  if (calibration || !detecting) return;
   void runCalibration();
   // After the AudioContext is made: opening the window may use up the click.
   if (TEST_CODE && PipCompanion.supported()) openCompanion();
 });
-// The hero's "Mulai kalibrasi" runs the same calibration (still inside a click, for the beep).
+calibClose.addEventListener("click", () => {
+  cancelCalibration();
+  closeCalibScreen();
+});
+// Esc: the same as the close button (the run is cancelled, not left running behind a closed screen).
+calibScreen.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  calibClose.click();
+});
 heroCalib.addEventListener("click", () => calibButton.click());
 
 // The landmark overlay is drawn on the Teknis page (and with ?debug=1); the EAR chart only there.
+// On the Insight page the camera box moves out of the dock into the live view, where the overlay
+// draws the face mesh, and the plain view plays the same stream beside it (D-63). The detector keeps
+// reading the same <video>, which stays rendered either way; play() again in case the move paused it.
 function onPage(page: string) {
-  const overlayOn = DEBUG || page === "teknis";
+  const liveOn = page === "insight";
+  const home = liveOn ? liveSlot : dock;
+  if (cameraBox.parentElement !== home) {
+    home.prepend(cameraBox);
+    if (video.srcObject) void video.play().catch(() => {});
+  }
+  live.attach(liveOn ? video.srcObject : null);
+  const overlayOn = DEBUG || page === "teknis" || liveOn;
   overlay.hidden = !overlayOn;
-  if (!overlayOn) overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+  overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
   if (page === "teknis") earChart.draw(baseline);
+  if (liveOn) {
+    live.chart.draw(baseline);
+    renderLiveTiles();
+  }
 }
 router.onChange(onPage);
 
@@ -1303,6 +1456,7 @@ async function main() {
     return;
   }
 
+  if (router.page === "insight") live.attach(video.srcObject);
   bodyDetection = model.value.segmenter !== null;
   delegateOutput.textContent = `${model.value.delegate} · tubuh ${bodyDetection ? "CPU" : "nonaktif"}`;
   resetWindow(performance.now());
