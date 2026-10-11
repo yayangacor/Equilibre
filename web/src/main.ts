@@ -540,9 +540,9 @@ pipButton.addEventListener("click", () => {
   else openCompanion();
 });
 
-// A tester's link (?kode=) keeps the companion up, since a hidden tab without it pauses monitoring
-// (G-56): it opens with the calibration click, and again when the tester switches tabs after closing it.
-if (TEST_CODE && PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
+// A hidden tab without the companion pauses monitoring (G-56), so switching tabs opens it on every link,
+// even after it was closed (D-66). A tester's link (?kode=) also opens it with the calibration click.
+if (PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
 
 function companionView(): CompanionView {
   if (calibration?.phase === "normal" && calibRemaining) {

@@ -90,6 +90,8 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 - **Mode hemat daya:** deteksi 5 fps (bawaan 10 fps), menyala sendiri saat baterai < 20% dan tidak diisi.
 - **Pendamping (Picture-in-Picture):** jendela kecil berisi karakter beruang yang ekspresinya mengikuti label dan menyapa saat
   `lelah`/`tertidur`. Selama jendela ini terbuka, deteksi tetap ±10 fps walau tab Equilibre tersembunyi (terukur 9,9 fps).
+  Dibuka lewat tombol, dan di Chrome terbuka sendiri saat pindah tab (auto-PiP Media Session, hanya selama kamera aktif);
+  pindah ke aplikasi lain tetap butuh tombol.
 - Semua threshold adalah konstanta bernama di modulnya; yang masih nilai awal ditandai ⚠️ di kode.
 
 ### Skor pola kedip (UTA-RLDD)
