@@ -501,46 +501,73 @@
       </aside>
     </div>
 
-    <!-- Calibration instructions, full screen, before stage A starts: a narrowed eye recorded as "closed"
-         raises the personal thresholds (NOTES G-73, D-63). -->
-    <dialog id="calib-screen" class="calib-screen" aria-labelledby="calib-screen-title" data-phase="intro">
-      <div class="calib-layout">
-        <div class="calib-stage">
-          <div id="calib-bear" class="calib-bear" data-mood="normal"></div>
-          <p id="calib-count" class="calib-count" aria-live="assertive"></p>
+    <!-- Calibration, full screen (NOTES D-63): instructions, countdown, eyes shut until the beep, stage B progress,
+         failed / done. One section per phase; main.ts shows the one that matches. A narrowed eye recorded as "closed"
+         raises the personal thresholds (G-73). -->
+    <dialog id="calib-screen" class="calib-screen" aria-label="Kalibrasi" data-phase="intro">
+      <section class="cs" data-for="intro">
+        <h2 class="cs-title">Cara Kalibrasi</h2>
+        <div class="cs-card cs-card-head">
+          <p id="calib-face" class="cs-face" data-state="loading">Memuat kamera…</p>
+          <div id="calib-bear-head" class="cs-bear cs-bear-head"></div>
         </div>
-        <div class="calib-copy">
-          <p id="calib-kicker" class="calib-kicker">Kalibrasi · tahap 1 dari 2</p>
-          <h2 id="calib-screen-title" class="calib-title">Pejamkan mata rapat saat diminta</h2>
-          <p id="calib-lead" class="calib-lead">
-            Equilibre perlu tahu seperti apa matamu saat benar-benar terpejam. Mata yang hanya menyipit membuat Equilibre
-            salah mengira kamu mengantuk nanti.
-          </p>
-          <ol id="calib-steps" class="calib-steps">
-            <li>Duduk seperti biasa kamu bekerja, wajah terlihat kamera. Kacamata yang biasa dipakai tetap dipakai.</li>
-            <li>Tekan <strong>Mulai</strong>. Selama hitungan 3, 2, 1, lihat ke layar dengan mata terbuka.</li>
-            <li>Saat hitungan habis, <strong>pejamkan kedua mata rapat seperti tidur</strong>. Jangan mengintip, jangan menyipit.</li>
-            <li>Tahan sampai terdengar <strong>beep panjang</strong> (±3 detik). Setelah itu buka mata dan bekerja seperti biasa.</li>
-          </ol>
-          <div id="calib-examples" class="calib-examples">
-            <figure class="calib-example" data-ok="0">
-              <div id="calib-bad" class="calib-mini"></div>
-              <figcaption><span class="mark" aria-hidden="true">✕</span> Menyipit atau mengintip</figcaption>
-            </figure>
-            <figure class="calib-example" data-ok="1">
-              <div id="calib-good" class="calib-mini"></div>
-              <figcaption><span class="mark" aria-hidden="true">✓</span> Terpejam rapat</figcaption>
-            </figure>
-          </div>
-          <p id="calib-error" class="callout danger" role="alert" hidden></p>
-          <p id="calib-face" class="calib-face" data-state="loading">Memuat kamera…</p>
-          <p id="calib-sound" class="helper">Nyalakan suara: saat mata terpejam, bunyi beep yang memberi tahu kapan selesai.</p>
-          <div class="calib-actions">
-            <button id="calib-go" type="button" class="btn primary">Mulai</button>
-            <button id="calib-close" type="button" class="btn text">Batal</button>
-          </div>
+        <ol class="cs-steps">
+          <li>Duduk seperti biasa, wajah terlihat kamera.</li>
+          <li>Saat hitungan habis, <strong>pejamkan mata rapat</strong>. Jangan mengintip atau menyipit.</li>
+          <li>Tahan sampai terdengar <strong>beep</strong>.</li>
+          <li>Buka mata.</li>
+        </ol>
+        <div class="cs-actions">
+          <button id="calib-go" type="button" class="btn primary cs-go">Mulai</button>
+          <button type="button" class="btn text" data-calib-close>Batal</button>
         </div>
-      </div>
+      </section>
+
+      <section class="cs" data-for="countdown" hidden>
+        <p id="calib-count" class="cs-count" aria-live="assertive"></p>
+        <button type="button" class="btn text cs-cancel" data-calib-close>Batalkan</button>
+      </section>
+
+      <section class="cs" data-for="closing" hidden>
+        <h2 class="cs-title">Pejamkan mata!</h2>
+        <div class="cs-card cs-card-face"><div id="calib-bear-face" class="cs-bear cs-bear-face"></div></div>
+        <p class="cs-sub">sampai terdengar beep</p>
+        <button type="button" class="btn text cs-cancel" data-calib-close>Batalkan</button>
+      </section>
+
+      <section class="cs" data-for="progress" hidden>
+        <h2 class="cs-title">Buka mata, lanjut bekerja</h2>
+        <p class="cs-lead">Bekerja seperti biasa, tapi tetap di depan kamera sampai kalibrasi selesai.</p>
+        <div class="cs-progress">
+          <div id="calib-bar" class="cs-bar"><span></span></div>
+          <p id="calib-left" class="cs-left"></p>
+        </div>
+        <div class="cs-pip">
+          <button id="calib-pip-open" type="button" class="btn primary cs-go">Buka pendamping</button>
+          <p id="calib-pip-note" class="cs-note"></p>
+        </div>
+        <div class="cs-actions">
+          <button id="calib-hide" type="button" class="btn text">Sembunyikan layar ini</button>
+          <button type="button" class="btn text" data-calib-close>Batalkan kalibrasi</button>
+        </div>
+      </section>
+
+      <section class="cs" data-for="error" hidden>
+        <h2 class="cs-title">Kalibrasi gagal</h2>
+        <p id="calib-error" class="cs-lead"></p>
+        <div class="cs-actions">
+          <button id="calib-retry" type="button" class="btn primary cs-go">Coba lagi</button>
+          <button type="button" class="btn text" data-calib-close>Tutup</button>
+        </div>
+      </section>
+
+      <section class="cs" data-for="done" hidden>
+        <h2 class="cs-title">Kalibrasi selesai</h2>
+        <p id="calib-done" class="cs-lead"></p>
+        <div class="cs-actions">
+          <button type="button" class="btn primary cs-go" data-calib-close>Selesai</button>
+        </div>
+      </section>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

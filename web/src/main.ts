@@ -172,21 +172,26 @@ const live = new LiveView({
 // Calibration instructions (D-63), full screen before stage A.
 const calibScreen = byId<HTMLDialogElement>("calib-screen");
 const calibCount = byId("calib-count");
-const calibKicker = byId("calib-kicker");
-const calibTitle = byId("calib-screen-title");
-const calibLead = byId("calib-lead");
 const calibError = byId("calib-error");
+const calibDone = byId("calib-done");
 const calibFace = byId("calib-face");
 const calibGo = byId<HTMLButtonElement>("calib-go");
-const calibClose = byId<HTMLButtonElement>("calib-close");
-const calibBear = createBear(document, "", "calib-eye");
-byId("calib-bear").append(calibBear.root);
-const calibBad = createBear(document, "Beruang dengan mata menyipit", "calib-bad-eye");
-calibBad.setMood("lelah");
-byId("calib-bad").append(calibBad.root);
-const calibGood = createBear(document, "Beruang dengan mata terpejam rapat", "calib-good-eye");
-calibGood.setMood("tertidur");
-byId("calib-good").append(calibGood.root);
+const calibRetry = byId<HTMLButtonElement>("calib-retry");
+const calibHide = byId<HTMLButtonElement>("calib-hide");
+const calibBar = byId("calib-bar");
+const calibLeft = byId("calib-left");
+const calibPipOpen = byId<HTMLButtonElement>("calib-pip-open");
+const calibPipNote = byId("calib-pip-note");
+// The bear with its eyes shut, as the user should be: the head on the instructions, the face up close
+// while the eyes are closed. No data-mood on their boxes, so no "Z" letters and no tilt.
+for (const [box, prefix] of [
+  ["calib-bear-head", "calib-head-eye"],
+  ["calib-bear-face", "calib-face-eye"],
+] as const) {
+  const bear = createBear(document, "", prefix);
+  bear.setMood("tertidur");
+  byId(box).append(bear.root);
+}
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -482,6 +487,7 @@ const companion = new PipCompanion({
   debug: DEBUG,
   onChange: (open) => {
     renderPipButton();
+    renderCalibPip();
     if (open) renderStatus();
   },
   onSnooze: () => {
@@ -526,6 +532,9 @@ pipButton.addEventListener("click", () => {
 if (TEST_CODE && PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
 
 function companionView(): CompanionView {
+  if (calibration?.phase === "normal" && calibRemaining) {
+    return { mood: "menunggu", label: `Kalibrasi ${calibRemaining}`, note: "Bekerja seperti biasa, tetap di depan kamera." };
+  }
   if (calibration) return { mood: "menunggu", label: "Kalibrasi…", note: "Lihat ke layar seperti biasa." };
   if (!baseline) return { mood: "menunggu", label: "Belum dikalibrasi", note: "Kalibrasi dulu di tab Equilibre." };
   const shown = monitor?.labelState.shown;
@@ -572,8 +581,8 @@ function onBody(b: BodySample) {
 // ── Rendering ───────────────────────────────────────────────────────────────────
 
 const CALIB_FACE_TEXT: Partial<Record<FaceState, string>> = {
-  found: "Wajah terlihat kamera. Siap.",
-  missing: "Wajah belum terlihat kamera. Atur posisi duduk atau cahaya dulu.",
+  found: "Wajah terlihat",
+  missing: "Wajah tidak terlihat",
 };
 
 function setFaceStatus(state: FaceState, text: string) {
@@ -1053,48 +1062,55 @@ function setCalibStatus(text: string) {
   if (calibration) heroText.textContent = text;
 }
 
-// The full-screen instructions (D-63): intro → countdown → closing (eyes shut until the long beep),
-// closed after that beep; a stage A error keeps it open with the reason and "Coba lagi".
-type CalibScreenPhase = "intro" | "countdown" | "closing" | "error";
+// The full-screen calibration (D-63), one section per phase: intro → countdown → closing (eyes shut
+// until the beep) → progress (stage B, with the companion) → done; error from either stage.
+type CalibScreenPhase = "intro" | "countdown" | "closing" | "progress" | "error" | "done";
+const calibSections = [...calibScreen.querySelectorAll<HTMLElement>(".cs")];
 
-function setCalibScreen(phase: CalibScreenPhase, detail?: string) {
+function setCalibScreen(phase: CalibScreenPhase, detail = "") {
   calibScreen.dataset.phase = phase;
-  const running = phase === "countdown" || phase === "closing";
-  calibBear.setMood(phase === "closing" ? "tertidur" : "normal");
-  byId("calib-bear").dataset.mood = phase === "closing" ? "tertidur" : "normal";
-  calibCount.textContent = phase === "countdown" ? (detail ?? "") : "";
-  calibKicker.textContent = "Kalibrasi · tahap 1 dari 2";
-  calibTitle.textContent =
-    phase === "countdown"
-      ? "Lihat ke layar, mata terbuka"
-      : phase === "closing"
-        ? "Pejamkan mata rapat…"
-        : phase === "error"
-          ? "Mata belum terbaca terpejam"
-          : "Pejamkan mata rapat saat diminta";
-  calibLead.textContent =
-    phase === "countdown"
-      ? "Saat hitungan habis, pejamkan kedua mata rapat seperti tidur. Jangan mengintip, jangan menyipit."
-      : phase === "closing"
-        ? "Tahan sampai terdengar beep panjang, lalu buka mata."
-        : "Equilibre perlu tahu seperti apa matamu saat benar-benar terpejam. Mata yang hanya menyipit membuat Equilibre salah mengira kamu mengantuk nanti.";
-  calibError.hidden = phase !== "error";
-  calibError.textContent = phase === "error" ? (detail ?? "") : "";
-  calibGo.hidden = running;
-  calibGo.textContent = phase === "error" ? "Coba lagi" : "Mulai";
-  calibClose.textContent = running ? "Batalkan kalibrasi" : phase === "error" ? "Tutup" : "Batal";
+  for (const section of calibSections) section.hidden = section.dataset.for !== phase;
+  if (phase === "countdown") {
+    calibCount.textContent = detail;
+    calibCount.classList.remove("pop");
+    void calibCount.offsetWidth; // restart the animation for each number
+    calibCount.classList.add("pop");
+  }
+  if (phase === "error") calibError.textContent = detail;
+  if (phase === "done") calibDone.textContent = detail;
+  if (phase === "progress") renderCalibPip();
+  calibScreen.scrollTop = 0;
 }
 
-function openCalibScreen() {
-  setCalibScreen("intro");
+// Shows the screen (again) at a phase; a stage B error reopens it after the user hid it.
+function showCalibScreen(phase: CalibScreenPhase, detail = "") {
+  setCalibScreen(phase, detail);
   if (!calibScreen.open) calibScreen.showModal();
-  calibGo.focus({ preventScroll: true }); // the instructions are read from the top
-  calibScreen.scrollTop = 0;
+  const first = calibSections.find((x) => !x.hidden)?.querySelector<HTMLButtonElement>(".cs-go");
+  first?.focus({ preventScroll: true }); // headings are read from the top
 }
 
 function closeCalibScreen() {
   if (calibScreen.open) calibScreen.close();
 }
+
+// The companion keeps detection at full speed while the user works in another app (G-56, D-59), so
+// stage B offers it. Opening it needs a click: the beep comes too long after "Mulai" for that click.
+function renderCalibPip() {
+  const supported = PipCompanion.supported();
+  calibPipOpen.hidden = !supported || companion.isOpen;
+  calibPipNote.textContent = !supported
+    ? "Browser ini tidak punya jendela pendamping. Biarkan tab Equilibre tetap terlihat sampai selesai, karena tab tersembunyi memperlambat kamera."
+    : companion.isOpen
+      ? "Pendamping terbuka. Kamu boleh pindah ke aplikasi lain; beruang kecil itu menjaga kalibrasi tetap berjalan."
+      : "Buka jendela beruang kecil supaya kalibrasi tetap berjalan saat kamu pindah ke aplikasi lain.";
+}
+
+const minSec = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+let calibRemaining = ""; // stage B time left, also shown in the companion
 
 function setCalibProgress(fraction: number | null) {
   calibProgress.hidden = fraction === null;
@@ -1124,7 +1140,7 @@ async function runCalibration() {
   userTest?.render();
 
   let outcome: { message: string; isError: boolean } | undefined;
-  let keepScreen = false; // a stage A error stays on the full-screen instructions
+  let failed = false; // stage A or B could not make a baseline (a blocked save is not a failure)
   try {
     cameraPrompt.hidden = false;
     for (const n of [3, 2, 1]) {
@@ -1155,8 +1171,7 @@ async function runCalibration() {
             "Ulangi, pastikan wajah terlihat jelas, lalu pejamkan mata rapat saat hitungan habis.",
           isError: true,
         };
-        keepScreen = true;
-        setCalibScreen("error", outcome.message);
+        failed = true;
         return;
       }
       await sleep(50);
@@ -1169,21 +1184,28 @@ async function runCalibration() {
 
     run.phase = "normal";
     cameraPrompt.hidden = true;
-    closeCalibScreen();
+    if (calibScreen.open) setCalibScreen("progress");
     const start = performance.now();
     for (let elapsed = 0; elapsed < CALIB_NORMAL_MS; elapsed = performance.now() - start) {
       if (run.cancelled) return;
-      setCalibProgress(elapsed / CALIB_NORMAL_MS);
+      const fraction = elapsed / CALIB_NORMAL_MS;
+      setCalibProgress(fraction);
+      calibRemaining = minSec(CALIB_NORMAL_MS - elapsed);
+      calibBar.querySelector("span")!.style.width = `${fraction * 100}%`;
+      calibLeft.textContent = `Sisa ${calibRemaining}`;
       setCalibStatus(
         `Tahap 2 dari 2: buka mata dan bekerja seperti biasa di depan kamera. ` +
-          `Biarkan tab ini tetap terlihat. Sisa ${Math.ceil((CALIB_NORMAL_MS - elapsed) / 1000)} detik.`,
+          (companion.isOpen ? "Pendamping terbuka, boleh pindah ke aplikasi lain. " : "Biarkan tab ini tetap terlihat. ") +
+          `Sisa ${calibRemaining}.`,
       );
+      renderCompanion();
       await sleep(500);
     }
 
     const result = computeBaseline(run.closed, run.normal, Date.now(), run.normalBodies);
     if (!result.ok) {
       outcome = { message: result.error, isError: true };
+      failed = true;
       return;
     }
     // Blink shapes of the same stage B frames, for the blink-pattern score (blinkScore.ts).
@@ -1201,7 +1223,10 @@ async function runCalibration() {
     calibration = null;
     delete document.body.dataset.calibrating;
     void audio.close();
-    if (!keepScreen) closeCalibScreen();
+    calibRemaining = "";
+    if (run.cancelled || !outcome) closeCalibScreen();
+    else if (failed) showCalibScreen("error", outcome.message);
+    else if (calibScreen.open) setCalibScreen("done", `${outcome.message} Label pertama muncul dalam ±1 menit.`);
     renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Kalibrasi dibatalkan." : undefined), outcome?.isError);
     renderStatus();
     userTest?.render();
@@ -1222,23 +1247,34 @@ calibButton.addEventListener("click", () => {
     closeCalibScreen();
     return;
   }
-  openCalibScreen();
+  showCalibScreen("intro");
 });
+
 // The run starts inside this click, so the browser lets its AudioContext play the beep.
-calibGo.addEventListener("click", () => {
+function startCalibration() {
   if (calibration || !detecting) return;
   void runCalibration();
   // After the AudioContext is made: opening the window may use up the click.
   if (TEST_CODE && PipCompanion.supported()) openCompanion();
-});
-calibClose.addEventListener("click", () => {
-  cancelCalibration();
-  closeCalibScreen();
-});
-// Esc: the same as the close button (the run is cancelled, not left running behind a closed screen).
+}
+calibGo.addEventListener("click", startCalibration);
+calibRetry.addEventListener("click", startCalibration);
+calibPipOpen.addEventListener("click", () => openCompanion());
+calibHide.addEventListener("click", closeCalibScreen); // stage B goes on; the hero shows its progress
+for (const button of calibScreen.querySelectorAll<HTMLButtonElement>("[data-calib-close]")) {
+  button.addEventListener("click", () => {
+    cancelCalibration();
+    closeCalibScreen();
+  });
+}
+// Esc hides stage B (minutes of data stay), and otherwise acts as the screen's close button.
 calibScreen.addEventListener("cancel", (event) => {
   event.preventDefault();
-  calibClose.click();
+  if (calibScreen.dataset.phase === "progress") closeCalibScreen();
+  else {
+    cancelCalibration();
+    closeCalibScreen();
+  }
 });
 heroCalib.addEventListener("click", () => calibButton.click());
 

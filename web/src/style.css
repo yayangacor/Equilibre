@@ -2250,12 +2250,13 @@ body[data-page="insight"] .dock {
   font-weight: 600;
 }
 
-/* ── Calibration instructions (D-63) ──────────────────────────────────────── */
+/* ── Calibration screen (D-63): big headings, one thing per screen ───────── */
 
+/* A modal dialog is fixed to the viewport: 100% fits it without the scrollbar 100vw would add. */
 .calib-screen {
-  width: 100vw;
+  width: 100%;
   max-width: none;
-  height: 100dvh;
+  height: 100%;
   max-height: none;
   margin: 0;
   padding: 24px 16px;
@@ -2265,182 +2266,210 @@ body[data-page="insight"] .dock {
   border: 0;
 }
 
+.calib-screen[open] {
+  display: grid;
+}
+
 .calib-screen::backdrop {
   background: var(--surface);
 }
 
-.calib-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 40px;
-  align-items: center;
-  max-width: 1040px;
-  min-height: 100%;
-  margin: 0 auto;
-}
-
-.calib-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  padding: 32px 16px;
-  background: var(--primary-container);
-  border-radius: var(--radius-xl);
-}
-
-.calib-bear .bear {
-  width: min(210px, 50vw);
-}
-
-.calib-count {
-  position: absolute;
-  top: 16px;
-  right: 24px;
-  color: var(--on-primary-container);
-  font-size: clamp(3rem, 9vw, 5.5rem);
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.calib-copy {
-  display: grid;
-  gap: 12px;
-  align-content: center;
-}
-
-.calib-kicker {
-  color: var(--primary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.calib-title {
-  font-size: clamp(1.5rem, 2.8vw, 2rem);
-  line-height: 1.2;
-}
-
-.calib-lead {
-  color: var(--on-surface-variant);
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-.calib-steps {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding-left: 22px;
-  line-height: 1.5;
-}
-
-.calib-examples {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.calib-example {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 8px 12px 8px 8px;
-  background: var(--surface-container-lowest);
-  border: 1px solid var(--outline-variant);
-  border-radius: var(--radius-md);
-}
-
-/* The eyes only, cropped from a large bear, so a narrowed eye and a closed one look different
-   (eye centre 525,365 of 1082×1454, bear.ts ART). */
-.calib-mini {
-  position: relative;
-  flex: none;
-  width: 104px;
-  height: 52px;
+/* The page behind does not scroll (or show its scrollbar) while the screen is up. */
+html:has(.calib-screen[open]) {
   overflow: hidden;
-  background: #fefefe;
-  border-radius: var(--radius-sm);
 }
 
-.calib-mini .bear {
+.cs {
+  display: grid;
+  gap: clamp(16px, 3vh, 28px);
+  justify-items: center;
+  align-content: center;
+  width: min(640px, 100%);
+  margin: auto;
+  text-align: center;
+}
+
+.cs-title {
+  font-size: clamp(2.25rem, 6vw, 4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.cs-sub {
+  font-size: clamp(1.5rem, 3.6vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.cs-lead {
+  max-width: 34ch;
+  color: var(--on-surface-variant);
+  font-size: clamp(1.0625rem, 2vw, 1.25rem);
+  line-height: 1.5;
+}
+
+/* The bear in a rounded frame, cropped by it (bear.ts ART: 1082 × 1454, eyes at y 284–446, nose ±437). */
+.cs-card {
+  position: relative;
+  width: min(460px, 100%, 62vh);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--primary-container);
+  border-radius: 40px;
+}
+
+.cs-card-face {
+  width: min(520px, 100%, 70vh);
+}
+
+.cs-bear .bear {
   position: absolute;
-  top: -62px;
-  left: -69px;
-  width: 260px;
   animation: none;
 }
 
-.calib-example figcaption {
-  font-size: 0.9375rem;
-  font-weight: 600;
+/* Head and shoulders: x 120–960, y 80–605 of the picture. */
+.cs-bear-head .bear {
+  top: -15.2%;
+  left: -14.3%;
+  width: 128.8%;
 }
 
-.calib-example .mark {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin-right: 4px;
-  color: #fff;
-  font-size: 0.8125rem;
-  background: var(--st-lelah);
-  border-radius: 50%;
+/* Eyes and nose up close: x 320–760, y 245–520. */
+.cs-bear-face .bear {
+  top: -89%;
+  left: -72.7%;
+  width: 245.9%;
 }
 
-.calib-example[data-ok="1"] .mark {
-  background: var(--st-normal);
-}
-
-.calib-face {
-  display: flex;
+.cs-face {
+  position: absolute;
+  z-index: 1;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9375rem;
-  font-weight: 500;
+  max-width: calc(100% - 32px);
+  padding: 4px 12px 4px 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  background: var(--surface-container-lowest);
+  border-radius: 999px;
 }
 
-.calib-face::before {
+.cs-face::before {
   content: "";
   flex: none;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   background: var(--outline);
   border-radius: 50%;
 }
 
-.calib-face[data-state="found"]::before {
+.cs-face[data-state="found"]::before {
   background: var(--st-normal);
 }
 
-.calib-face[data-state="missing"]::before {
+.cs-face[data-state="missing"]::before {
   background: var(--st-lelah-ringan);
 }
 
-.calib-face[data-state="error"]::before {
+.cs-face[data-state="error"]::before {
   background: var(--st-lelah);
 }
 
-.calib-actions {
+.cs-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.4em;
+  font-size: clamp(1rem, 2vw, 1.1875rem);
+  line-height: 1.45;
+  text-align: left;
+}
+
+.cs-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 4px;
+  justify-content: center;
+  gap: 12px 20px;
 }
 
-.calib-actions .btn.primary {
-  min-width: 160px;
+.cs .btn.cs-go {
+  min-width: 200px;
+  min-height: 52px;
+  padding-inline: 32px;
+  font-size: 1.125rem;
 }
 
-/* While the run goes the screen is the cue itself: no list, no examples. */
-.calib-screen[data-phase="countdown"] :is(#calib-steps, #calib-examples, #calib-sound),
-.calib-screen[data-phase="closing"] :is(#calib-steps, #calib-examples, #calib-sound) {
-  display: none;
+.cs-cancel {
+  color: var(--on-surface-variant);
 }
 
-.calib-screen[data-phase="closing"] .calib-stage {
-  background: var(--st-tertidur-container);
+.cs-count {
+  font-size: clamp(9rem, 38vh, 20rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-count.pop {
+  animation: cs-pop 0.9s var(--ease);
+}
+
+@keyframes cs-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+  25% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.cs-progress {
+  display: grid;
+  gap: 10px;
+  width: min(520px, 100%);
+}
+
+.cs-bar {
+  height: 16px;
+  overflow: hidden;
+  background: var(--surface-container-high);
+  border-radius: 999px;
+}
+
+.cs-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--primary);
+  border-radius: inherit;
+  transition: width 0.5s linear;
+}
+
+.cs-left {
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-pip {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.cs-note {
+  max-width: 44ch;
+  color: var(--on-surface-variant);
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
@@ -2507,23 +2536,6 @@ body[data-page="insight"] .dock {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .calib-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    align-content: start;
-  }
-
-  .calib-stage {
-    padding: 20px 16px;
-  }
-
-  .calib-bear .bear {
-    width: min(150px, 40vw);
-  }
-
-  .calib-examples {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
   /* No backdrop-filter here: it would make the bar the containing block of the fixed tabs. */
   .topbar {
