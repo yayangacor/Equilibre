@@ -34,7 +34,7 @@ flowchart LR
   fb --> llm
 ```
 
-- **Jalur A (rekomendasi):** tombol "Minta saran sekarang" (halaman Sekarang) atau saran otomatis → backend → flow `analisis_status`
+- **Jalur A (rekomendasi):** tombol "Minta saran sekarang" (Dashboard) atau saran otomatis → backend → flow `analisis_status`
   → rekomendasi jeda + alasan + sumber.
 - **Jalur B (percakapan):** halaman "Tanya" → backend menjalankan IBM Bob → Bob memilih salah satu dari dua tool Langflow
   lewat MCP → jawaban + sumber.
@@ -94,7 +94,7 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 
 ### Skor pola kedip (UTA-RLDD)
 
-Halaman Teknis menampilkan **skor pola kedip**: peluang bahwa 30 kedipan terakhir mirip pola orang mengantuk.
+Halaman Debug menampilkan **skor pola kedip**: peluang bahwa 30 kedipan terakhir mirip pola orang mengantuk.
 Fiturnya dari paper UTA-RLDD (durasi, amplitudo, kecepatan membuka mata, frekuensi; dinormalkan terhadap kedipan kalibrasi
 orang itu), lalu regresi logistik (`web/src/blinkScore.ts`). Skor ini **hanya informasi**: tidak mengubah label dan tidak
 dikirim ke server.
@@ -177,17 +177,18 @@ tampilan (lihat "Antarmuka"); riwayat bisa diunduh sebagai JSON atau dihapus sel
 
 ## Antarmuka
 
-Satu halaman web dengan lima tab (`web/index.html`, navigasi lewat hash URL di `web/src/router.ts`). Kamera tampil sebagai
-pratinjau kecil di samping semua tab, karena detektor membaca video itu terus; di layar sempit pratinjau mengambang di pojok
-dan tab pindah ke bawah.
+Satu halaman web dengan lima tab (`web/index.html`, navigasi lewat hash URL di `web/src/router.ts`; alamat lama `#sekarang` dan
+`#teknis` tetap membuka Dashboard dan Debug). Detektor membaca satu video terus-menerus: di Dashboard dan Debug video itu tampil
+besar di dalam halaman, di tab lain sebagai pratinjau kecil di samping; di layar sempit pratinjau mengambang di pojok dan tab
+pindah ke bawah. Istilah yang janggal bila diterjemahkan memakai bahasa Inggris (Dashboard, Insight, Debug, Live view).
 
 | Tab | Isi |
 |---|---|
-| **Sekarang** | Label saat ini dalam kalimat biasa bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`); "Kenapa Equilibre menilai begini?" berisi kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"; ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label); "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
+| **Dashboard** | Label saat ini dalam satu kalimat bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`), dengan "Kenapa label ini?" (kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"); **Live view**: kamera biasa di samping kamera dengan jaring wajah MediaPipe (garis mata hijau/merah menurut batas kedip pribadi, mulut kuning saat menguap), 6 tile dengan satu kalimat cara membaca, grafik EAR 20 detik (`live.ts`, `liveView.ts`); ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label) di samping "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
 | **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
 | **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
 | **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
-| **Teknis** (tidak ada di menu: buka dengan `#teknis` di akhir alamat) | Grafik EAR 20 detik terakhir dengan batas pribadi dari kalibrasi (`earChart.ts`), titik mata dan mask tubuh di atas video, sinyal per frame, fitur jendela, skor pola kedip, baseline, JSON yang dikirim, unduh log CSV |
+| **Debug** | Kamera besar dengan 6 titik EAR per mata dan mask tubuh, di samping grafik EAR 20 detik dengan batas pribadi dari kalibrasi (`earChart.ts`); tile sinyal per frame, fitur jendela, dan baseline (termasuk EAR terpejam ÷ EAR terbuka), masing-masing dengan satu kalimat cara membaca; skor pola kedip, JSON yang dikirim, unduh log CSV |
 
 Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
 bentuk, dan teks: ● normal, ◆ lelah ringan, ▲ lelah, ■ tertidur, ○ tidak di depan layar), panduan grafik Apple HIG, mode terang
@@ -212,7 +213,7 @@ Parameter URL untuk pengembangan dan uji coba:
 | Parameter | Fungsi |
 |---|---|
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
-| `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Teknis |
+| `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Debug |
 | `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit |
 | `?kode=EQ-XXXX` | uji pengguna jarak jauh: kartu persetujuan → kalibrasi → 60 menit kerja dengan KSS tiap 15 menit → feedback → satu kiriman ke Google Sheet pengembang; riwayat uji di database terpisah (`uji-pengguna/README.md`) |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
