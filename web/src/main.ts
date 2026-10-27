@@ -23,6 +23,7 @@ import {
   type KeyValueStore,
 } from "./calibration.ts";
 import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
+import { loadDevMode, saveDevMode, showDebugLink } from "./devMode.ts";
 import { downloadFile, fileStamp } from "./download.ts";
 import { EarChart } from "./earChart.ts";
 import { createDetectors, segmentBody, type Detectors } from "./face.ts";
@@ -150,6 +151,8 @@ const autoSendToggle = byId<HTMLInputElement>("auto-send");
 const autoSendNote = byId("auto-send-note");
 const kssReminderToggle = byId<HTMLInputElement>("kss-reminder");
 const kssReminderNote = byId("kss-reminder-note");
+const devModeToggle = byId<HTMLInputElement>("dev-mode");
+const debugLink = byId("nav-debug");
 const pipButton = byId<HTMLButtonElement>("pip-open");
 const pipNote = byId("pip-note");
 // Pages (plan P14, D-65): the header chip, the dashboard hero and today's tiles, the Debug EAR chart.
@@ -300,6 +303,9 @@ function openStore(): KeyValueStore | null {
   }
 }
 const store = openStore();
+// Developer mode puts Debug in the menu (devMode.ts); ?debug=1 switches it on, and it stays on.
+let devMode = DEBUG || (store !== null && loadDevMode(store));
+if (DEBUG && store) saveDevMode(store, true);
 
 type CalibrationRun = {
   phase: "countdown" | "waiting" | "closed" | "normal";
@@ -1342,6 +1348,7 @@ function onPage(page: string) {
     live.chart.draw(baseline);
     renderLiveTiles();
   }
+  debugLink.hidden = !showDebugLink(devMode, page);
 }
 router.onChange(onPage);
 
@@ -1456,6 +1463,19 @@ kssReminderToggle.addEventListener("change", () => {
   renderKssReminder();
 });
 
+// ── Developer mode (P17 C11, D-74): Debug in the menu ───────────────────────────
+
+function renderDevMode() {
+  devModeToggle.checked = devMode;
+  debugLink.hidden = !showDebugLink(devMode, router.page);
+}
+
+devModeToggle.addEventListener("change", () => {
+  devMode = devModeToggle.checked;
+  if (store) saveDevMode(store, devMode);
+  renderDevMode();
+});
+
 // How an automatic send ended. A failure lets the same condition be tried after the gap.
 function autoSendDone(ok: boolean) {
   if (!ok) autoState = afterFailedSend(autoState);
@@ -1522,6 +1542,7 @@ async function main() {
   renderPower();
   renderAutoSend();
   renderKssReminder();
+  renderDevMode();
   if (DEMO) answer.replaceChildren(demoCallout(DEMO_NOTE.saran));
   renderPipButton();
   void watchBattery();
@@ -1568,7 +1589,11 @@ async function main() {
   }
   if (model.status === "rejected") {
     console.error(model.reason);
-    cameraFailed("Model MediaPipe gagal dimuat. Muat ulang halaman; kalau tetap gagal, jalankan ulang npm run dev (file WASM disalin saat itu).");
+    cameraFailed(
+      "Model pembaca wajah gagal dimuat. Muat ulang halaman; kalau tetap gagal, coba Chrome atau Edge versi terbaru." +
+        // The WASM files are copied when the dev server starts; only a developer can act on that.
+        (import.meta.env.DEV ? " (Pengembang: jalankan ulang npm run dev.)" : ""),
+    );
     return;
   }
 

@@ -32,7 +32,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><polyline points="9 12 11 14 15 10" /></svg>
           <span>Privasi</span>
         </a>
-        <a href="#debug" data-page-link="debug">
+        <a id="nav-debug" href="#debug" data-page-link="debug" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="8 7 3 12 8 17" /><polyline points="16 7 21 12 16 17" /></svg>
           <span>Debug</span>
         </a>
@@ -385,6 +385,20 @@
               <button id="clear-history" type="button" class="btn outline danger">Hapus semua riwayat</button>
             </div>
             <p id="history-action-note" class="helper" aria-live="polite"></p>
+          </section>
+
+          <section class="card" aria-labelledby="h-dev">
+            <div class="card-head">
+              <h2 id="h-dev">Pengembang</h2>
+            </div>
+            <div class="setting">
+              <label class="switch">
+                <input id="dev-mode" type="checkbox" role="switch" />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span class="setting-title">Mode pengembang</span>
+              </label>
+              <p class="helper">Menampilkan halaman Debug di menu: sinyal mentah, fitur, baseline, dan data yang dikirim.</p>
+            </div>
           </section>
 
           <section class="card about" aria-labelledby="h-batas">

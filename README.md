@@ -226,8 +226,8 @@ Browser baru meminta izin kamera setelah tombol "Nyalakan kamera" (`welcome.ts`)
 | **Dashboard** | Label saat ini dalam satu kalimat bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`), dengan "Kenapa label ini?" (kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"); **Live view**: kamera biasa di samping kamera dengan jaring wajah MediaPipe (garis mata hijau/merah menurut batas kedip pribadi, mulut kuning saat menguap), 6 tile dengan satu kalimat cara membaca, grafik EAR 20 detik (`live.ts`, `liveView.ts`); ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label) di samping "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
 | **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
 | **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
-| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, pengingat cek kantuk tiap 15 menit, hemat daya, pendamping, unduh/hapus riwayat, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
-| **Debug** | Kamera besar dengan 6 titik EAR per mata dan mask tubuh, di samping grafik EAR 20 detik dengan batas pribadi dari kalibrasi (`earChart.ts`); tile sinyal per frame, fitur jendela, dan baseline (termasuk EAR terpejam ÷ EAR terbuka), masing-masing dengan satu kalimat cara membaca; skor pola kedip, JSON yang dikirim, unduh log CSV |
+| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, pengingat cek kantuk tiap 15 menit, hemat daya, pendamping, unduh/hapus riwayat, mode pengembang, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
+| **Debug** (di menu hanya saat **Mode pengembang** menyala di Privasi atau lewat `?debug=1`; `#debug` tetap bisa dibuka langsung, `devMode.ts`) | Kamera besar dengan 6 titik EAR per mata dan mask tubuh, di samping grafik EAR 20 detik dengan batas pribadi dari kalibrasi (`earChart.ts`); tile sinyal per frame, fitur jendela, dan baseline (termasuk EAR terpejam ÷ EAR terbuka), masing-masing dengan satu kalimat cara membaca; skor pola kedip, JSON yang dikirim, unduh log CSV |
 
 Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
 bentuk, dan teks: ● normal, ◆ lelah ringan, ▲ lelah, ■ tertidur, ○ tidak di depan layar), panduan grafik Apple HIG, mode terang
@@ -252,7 +252,7 @@ Parameter URL untuk pengembangan dan uji coba:
 | Parameter | Fungsi |
 |---|---|
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
-| `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Debug |
+| `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Debug; juga menyalakan Mode pengembang (tab Debug di menu, diingat di perangkat ini) |
 | `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit selalu menyala (di luar uji: sakelar di Privasi, bawaan mati) |
 | `?kode=EQ-XXXX` | uji pengguna jarak jauh: kartu persetujuan → kalibrasi → 60 menit kerja dengan KSS tiap 15 menit → feedback → satu kiriman ke Google Sheet pengembang; riwayat uji di database terpisah (`uji-pengguna/README.md`) |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
@@ -268,7 +268,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **289 test, 23 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **292 test, 24 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
