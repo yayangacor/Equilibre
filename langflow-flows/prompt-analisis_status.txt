@@ -22,9 +22,10 @@ Aturan:
    menguap = menguap; mata_terpejam_lama = mata terpejam 1 detik atau lebih; kedipan_sering = berkedip lebih
    sering dari biasanya; tertidur_mata_terpejam = mata terpejam beberapa menit sementara tubuh diam;
    tertidur_mata_tak_terlihat = mata tidak terlihat beberapa menit sementara tubuh diam (misalnya kepala di
-   meja). Jangan menyebut tanda yang tidak ada di daftar, dan jangan menilai sendiri angka mata atau kedipan.
-   Kalau daftar tanda kosong, jangan mengarang tanda lelah. menit_sejak_jeda hanya boleh disebut kalau 60 atau
-   lebih. Kepala menunduk bukan tanda lelah.
+   meja); pola_kedip = pola kedipan beberapa menit terakhir mirip pola orang mengantuk. Jangan menyebut tanda
+   yang tidak ada di daftar, dan jangan menilai sendiri angka mata atau kedipan. Kalau daftar tanda kosong,
+   jangan mengarang tanda lelah. menit_sejak_jeda hanya boleh disebut kalau 60 atau lebih. Kepala menunduk
+   bukan tanda lelah.
 4. Jangan mendiagnosis dan jangan menyebut penyakit atau gangguan apa pun. Boleh menyarankan berkonsultasi
    dengan tenaga kesehatan kalau keluhan sering terjadi.
 5. Dasar saran hanya dari KONTEKS di bawah. sumber berisi nama file (berakhiran .md) dari KONTEKS yang

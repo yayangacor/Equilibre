@@ -49,6 +49,8 @@ function checkTanda(p: FatigueFeatures): string[] {
     if (tanda.includes(name as never) !== expected) errors.push(`tanda ${name} ${expected ? "hilang" : "tidak sesuai angka"}`);
   }
   if (tanda.includes("kedipan_sering") && tanda.length === 1) errors.push("kedipan_sering tanpa tanda lain");
+  // The blink pattern only raises "normal" (withBlinkPattern in web/src/rules.ts, D-72), so it never comes with a rule's sign.
+  if (tanda.includes("pola_kedip") && tanda.length > 1) errors.push("pola_kedip bersama tanda lain");
   const perclosTired = (p.perclos ?? 0) >= RULES.perclosTired;
   const label = perclosTired || tanda.length >= RULES.tiredPoints ? "lelah" : tanda.length >= 1 ? "lelah ringan" : "normal";
   if (label !== p.label) errors.push(`label "${p.label}", dari tanda: "${label}"`);
@@ -119,6 +121,7 @@ const broken: [string, Scenario][] = [
   ["escape hilang", { ...base, harapan: { ...base.harapan, dilarang_pola: ["\bizin\b"] } }],
   ["tanda tidak cocok angka", { ...base, payload: { ...base.payload, tanda: ["mata_sering_tertutup"] } }],
   ["tanda asing", { ...base, payload: { ...base.payload, tanda: ["wajah_pucat"] } }],
+  ["pola_kedip bersama tanda rules", { ...base, payload: { ...base.payload, tanda: ["mata_sering_tertutup", "mata_terpejam_lama", "pola_kedip"] } }],
 ];
 const caught = broken.filter(([, s]) => check(s, globalPatterns).length > 0);
 console.log(`kontrol negatif: ${caught.length}/${broken.length} tertolak (${broken.map(([name]) => name).join(", ")})`);

@@ -9,15 +9,17 @@
 // out-of-fold P(drowsy), and t is the smallest of 0.01…0.99 whose false alarms on the training alert
 // windows stay ≤ 10% (for G: false alarms of "R or p ≥ t"). Pick: false alarms ≤ 10% on the test folds,
 // then the highest recall; recalls within 1 point → more participants caught, then fewer false alarms.
-//   node scripts/rldd-compare.ts <dataset.csv> [--ambang-tetap=0.5]
+//   node scripts/rldd-compare.ts <dataset.csv> [--ambang-tetap=0.5] [--ambang-app]
 // --ambang-tetap skips the inner search: a descriptive run, also the control against rldd-evaluate.ts.
+// --ambang-app runs the same search once over all participants, for the model the app ships (trained on all of
+// them, web/src/blinkScore.ts MODEL): out-of-fold P(drowsy) from leave-one-subject-out, then the threshold (D-72).
 import { readFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const flagValue = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const path = args.find((a) => !a.startsWith("--"));
 if (!path) {
-  console.error("Pemakaian: node scripts/rldd-compare.ts <dataset.csv> [--ambang-tetap=0.5]");
+  console.error("Pemakaian: node scripts/rldd-compare.ts <dataset.csv> [--ambang-tetap=0.5] [--ambang-app]");
   process.exit(1);
 }
 const fixed = flagValue("ambang-tetap");
@@ -118,6 +120,33 @@ function pickThreshold(windows: (Sample & { p: number })[], withRules: boolean) 
 // ── Leave-one-subject-out ───────────────────────────────────────────────────────
 const samples = load(path);
 const subjects = [...new Set(samples.map((s) => s.subject))].sort();
+
+if (args.includes("--ambang-app")) {
+  const outOfFold = subjects.flatMap((u) => {
+    const model = train(samples.filter((s) => s.subject !== u));
+    return samples.filter((s) => s.subject === u).map((s) => ({ ...s, p: drowsyProbability(model, s) }));
+  });
+  const alert = outOfFold.filter((s) => !s.drowsy);
+  const drowsy = outOfFold.filter((s) => s.drowsy);
+  const share = (n: number, of: number) => `${((n / of) * 100).toFixed(1)}% (${n}/${of})`;
+  for (const [name, withRules] of [["K classifier", false], ["G rules atau classifier", true]] as const) {
+    const t = pickThreshold(outOfFold, withRules);
+    const positive = (s: (typeof outOfFold)[number]) => (withRules && s.rules) || s.p >= t;
+    console.log(
+      `${name}: ambang ${t.toFixed(2)} · di luar fold: alarm palsu ${share(alert.filter(positive).length, alert.length)}, ` +
+        `recall ${share(drowsy.filter(positive).length, drowsy.length)}`,
+    );
+  }
+  // The model on all participants, in blinkScore.ts's BlinkModel form: the two-class softmax as one logistic.
+  const all = train(samples);
+  const round = (v: number[]) => v.map((x) => Number(x.toFixed(6)));
+  console.log(
+    `model semua partisipan (bandingkan dengan MODEL di web/src/blinkScore.ts): fill ${JSON.stringify(round(all.fill))} ` +
+      `center ${JSON.stringify(round(all.center))} scale ${JSON.stringify(round(all.scale))} ` +
+      `weights ${JSON.stringify(round(all.w[1].slice(1).map((w, j) => w - all.w[0][j + 1])))} bias ${(all.w[1][0] - all.w[0][0]).toFixed(6)}`,
+  );
+  process.exit(0);
+}
 const scored: Scored[] = [];
 const thresholds: string[] = [];
 for (const subject of subjects) {

@@ -3,7 +3,8 @@ export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di 
 export type Label = (typeof LABELS)[number];
 
 // Names of the app's rules that fired (NOTES D-41), same list as web/src/rules.ts. Only these
-// names pass, so the field cannot carry free text off the device.
+// names pass, so the field cannot carry free text off the device. pola_kedip: the blink-pattern
+// score raised "normal" to "lelah ringan" (?label=gabungan, D-72); the score itself is not sent.
 export const TANDA = [
   "mata_sering_tertutup",
   "kedipan_lambat",
@@ -12,6 +13,7 @@ export const TANDA = [
   "kedipan_sering",
   "tertidur_mata_terpejam",
   "tertidur_mata_tak_terlihat",
+  "pola_kedip",
 ] as const;
 export type Tanda = (typeof TANDA)[number];
 

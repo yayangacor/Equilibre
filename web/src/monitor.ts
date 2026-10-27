@@ -25,6 +25,7 @@ export type MonitorOptions = {
   windowMs: number;
   evalIntervalMs: number; // how often evaluate() is called; each evaluation stands for this much time
   tidurMenit?: number; // SLEEP.eyesClosedMinutes unless shortened for demos (?tidur=N); the hidden-eyes path scales along
+  blinkPattern?: boolean; // ?label=gabungan (NOTES D-72): the blink-pattern score may raise "normal" to "lelah ringan"
 };
 
 export type EvaluationStep = {
@@ -98,7 +99,7 @@ export class Monitor {
     this.bodies.push(b);
   }
 
-  // Blink-pattern score (blinkScore.ts, NOTES D-49): information only, evaluate() never reads it.
+  // Blink-pattern score (blinkScore.ts, NOTES D-49): information only, unless options.blinkPattern (D-72).
   // null when the baseline has no blink norm (calibrated before the score existed).
   blinkScore(now: number): { chance: number | null; n: number } | null {
     return this.baseline.kedip ? blinkScore(this.blinkShapes, now, this.baseline.kedip) : null;
@@ -129,7 +130,9 @@ export class Monitor {
   evaluate(now: number): EvaluationStep {
     const features = this.features(now);
     const lookback = this.lookback(now);
-    const result = evaluate(features, this.baseline, this.labelState, lookback);
+    const score = this.options.blinkPattern ? this.blinkScore(now) : null;
+    const pattern = score && score.chance !== null ? { chance: score.chance, n: score.n } : null;
+    const result = evaluate(features, this.baseline, this.labelState, lookback, pattern);
     this.labelState = result.state;
     if (result.latest && this.labelState.shown) {
       this.history.push({ t: now, label: this.labelState.shown.label });

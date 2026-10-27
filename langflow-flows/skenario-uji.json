@@ -141,6 +141,12 @@
       "judul": "lelah ringan dari kedipan lambat + menguap, baru 2 menit sejak jeda",
       "payload": { "label": "lelah ringan", "skor": 0.5, "perclos": 0.01, "kedip_per_menit": 15, "durasi_kedip_ms": 250, "mata_tertutup_lama": 0, "menguap": 1, "pct_kepala_menunduk": 0, "pct_wajah_hilang": 0, "menit_sejak_jeda": 2, "menit_lelah_60": 0, "tanda": ["kedipan_lambat", "menguap"] },
       "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["alasan menyebut menguap dan kedipan yang lebih lambat dari biasanya (dari tanda)", "tidak menjadikan 2 menit sejak jeda sebagai alasan"], "dilarang_pola": ["2 menit", "minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
+    },
+    {
+      "id": "S22",
+      "judul": "lelah ringan dari pola kedip saja (?label=gabungan, D-72)",
+      "payload": { "label": "lelah ringan", "skor": 0.25, "perclos": 0.03, "kedip_per_menit": 17, "durasi_kedip_ms": 260, "mata_tertutup_lama": 0, "menguap": 0, "pct_kepala_menunduk": 0.04, "pct_wajah_hilang": 0, "menit_sejak_jeda": 35, "menit_lelah_60": 0, "tanda": ["pola_kedip"] },
+      "harapan": { "dikirim": true, "status": "perlu jeda singkat", "durasi_jeda_menit": 5, "wajib": ["alasan menyebut pola kedipan yang mirip orang mengantuk (dari tanda), tanpa angka skor", "tidak mengarang tanda lain seperti menguap atau mata sering tertutup"], "dilarang_pola": ["menguap", "tertutup", "skor", "minum", "berjalan", "\\bizin\\b", "berhenti bekerja"] }
     }
   ]
 }

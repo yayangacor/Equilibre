@@ -49,6 +49,35 @@ const headOnDesk: Scene = (t) => ({ frame: noFace(t), body: still });
 // Face still found, head dropped forward 30° past the baseline, lids low.
 const headDropped: Scene = (t) => ({ frame: frame(t, { pitchDeg: -35, ear: 0.05 }), body: still });
 
+describe("Monitor: label from rules + blink pattern (?label=gabungan, D-72)", () => {
+  // Blinks of 300 ms every 3 s: under the slow-blink rule (2 × 200 ms) and out of PERCLOS (< 500 ms), but three
+  // times the 100 ms of the calibration blinks, which the blink-pattern score reads as drowsy.
+  const kedip = {
+    durasi: { mean: 100, sd: 20 },
+    amplitudo: { mean: 0.18, sd: 0.03 },
+    kecepatan: { mean: 0.6, sd: 0.2 },
+    perMenit: 15,
+    n: 20,
+  };
+  const longBlinks: Scene = (t) => ({ frame: frame(t, { ear: t % 3000 < 300 ? 0.12 : 0.3 }), body: working });
+  const make = (blinkPattern?: boolean) =>
+    new Monitor({ ...BASELINE, kedip }, { windowMs: 60_000, evalIntervalMs: EVAL_MS, blinkPattern });
+
+  it("keeps the rules' label by default, even with a drowsy score (negative control)", () => {
+    const monitor = make();
+    expect(new Set(play(monitor, 120, longBlinks))).toEqual(new Set(["normal"]));
+    expect(monitor.blinkScore(120_000)?.chance).toBeGreaterThan(0.71);
+  });
+
+  it("raises normal to lelah ringan when switched on, once the score exists and hysteresis agrees", () => {
+    const monitor = make(true);
+    const shown = play(monitor, 120, longBlinks);
+    expect(shown.slice(0, 3)).toEqual(["normal", "normal", "normal"]); // fewer than 10 blinks: no score yet
+    expect(shown.at(-1)).toBe("lelah ringan");
+    expect(monitor.labelState.shown?.tanda).toEqual(["pola_kedip"]);
+  });
+});
+
 // The lookback tolerates 10% open eyes and 10% movement, so "5 minutes" can be
 // reached from 4.5 minutes on (and "10" from 9).
 describe("Monitor: tertidur", () => {

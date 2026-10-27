@@ -109,6 +109,14 @@ describe("tanda: names of the rules that fired (D-41)", () => {
       status: "perlu jeda singkat",
     });
   });
+
+  it("accepts pola_kedip, the blink-pattern sign of ?label=gabungan, without its score (D-72)", () => {
+    expect(parseFeatures({ label: "lelah ringan", skor: 0.25, tanda: ["pola_kedip"] })).toEqual({
+      ok: true,
+      value: { label: "lelah ringan", skor: 0.25, tanda: ["pola_kedip"] },
+    });
+    expect(parseFeatures({ label: "lelah ringan", tanda: ["pola_kedip"], pola_kedip: 0.8 }).ok).toBe(false);
+  });
 });
 
 describe("long rest advice on the server", () => {

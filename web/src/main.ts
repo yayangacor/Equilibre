@@ -67,7 +67,7 @@ import {
   type PowerState,
 } from "./powerSaving.ts";
 import { Router } from "./router.ts";
-import { ADVICE, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
+import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
 import { capitalize, heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
@@ -112,6 +112,8 @@ const HISTORY_DB = TEST_CODE
 const TEST_MODE = params.get("uji") === "1" || TEST_CODE !== null;
 // ?kamera=0: the page without camera and models (automated checks, screenshots of the history).
 const NO_CAMERA = params.get("kamera") === "0";
+// ?label=gabungan: rules + blink pattern (NOTES D-72), behind this flag until tested on people (P17 H3).
+const COMBINED = params.get("label") === "gabungan";
 const DASHBOARD_REFRESH_MS = 30_000;
 const KSS_CHECK_MS = 15_000;
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
@@ -353,7 +355,12 @@ let lastAuto: { t: number; target: AutoTarget; ok: boolean | null } | null = nul
 
 function resetWindow(t: number) {
   monitor = baseline
-    ? new Monitor(baseline, { windowMs: WINDOW_MS, evalIntervalMs: EVAL_INTERVAL_MS, tidurMenit: TIDUR_MENIT })
+    ? new Monitor(baseline, {
+        windowMs: WINDOW_MS,
+        evalIntervalMs: EVAL_INTERVAL_MS,
+        tidurMenit: TIDUR_MENIT,
+        blinkPattern: COMBINED,
+      })
     : null;
   latest = null;
   hold = null;
@@ -684,20 +691,26 @@ function setLabel(text: string, label: Label | "none" = "none") {
   topStatus.querySelector(".status-text")!.textContent = text;
 }
 
-// Blink-pattern score (NOTES D-49): information only, on the Debug page, never changing the label.
+// Blink-pattern score (NOTES D-49): on the Debug page; it changes the label only with ?label=gabungan (D-72).
 function renderBlinkScore() {
   const score = calibration || !baseline ? null : monitor?.blinkScore(lastEvalT);
   if (!monitor?.labelState.shown || calibration) {
     blinkScoreNote.textContent = "Muncul setelah kalibrasi dan label pertama.";
   } else if (!score) {
-    blinkScoreNote.textContent = "Kalibrasi ulang untuk mengaktifkan skor ini (baseline ini belum punya data kedipan).";
+    blinkScoreNote.textContent =
+      "Kalibrasi ulang untuk mengaktifkan skor ini (baseline ini belum punya data kedipan)." +
+      (COMBINED ? " Sampai itu, label tetap dari aturan saja." : "");
   } else if (score.chance === null) {
     blinkScoreNote.textContent = `Mengumpulkan kedipan: ${score.n} dari minimal ${MIN_SCORE_BLINKS}…`;
   } else {
-    const verdict = score.chance >= 0.5 ? "mirip orang mengantuk" : "mirip orang segar";
+    // 0.5 alarmed falsely on 30% of the alert windows of people the model had not seen (plan P17 C3).
+    const verdict = score.chance >= BLINK_PATTERN_THRESHOLD ? "mirip orang mengantuk" : "mirip orang segar";
+    const role = COMBINED
+      ? `ikut menentukan label: ≥ ${asPct(BLINK_PATTERN_THRESHOLD)} menaikkan normal ke lelah ringan`
+      : "tampil saja, label dari aturan";
     const value = document.createElement("strong");
     value.textContent = asPct(score.chance);
-    blinkScoreNote.replaceChildren(value, ` ${verdict} · ${score.n} kedipan terakhir (maks. ${BLINK_SEQUENCE})`);
+    blinkScoreNote.replaceChildren(value, ` ${verdict} · ${score.n} kedipan terakhir (maks. ${BLINK_SEQUENCE}) · ${role}`);
   }
 }
 
@@ -1340,7 +1353,7 @@ byId("download-log").addEventListener("click", () => {
     `Equilibre log sesi, halaman dibuka ${started.toISOString()}`,
     `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${NORMAL_INTERVAL_MS} ` +
       `hemat_daya_interval_ms=${SAVING_INTERVAL_MS} body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} ` +
-      `tidur_menit=${TIDUR_MENIT}`,
+      `tidur_menit=${TIDUR_MENIT} label=${COMBINED ? "gabungan" : "rules"}`,
     // When power saving was on (sebab not null) or off (null); calibration always ran at detect_interval_ms.
     `hemat_daya=${JSON.stringify(powerLog)}`,
     `baseline=${JSON.stringify(baseline)}`,

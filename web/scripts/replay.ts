@@ -2,10 +2,11 @@
 // so threshold changes in src/ can be checked against recorded sessions.
 // Run with Node's built-in type stripping:
 //   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis] [--kedip-dari=N]
-//                    [--ear=open,closed]
+//                    [--ear=open,closed] [--label=rules|gabungan]
 // --ringkasan also prints what the dashboard would show for the session (history.ts);
 // --kirim-otomatis, when the automatic sending would have called Langflow (autoSend.ts, no network);
-// --ear, the session as if calibrated with another eye range (NOTES G-79: squinting at stage B).
+// --ear, the session as if calibrated with another eye range (NOTES G-79: squinting at stage B);
+// --label, which engine sets the label (NOTES D-72); default: the session's own (label= in the CSV), else rules.
 import { autoTarget, initialAutoSendState, stepAutoSend } from "../src/autoSend.ts";
 import type { EyeClosure } from "../src/blink.ts";
 import { calibrateBlinks } from "../src/blinkScore.ts";
@@ -25,7 +26,7 @@ if (!path) {
   );
   process.exit(1);
 }
-const { opened, windowMs, tidurMenit, baseline: recordedBaseline, frames } = parseCsv(path);
+const { opened, windowMs, tidurMenit, baseline: recordedBaseline, frames, comment } = parseCsv(path);
 if (!recordedBaseline) {
   console.error("CSV ini tidak punya baseline (belum dikalibrasi saat diunduh), jadi tidak ada label untuk diputar ulang.");
   process.exit(1);
@@ -47,6 +48,11 @@ if (earFlag) {
 }
 const tidurFlag = flag("tidur");
 const windowFlag = flag("window");
+const labelEngine = flag("label") ?? comment(/ label=(rules|gabungan)\b/) ?? "rules";
+if (labelEngine !== "rules" && labelEngine !== "gabungan") {
+  console.error("--label harus rules atau gabungan.");
+  process.exit(1);
+}
 const fpsFlag = flag("fps");
 const phase = Number(flag("phase") ?? 0);
 
@@ -93,11 +99,13 @@ const monitor = new Monitor(kedip ? { ...baseline, kedip } : baseline, {
   windowMs: windowFlag ? Number(windowFlag) * 1000 : windowMs,
   evalIntervalMs: EVAL_INTERVAL_MS,
   tidurMenit: tidurFlag ? Number(tidurFlag) : tidurMenit,
+  blinkPattern: labelEngine === "gabungan",
 });
 const hasBody = liveBodies.length > 0;
 console.log(
   `${frames.length} frame, ${recorded.length} setelah kalibrasi (${live[0].waktu} → ${live[live.length - 1].waktu}), ` +
     (fpsFlag ? `diturunkan ke ${live.length} frame (±${fpsFlag} fps, phase ${phase}), ` : "") +
+    (labelEngine === "gabungan" ? `label dari gabungan (rules + pola kedip${kedip ? "" : "; tanpa norma kedip: rules saja"}), ` : "") +
     `jendela ${monitor.options.windowMs / 1000} detik, deteksi tubuh ${hasBody ? "ada" : "tidak ada di CSV ini"}, ` +
     `tertidur setelah ${monitor.sleepMinutes.eyesClosed} menit mata terpejam / ${monitor.sleepMinutes.eyesHidden} menit mata tidak terlihat`,
 );

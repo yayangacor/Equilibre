@@ -7,7 +7,8 @@ export type Label = (typeof LABELS)[number];
 
 // The rules behind a label, by name, one per alasan sentence. Sent with the payload (NOTES D-41)
 // so the LLM names the signs that counted: slow or fast blinks are judged against the baseline,
-// which never leaves the device. Same list as server/src/features.ts.
+// which never leaves the device. pola_kedip only with ?label=gabungan (withBlinkPattern, D-72);
+// its score stays on the device. Same list as server/src/features.ts.
 export const TANDA = [
   "mata_sering_tertutup",
   "kedipan_lambat",
@@ -16,6 +17,7 @@ export const TANDA = [
   "kedipan_sering",
   "tertidur_mata_terpejam",
   "tertidur_mata_tak_terlihat",
+  "pola_kedip",
 ] as const;
 export type Tanda = (typeof TANDA)[number];
 
@@ -253,6 +255,30 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
   return { label, skor, poin, alasan, tanda, catatan };
 }
 
+// ── Rules + blink pattern (?label=gabungan, NOTES D-72) ─────────────────────────────
+// The blink-pattern classifier (blinkScore.ts) may only raise "normal" to "lelah ringan" (D-49 option 2);
+// a label the rules already raised stays theirs. Threshold: the D-68 procedure run once over all 12
+// UTA-RLDD participants (scripts/rldd-compare.ts --ambang-app): the lowest P(drowsy) whose false alarms,
+// together with the rules', stay ≤ 10% of the alert windows out of fold (9.2%, drowsy windows caught 65.5%).
+export const BLINK_PATTERN_THRESHOLD = 0.71; // ⚠️ UTA-RLDD only, not yet tested live
+
+export type BlinkPattern = { chance: number; n: number }; // Monitor.blinkScore() once it has a score
+
+export function withBlinkPattern(e: Evaluation | null, pattern: BlinkPattern | null): Evaluation | null {
+  if (!e || e.label !== "normal" || !pattern || pattern.chance < BLINK_PATTERN_THRESHOLD) return e;
+  return {
+    ...e,
+    label: "lelah ringan",
+    skor: 0.25, // one point, as in classify()
+    poin: 1,
+    alasan: [
+      `Pola ${pattern.n} kedipan terakhir mirip pola orang mengantuk: skor ${pct(pattern.chance)} ` +
+        `(batas ${pct(BLINK_PATTERN_THRESHOLD)}).`,
+    ],
+    tanda: ["pola_kedip"],
+  };
+}
+
 // ── Hysteresis ──────────────────────────────────────────────────────────────────
 
 export type LabelState = {
@@ -295,14 +321,15 @@ export function applyHysteresis(
 }
 
 // hold: the eyes are hidden but the person is still there, so the shown label stays
-// and the UI explains why.
+// and the UI explains why. pattern: only with ?label=gabungan (withBlinkPattern).
 export function evaluate(
   features: WindowFeatures,
   baseline: Baseline | null,
   prev: LabelState,
   lookback: SleepLookback | null = null,
+  pattern: BlinkPattern | null = null,
 ): { state: LabelState; latest: Evaluation | null; hold: string | null } {
-  const latest = classify(features, baseline, lookback);
+  const latest = withBlinkPattern(classify(features, baseline, lookback), pattern);
   const hold =
     latest === null && baseline !== null && features.n_frame > 0
       ? (lowFpsNote(features) ?? hiddenFaceNote(features, lookback?.eyesHiddenMinutes))

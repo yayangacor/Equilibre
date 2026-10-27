@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { WindowFeatures } from "./features.ts";
 import {
   applyHysteresis,
+  BLINK_PATTERN_THRESHOLD,
   classify,
   evaluate,
   hiddenFaceNote,
   initialLabelState,
   longRestAdvice,
+  withBlinkPattern,
   type Evaluation,
   type Label,
   type SleepLookback,
@@ -335,5 +337,34 @@ describe("hysteresis", () => {
     const { state, latest } = evaluate(calm, null, prev);
     expect(latest).toBeNull();
     expect(state).toBe(prev);
+  });
+});
+
+describe("rules + blink pattern (?label=gabungan, D-72)", () => {
+  const drowsyPattern = { chance: 0.8, n: 30 };
+
+  it("raises normal to lelah ringan from the threshold, with pola_kedip as the only sign", () => {
+    const normal = classify(calm, BASELINE);
+    expect(withBlinkPattern(normal, { chance: 0.7, n: 30 })).toBe(normal);
+    const raised = withBlinkPattern(normal, { chance: BLINK_PATTERN_THRESHOLD, n: 30 });
+    expect(raised).toMatchObject({ label: "lelah ringan", skor: 0.25, poin: 1, tanda: ["pola_kedip"] });
+    expect(raised?.alasan).toEqual(["Pola 30 kedipan terakhir mirip pola orang mengantuk: skor 71% (batas 71%)."]);
+    expect(BLINK_PATTERN_THRESHOLD).toBe(0.71);
+  });
+
+  it("never changes a label the rules set, a held window, or a window without a score", () => {
+    for (const f of [{ menguap: 1 }, { perclos: 0.2 }, { pct_wajah_hilang: 0.8 }]) {
+      const rules = classify({ ...calm, ...f }, BASELINE);
+      expect(rules?.label).not.toBe("normal");
+      expect(withBlinkPattern(rules, drowsyPattern)).toBe(rules);
+    }
+    expect(withBlinkPattern(null, drowsyPattern)).toBeNull();
+    const normal = classify(calm, BASELINE);
+    expect(withBlinkPattern(normal, null)).toBe(normal);
+  });
+
+  it("evaluate() reads the pattern only when given one, so the default stays the rules", () => {
+    expect(evaluate(calm, BASELINE, initialLabelState()).latest?.label).toBe("normal");
+    expect(evaluate(calm, BASELINE, initialLabelState(), null, drowsyPattern).latest?.tanda).toEqual(["pola_kedip"]);
   });
 });
