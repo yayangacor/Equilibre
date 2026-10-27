@@ -7,7 +7,8 @@ Yang dikirim ke server hanya label, angka ringkasan, dan nama aturan yang terpen
 jeda berbasis bukti dalam Bahasa Indonesia, dan **IBM Bob** menjadi agen percakapan "Tanya Equilibre" yang memanggil flow
 Langflow lewat MCP.
 
-> Status: prototipe untuk IBM × Hacktiv8 National Hackathon 2026. Berjalan lokal (`localhost`), belum di-deploy.
+> Status: prototipe untuk IBM × Hacktiv8 National Hackathon 2026. Demo online (frontend saja): https://equilibre-orcin.vercel.app;
+> versi lengkap dengan Langflow dan IBM Bob berjalan lokal.
 > Equilibre memberikan **indikator risiko**, bukan diagnosis medis.
 
 ## Arsitektur
@@ -112,6 +113,28 @@ dilihat:
 
 Model yang terpasang dilatih ulang pada 12 orang (leave-one-subject-out 73,5%, 17/24 video).
 
+### Rules, pola kedip, atau gabungan? (12 orang, leave-one-subject-out)
+
+Label di app datang dari rules. Untuk memilih penentu label, tiga kandidat diuji dengan protokol yang dikunci sebelum dijalankan
+(`web/scripts/rldd-compare.ts`). Datanya 12 orang UTA-RLDD, video segar vs mengantuk, jendela 60 detik tanpa masa kalibrasi; tiap
+orang dinilai oleh model yang tidak pernah melihatnya. Positif = `lelah ringan` atau lebih. Ambang classifier dipilih dari data
+latih saja, supaya alarm palsu pada jendela segar ≤ 10%. Kandidat dengan alarm palsu > 10% gugur; dari sisanya dipilih yang
+menangkap kantuk terbanyak.
+
+| Kandidat | Alarm palsu (jendela segar) | Kantuk tertangkap (jendela mengantuk) | Orang tertangkap ≥ 1× | Orang ditegur palsu ≥ 1× | Confusion matrix: segar (normal / ditandai) · mengantuk (terlewat / tertangkap) |
+|---|---|---|---|---|---|
+| Rules (label yang tampil sekarang) | 0,7% (2/304) | 24,1% (155/643) | 8/12 | 1/12 | 302 / 2 · 488 / 155 |
+| Classifier pola kedip, ambang 0,66–0,75 | 10,2% (31/304), gugur | 66,9% (430/643) | 10/12 | 6/12 | 273 / 31 · 213 / 430 |
+| **Gabungan: rules atau classifier**, ambang 0,66–0,77 | **9,9% (30/304)** | **65,9% (424/643)** | **11/12** | 7/12 | 274 / 30 · 219 / 424 |
+
+Gabungan terpilih menurut aturan itu, tetapi classifier saja gugur hanya karena satu jendela, jadi keduanya praktis setara. Alarm
+palsu gabungan menumpuk pada 2 orang (36% dan 53% jendela segarnya); 5 orang tanpa alarm palsu sama sekali. Pada ambang 0,5,
+classifier menandai 30,3% jendela segar orang yang belum dikenalnya, jadi ambang yang dipakai nanti ±0,7. Kantuk satu orang tidak
+tertangkap oleh kandidat mana pun. **App belum diubah**: label tetap dari rules sampai gabungan diuji pada pengguna nyata, karena
+dataset ini tidak memuat kasus yang membuat rules gagal di uji pengguna (kacamata, lihat "Testing dan validasi"). Angka rules 38,0%
+di tabel sebelumnya adalah akurasi dengan `lelah ringan` di video mengantuk dihitung salah; tabel ini memisahkan alarm palsu dan
+kantuk tertangkap, dengan `lelah ringan` dihitung positif.
+
 ## Langflow: tiga flow
 
 Ekspor JSON ada di `langflow-flows/` (tanpa API key). Ketiganya memakai pola yang sama: **Chat Input → Prompt Template (+
@@ -183,6 +206,8 @@ Satu halaman web dengan lima tab (`web/index.html`, navigasi lewat hash URL di `
 `#teknis` tetap membuka Dashboard dan Debug). Detektor membaca satu video terus-menerus: di Dashboard dan Debug video itu tampil
 besar di dalam halaman, di tab lain sebagai pratinjau kecil di samping; di layar sempit pratinjau mengambang di pojok dan tab
 pindah ke bawah. Istilah yang janggal bila diterjemahkan memakai bahasa Inggris (Dashboard, Insight, Debug, Live view).
+Kunjungan pertama dibuka dengan layar sambutan: apa yang tetap di laptop, apa yang dikirim dan kapan, lalu langkah berikutnya.
+Browser baru meminta izin kamera setelah tombol "Nyalakan kamera" (`welcome.ts`).
 
 | Tab | Isi |
 |---|---|
@@ -230,7 +255,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **233 test, 19 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **278 test, 23 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
@@ -238,8 +263,8 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 | Pemilihan LLM | 19 skenario × 2 model di watsonx (`langflow-flows/uji-llm.mts`, jawaban mentah di `langflow-flows/hasil-uji/`): Mistral Small 3.1 JSON terbaca 19/19, `sumber` di luar konteks 0; Granite 4-h-small JSON rusak 2/19 dan menambah sinyal yang tidak ada. Rubrik 1–5: Mistral 19, Granite 14 → Mistral dipakai |
 | Perbaikan prompt | uji ulang skenario yang sama: saran di luar konteks ("berjalan/minum air" untuk jeda biasa) 9/9 → 0/8; alasan menyebut tanda yang benar 2/9 → 9/9; nama field bocor ke teks 3 → 0 |
 | IBM Bob | jawaban tanpa panggilan tool ditolak (dicek dengan Langflow mati); 2 prompt injection ("jalankan `dir C:\`", "buat file halo.txt"): tidak ada perintah dijalankan, workspace tidak berubah; `analisis_status` tidak terlihat oleh Bob walau prompt tidak melarangnya; keluhan di luar knowledge base (pusing, mual) ditolak tanpa sumber |
-| Skor pola kedip | uji sekali pada 6 orang baru UTA-RLDD (tabel di atas); di app, 16% saat kerja segar dan 80–97% saat pengembang mengantuk dan menguap (satu sesi, anekdot) |
-| Uji pengguna | **dijadwalkan 6–9 Okt**: penguji memakai laptop masing-masing lewat demo online dengan link `?kode=`, KSS tiap 15 menit; akurasi terhadap kantuk yang dirasakan belum diukur sampai hasilnya masuk |
+| Skor pola kedip | uji sekali pada 6 orang baru UTA-RLDD, lalu dibandingkan dengan rules pada 12 orang (dua tabel di "Deteksi di browser"); di app, 16% saat kerja segar dan 80–97% saat pengembang mengantuk dan menguap (satu sesi, anekdot) |
+| Uji pengguna | **4 penguji non-tim (7–8 Okt)**, laptop masing-masing lewat demo online (`?kode=`), 7 isian KSS. Penguji B (segar, semua KSS ≤ 4, berkacamata) terbaca `lelah ringan` atau lebih pada **115 dari 282 jendela (40,8%)**: alarm palsu, karena mata "terpejam" B saat kalibrasi hanya turun ke 0,56× mata terbuka. Dari 4 isian KSS ≤ 5, 2 benar `normal` (C, D) dan 2 alarm palsu (keduanya B). Satu-satunya isian KSS ≥ 7 (D, KSS 9) tertangkap sebagai `lelah`, tetapi diisi bersamaan dengan "sudah jeda 5 menit" sehingga diragukan. Feedback median (1–5): sesuai 3,5, mengganggu 1,5, mau memakai 3,5. Batas mata tertutup diperbaiki 10 Okt (lihat "Deteksi di browser") dan belum diuji ulang pada penguji. Data sekecil ini dilaporkan sebagai hitungan, bukan persen akurasi |
 
 ## Responsible AI
 
@@ -258,10 +283,10 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 - **Threshold disetel dari rekaman satu orang** (pengembang) dan belum diuji pada pengguna lain; nilai yang masih awal ditandai ⚠️
   di kode.
-- **Rules sengaja konservatif, jadi banyak kantuk terlewat.** Pada 12 orang UTA-RLDD yang diekstrak dengan pipeline app, rules tidak
-  memberi label lelah pada satu pun jendela segar yang dinilai, tetapi hanya menangkap video mengantuk pada 5 dari 12 orang; pada
-  uji segar vs mengantuk 6 orang baru, akurasinya 38,0%, di bawah tebak kelas mayoritas (69,9%). Classifier pola kedip menangkap
-  lebih banyak (77,9%), tetapi 13% jendela segar terbaca mengantuk dan belum diuji di kondisi app, sehingga hanya ditampilkan.
+- **Rules melewatkan sebagian besar kantuk, dan pernah salah besar pada wajah berkacamata.** Pada 12 orang UTA-RLDD, rules hanya
+  menangkap 24,1% jendela mengantuk (alarm palsu 0,7%). Gabungan dengan classifier pola kedip menangkap 65,9% dengan alarm palsu
+  9,9%, tetapi belum dipasang (lihat "Rules, pola kedip, atau gabungan?"). Di uji pengguna, penguji segar berkacamata terbaca lelah
+  pada 40,8% jendela; batas mata tertutup sudah diperbaiki, tetapi belum diuji ulang pada penguji.
 - **HP dipegang setinggi dada** (kepala menunduk ±10–15°) bisa terbaca `lelah ringan` selama ±30 detik: kelopak ikut turun
   mengikuti pandangan sehingga kedipan terbaca lebih lambat (±430 ms, dibanding ±180 ms saat kepala tegak pada orang yang sama).
   HP setinggi dagu atau di pangkuan terbaca `normal`. Dua perbaikan dicoba dan keduanya merusak deteksi yang benar
@@ -274,14 +299,16 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 - Menguap yang singkat (< 1,5 detik) atau terjadi saat kepala menunduk tidak terhitung.
 - Rekomendasi butuh ±12 detik (median uji LLM; 10–22 detik) dan kuota watsonx.ai; "Tanya Equilibre" melayani satu pertanyaan
   sekaligus.
-- Belum ada uji pengguna dengan KSS, sehingga akurasi terhadap kantuk yang dirasakan belum diketahui.
-- Hanya berjalan lokal; Langflow dan Bob Shell perlu dipasang sendiri.
+- Uji pengguna baru 4 orang dengan 7 isian KSS (1 isian ≥ 7, diragukan), jadi akurasi terhadap kantuk yang dirasakan belum bisa
+  dinyatakan sebagai persen.
+- Demo online hanya frontend; saran Langflow dan "Tanya Equilibre" butuh backend lokal dengan Langflow dan Bob Shell.
 
 ## Langkah lanjut
 
-- Uji coba 5–10 pengguna dengan KSS tiap 15 menit, lalu menyetel threshold dari data lebih dari satu orang.
+- Uji pengguna gelombang kedua (≥ 6 orang baru; dengan dan tanpa kacamata, cahaya dan kamera berbeda, sesi segar dan rawan kantuk),
+  lalu memutuskan penentu label dari hasilnya.
 - Tren harian dan indikator risiko stres dari riwayat; rujukan ke tenaga kesehatan bila tren tinggi.
-- Deploy (frontend statis + backend + Langflow terkelola), akun opsional dengan data agregat.
+- Backend dan Langflow terkelola untuk demo online (frontend statis sudah), akun opsional dengan data agregat.
 - Dashboard tim dengan data agregat anonim untuk perusahaan; jeda otomatis saat video call.
 - Validasi pada lebih banyak pengguna perempuan dan pengguna Asia Tenggara.
 
