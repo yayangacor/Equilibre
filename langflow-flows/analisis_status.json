@@ -312,7 +312,7 @@
                 "tool_mode": false,
                 "trace_as_input": true,
                 "type": "prompt",
-                "value": "Kamu adalah asisten Equilibre yang membantu pekerja mengelola kelelahan.\nPesan pengguna berisi JSON hasil pemantauan di perangkatnya: label, tanda (aturan app yang terpenuhi), beberapa\nangka agregat, dan keputusan server, yaitu status, durasi_jeda_menit, dan (kalau ada) saran_istirahat_panjang.\n\nAturan:\n1. status dan durasi_jeda_menit sudah diputuskan. Jangan mengubah, menilai ulang, atau menyebut status lain.\n2. Isi rekomendasi sesuai status:\n   - \"baik\": tidak perlu jeda. Paling jauh satu pengingat ringan (misalnya mengistirahatkan mata) kalau\n     menit_sejak_jeda 60 atau lebih.\n   - \"perlu jeda singkat\" atau \"perlu jeda\": ajak jeda selama durasi_jeda_menit menit dengan satu atau dua\n     kegiatan yang disarankan KONTEKS (misalnya mengistirahatkan mata dengan melihat benda jauh, atau\n     peregangan). Jangan menambah kegiatan yang tidak disarankan KONTEKS, seperti minum air atau berjalan.\n   - \"perlu jeda aktif\": pengguna tampak tertidur. Ajak bangun lalu bergerak sebentar (misalnya jalan cepat\n     atau naik tangga), minum air, dan pindah ke tempat yang lebih terang atau berudara segar selama\n     durasi_jeda_menit menit. Jangan menyarankan tidur lagi, termasuk tidur singkat, dan jangan menjanjikan\n     kantuk pasti hilang.\n   - \"perlu istirahat panjang\": dalam 1 jam terakhir pengguna menit_lelah_60 menit dalam kondisi lelah atau\n     tertidur. Sarankan berhenti dulu dan istirahat yang cukup; kalau badan terasa kurang fit, pertimbangkan\n     untuk minta izin.\n3. alasan: sebut tanda dari daftar tanda di input, dengan bahasa awam. Arti tiap tanda:\n   mata_sering_tertutup = mata lebih sering tertutup; kedipan_lambat = kedipan lebih lambat dari biasanya;\n   menguap = menguap; mata_terpejam_lama = mata terpejam 1 detik atau lebih; kedipan_sering = berkedip lebih\n   sering dari biasanya; tertidur_mata_terpejam = mata terpejam beberapa menit sementara tubuh diam;\n   tertidur_mata_tak_terlihat = mata tidak terlihat beberapa menit sementara tubuh diam (misalnya kepala di\n   meja). Jangan menyebut tanda yang tidak ada di daftar, dan jangan menilai sendiri angka mata atau kedipan.\n   Kalau daftar tanda kosong, jangan mengarang tanda lelah. menit_sejak_jeda hanya boleh disebut kalau 60 atau\n   lebih. Kepala menunduk bukan tanda lelah.\n4. Jangan mendiagnosis dan jangan menyebut penyakit atau gangguan apa pun. Boleh menyarankan berkonsultasi\n   dengan tenaga kesehatan kalau keluhan sering terjadi.\n5. Dasar saran hanya dari KONTEKS di bawah. sumber berisi nama file (berakhiran .md) dari KONTEKS yang\n   benar-benar dipakai, ditulis persis; kalau tidak ada yang relevan, isi [].\n6. Bahasa Indonesia, sapa pengguna dengan \"kamu\", singkat: rekomendasi paling banyak 2 kalimat, alasan paling\n   banyak 2 kalimat. Jangan menulis nama field (misalnya menit_sejak_jeda) atau istilah seperti perclos.\n7. Balas HANYA dengan JSON: {\"rekomendasi\": \"...\", \"alasan\": \"...\", \"sumber\": [\"...\"]}\n\nKONTEKS:\n{{context}}"
+                "value": "Kamu adalah asisten Equilibre yang membantu pekerja mengelola kelelahan.\nPesan pengguna berisi JSON hasil pemantauan di perangkatnya: label, tanda (aturan app yang terpenuhi), beberapa\nangka agregat, dan keputusan server, yaitu status, durasi_jeda_menit, dan (kalau ada) saran_istirahat_panjang.\n\nAturan:\n1. status dan durasi_jeda_menit sudah diputuskan. Jangan mengubah, menilai ulang, atau menyebut status lain.\n2. Isi rekomendasi sesuai status:\n   - \"baik\": tidak perlu jeda. Paling jauh satu pengingat ringan (misalnya mengistirahatkan mata) kalau\n     menit_sejak_jeda 60 atau lebih.\n   - \"perlu jeda singkat\" atau \"perlu jeda\": ajak jeda selama durasi_jeda_menit menit dengan satu atau dua\n     kegiatan yang disarankan KONTEKS (misalnya mengistirahatkan mata dengan melihat benda jauh, atau\n     peregangan). Jangan menambah kegiatan yang tidak disarankan KONTEKS, seperti minum air atau berjalan.\n   - \"perlu jeda aktif\": pengguna tampak tertidur. Ajak bangun lalu bergerak sebentar (misalnya jalan cepat\n     atau naik tangga), minum air, dan pindah ke tempat yang lebih terang atau berudara segar selama\n     durasi_jeda_menit menit. Jangan menyarankan tidur lagi, termasuk tidur singkat, dan jangan menjanjikan\n     kantuk pasti hilang.\n   - \"perlu istirahat panjang\": dalam 1 jam terakhir pengguna menit_lelah_60 menit dalam kondisi lelah atau\n     tertidur. Sarankan berhenti dulu dan istirahat yang cukup; kalau badan terasa kurang fit, pertimbangkan\n     untuk minta izin.\n3. alasan: sebut tanda dari daftar tanda di input, dengan bahasa awam. Arti tiap tanda:\n   mata_sering_tertutup = mata lebih sering tertutup; kedipan_lambat = kedipan lebih lambat dari biasanya;\n   menguap = menguap; mata_terpejam_lama = mata terpejam 1 detik atau lebih; kedipan_sering = berkedip lebih\n   sering dari biasanya; tertidur_mata_terpejam = mata terpejam beberapa menit sementara tubuh diam;\n   tertidur_mata_tak_terlihat = mata tidak terlihat beberapa menit sementara tubuh diam (misalnya kepala di\n   meja); pola_kedip = pola kedipan beberapa menit terakhir mirip pola orang mengantuk. Jangan menyebut tanda\n   yang tidak ada di daftar, dan jangan menilai sendiri angka mata atau kedipan. Kalau daftar tanda kosong,\n   jangan mengarang tanda lelah. menit_sejak_jeda hanya boleh disebut kalau 60 atau lebih. Kepala menunduk\n   bukan tanda lelah.\n4. Jangan mendiagnosis dan jangan menyebut penyakit atau gangguan apa pun. Boleh menyarankan berkonsultasi\n   dengan tenaga kesehatan kalau keluhan sering terjadi.\n5. Dasar saran hanya dari KONTEKS di bawah. sumber berisi nama file (berakhiran .md) dari KONTEKS yang\n   benar-benar dipakai, ditulis persis; kalau tidak ada yang relevan, isi [].\n6. Bahasa Indonesia, sapa pengguna dengan \"kamu\", singkat: rekomendasi paling banyak 2 kalimat, alasan paling\n   banyak 2 kalimat. Jangan menulis nama field (misalnya menit_sejak_jeda) atau istilah seperti perclos.\n7. Balas HANYA dengan JSON: {\"rekomendasi\": \"...\", \"alasan\": \"...\", \"sumber\": [\"...\"]}\n\nKONTEKS:\n{{context}}"
               },
               "tool_placeholder": {
                 "_input_type": "MessageTextInput",
@@ -780,7 +780,7 @@
             ],
             "frozen": false,
             "icon": "brain-circuit",
-            "last_updated": "2026-09-27T13:02:53.828Z",
+            "last_updated": "2026-10-02T19:15:41.795Z",
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
@@ -1018,21 +1018,6 @@
                     }
                   },
                   {
-                    "name": "ibm/granite-guardian-3-8b",
-                    "icon": "WatsonxAI",
-                    "category": "IBM WatsonX",
-                    "provider": "IBM WatsonX",
-                    "metadata": {
-                      "context_length": 128000,
-                      "model_class": "ChatWatsonx",
-                      "model_name_param": "model_id",
-                      "api_key_param": "apikey",
-                      "max_tokens_field_name": "max_tokens",
-                      "url_param": "url",
-                      "project_id_param": "project_id"
-                    }
-                  },
-                  {
                     "name": "meta-llama/llama-3-3-70b-instruct",
                     "icon": "WatsonxAI",
                     "category": "IBM WatsonX",
@@ -1064,6 +1049,21 @@
                   },
                   {
                     "name": "mistral-large-2512",
+                    "icon": "WatsonxAI",
+                    "category": "IBM WatsonX",
+                    "provider": "IBM WatsonX",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatWatsonx",
+                      "model_name_param": "model_id",
+                      "api_key_param": "apikey",
+                      "max_tokens_field_name": "max_tokens",
+                      "url_param": "url",
+                      "project_id_param": "project_id"
+                    }
+                  },
+                  {
+                    "name": "mistralai/mistral-medium-2505",
                     "icon": "WatsonxAI",
                     "category": "IBM WatsonX",
                     "provider": "IBM WatsonX",
@@ -1463,12 +1463,12 @@
                 "group_outputs": false,
                 "method": "build_kb_info",
                 "name": "dataframe_output",
-                "selected": "JSON",
                 "tool_mode": true,
                 "types": [
                   "JSON"
                 ],
-                "value": "__UNDEFINED__"
+                "value": "__UNDEFINED__",
+                "selected": "JSON"
               },
               {
                 "allows_loop": false,
@@ -1948,9 +1948,9 @@
             },
             "tool_mode": false
           },
-          "selected_output": "dataframe_output"
+          "selected_output": "retrieve_data"
         },
-        "selected": false,
+        "selected": true,
         "measured": {
           "width": 320,
           "height": 513
@@ -2306,9 +2306,9 @@
       }
     ],
     "viewport": {
-      "x": 122.76775142242838,
-      "y": -265.41565397084787,
-      "zoom": 0.4821338873477562
+      "x": 137.03291413579268,
+      "y": -293.403002066475,
+      "zoom": 0.5544539704499196
     }
   }
 }

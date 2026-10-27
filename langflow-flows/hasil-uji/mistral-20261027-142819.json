@@ -1,0 +1,28 @@
+{
+  "model": "mistralai/mistral-small-3-1-24b-instruct-2503",
+  "waktu_utc": "2026-10-27T14:28:31.889Z",
+  "prompt_sha256": "c0fd4ec73d02",
+  "dipanggil": 1,
+  "berhasil": 0,
+  "hasil": [
+    {
+      "id": "S22",
+      "judul": "lelah ringan dari pola kedip saja (?label=gabungan, D-72)",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 500,
+      "latency_ms": 12361,
+      "model_dipakai": null,
+      "status_llm": null,
+      "konteks": [],
+      "usage": null,
+      "error": "{\"detail\":\"{\\\"message\\\":\\\"Error running graph: Error building Component Knowledge: \\\\n\\\\nFailed to initialize IBM WatsonX embedding model: Attempt of authenticating connection to service failed, please validate your credentials. Error: {\\\\\\\"errorCode\\\\\\\":\\\\\\\"BXNIM0465E\\\\\\\",\\\\\\\"errorMessage\\\\\\\":\\\\\\\"Provided API key has expired.\\\\\\\",\\\\\\\"errorDetails\\\\\\\":\\\\\\\"Provided API Key has an expires_at value of '2026-10-26T06:31+0000'.\\\\\\\",\\\\\\\"context\\\\\\\":{\\\\\\\"requestId\\\\\\\":\\\\\\\"OWtsN20-69ed9ae279434ffcbb616c",
+      "teks": "",
+      "cek": null,
+      "wajib": [
+        "alasan menyebut pola kedipan yang mirip orang mengantuk (dari tanda), tanpa angka skor",
+        "tidak mengarang tanda lain seperti menguap atau mata sering tertutup"
+      ]
+    }
+  ]
+}
