@@ -2,8 +2,10 @@
 // so threshold changes in src/ can be checked against recorded sessions.
 // Run with Node's built-in type stripping:
 //   npm run replay -- <file.csv> [--tidur=N] [--window=seconds] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis] [--kedip-dari=N]
+//                    [--ear=open,closed]
 // --ringkasan also prints what the dashboard would show for the session (history.ts);
-// --kirim-otomatis, when the automatic sending would have called Langflow (autoSend.ts, no network).
+// --kirim-otomatis, when the automatic sending would have called Langflow (autoSend.ts, no network);
+// --ear, the session as if calibrated with another eye range (NOTES G-79: squinting at stage B).
 import { autoTarget, initialAutoSendState, stepAutoSend } from "../src/autoSend.ts";
 import type { EyeClosure } from "../src/blink.ts";
 import { calibrateBlinks } from "../src/blinkScore.ts";
@@ -19,16 +21,30 @@ const EVAL_INTERVAL_MS = 10_000; // same as main.ts
 const [path, ...flags] = process.argv.slice(2);
 if (!path) {
   console.error(
-    "Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis]",
+    "Pemakaian: npm run replay -- <file.csv> [--tidur=N] [--window=detik] [--fps=N [--phase=K]] [--ringkasan] [--kirim-otomatis] [--ear=terbuka,terpejam]",
   );
   process.exit(1);
 }
-const { opened, windowMs, tidurMenit, baseline, frames } = parseCsv(path);
-if (!baseline) {
+const { opened, windowMs, tidurMenit, baseline: recordedBaseline, frames } = parseCsv(path);
+if (!recordedBaseline) {
   console.error("CSV ini tidak punya baseline (belum dikalibrasi saat diunduh), jadi tidak ada label untuk diputar ulang.");
   process.exit(1);
 }
 const flag = (name: string) => flags.find((f) => f.startsWith(`--${name}=`))?.slice(name.length + 3);
+// Only the eye range changes: the blink statistics stay the recorded calibration's.
+const earFlag = flag("ear");
+const [earOpen, earClosed] = earFlag?.split(",").map(Number) ?? [];
+if (earFlag && !(Number.isFinite(earOpen) && Number.isFinite(earClosed) && earOpen > earClosed)) {
+  console.error("--ear=terbuka,terpejam butuh dua angka, terbuka > terpejam (mis. --ear=0.107,0.030).");
+  process.exit(1);
+}
+const baseline = earFlag ? { ...recordedBaseline, earOpen, earClosed } : recordedBaseline;
+if (earFlag) {
+  console.log(
+    `EAR baseline diganti: terbuka ${earOpen}, terpejam ${earClosed} (rekaman ${recordedBaseline.earOpen.toFixed(3)} / ` +
+      `${recordedBaseline.earClosed.toFixed(3)}); kedip baseline tetap dari rekaman.`,
+  );
+}
 const tidurFlag = flag("tidur");
 const windowFlag = flag("window");
 const fpsFlag = flag("fps");
