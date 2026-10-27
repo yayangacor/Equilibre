@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Baseline, KeyValueStore } from "./calibration.ts";
 import type { BreakRecord, EvaluationRecord, KssRecord, LabelCorrectionRecord } from "./history.ts";
 import {
+  APP_VERSION,
   BREAK_KEYS,
   browserOf,
   calibrated,
@@ -12,6 +13,7 @@ import {
   CORRECTION_KEYS,
   elapsedMinutes,
   EVALUATION_KEYS,
+  FEEDBACK_QUESTIONS,
   finish,
   freshState,
   KSS_KEYS,
@@ -51,7 +53,7 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
 }
 
 const feedback = checkFeedback(
-  { label_sesuai: 4, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak mengantuk", mengganggu: 2, mau_pakai: 4 },
+  { label_sesuai: 4, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak mengantuk", mengganggu: 2, manfaat: 4, mau_pakai: 4 },
   "  oke  ",
 )!;
 
@@ -117,20 +119,28 @@ describe("test phases", () => {
 });
 
 describe("answers", () => {
-  it("needs all five feedback answers from the listed choices", () => {
-    expect(feedback).toMatchObject({ label_sesuai: 4, alarm_palsu: "1-2 kali", komentar: "oke" });
-    expect(checkFeedback({ label_sesuai: 4, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak pernah", mengganggu: 2 }, "")).toBeNull();
-    expect(
-      checkFeedback({ label_sesuai: 6, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak pernah", mengganggu: 2, mau_pakai: 4 }, ""),
-    ).toBeNull();
-    expect(
-      checkFeedback({ label_sesuai: 4, alarm_palsu: "kadang", kantuk_terlewat: "tidak pernah", mengganggu: 2, mau_pakai: 4 }, ""),
-    ).toBeNull();
+  it("needs all six feedback answers from the listed choices", () => {
+    expect(FEEDBACK_QUESTIONS.map((q) => q.key)).toEqual([
+      "label_sesuai",
+      "alarm_palsu",
+      "kantuk_terlewat",
+      "mengganggu",
+      "manfaat",
+      "mau_pakai",
+    ]);
+    expect(feedback).toMatchObject({ label_sesuai: 4, alarm_palsu: "1-2 kali", manfaat: 4, komentar: "oke" });
+    const valid = { label_sesuai: 4, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak pernah", mengganggu: 2, manfaat: 3, mau_pakai: 4 };
+    expect(checkFeedback(valid, "")).not.toBeNull();
+    const { manfaat: _, ...withoutBenefit } = valid; // uji-1 form, before 28 Oct
+    expect(checkFeedback(withoutBenefit, "")).toBeNull();
+    expect(checkFeedback({ ...valid, manfaat: 6 }, "")).toBeNull();
+    expect(checkFeedback({ ...valid, label_sesuai: 6 }, "")).toBeNull();
+    expect(checkFeedback({ ...valid, alarm_palsu: "kadang" }, "")).toBeNull();
   });
 
   it("cuts the comment at 500 characters", () => {
     const long = checkFeedback(
-      { label_sesuai: 3, alarm_palsu: "sering", kantuk_terlewat: "sering", mengganggu: 3, mau_pakai: 3 },
+      { label_sesuai: 3, alarm_palsu: "sering", kantuk_terlewat: "sering", mengganggu: 3, manfaat: 3, mau_pakai: 3 },
       "x".repeat(800),
     );
     expect(long?.komentar).toHaveLength(500);
@@ -200,6 +210,9 @@ describe("submission", () => {
     expect(sub).not.toHaveProperty("rekomendasi");
     expect(sub).toMatchObject({ id_kiriman: ID, kode: "EQ-7K2M", durasi_menit: 60, selesai_awal: false, isian: intake });
     expect(sub.baseline).toEqual({ dibuat: START, kedip_per_menit: 14, durasi_kedip_ms: 151, ear_terbuka: 0.312, ear_terpejam: 0.1 });
+    // uji-2 (28 Oct) marks the submissions that carry manfaat; the receiver still checks versi 1, so an old Code.gs takes them.
+    expect(sub).toMatchObject({ app: APP_VERSION, versi: 1, feedback: { manfaat: 4 } });
+    expect(APP_VERSION).toBe("uji-2");
   });
 
   it("keeps only records inside the test window", () => {

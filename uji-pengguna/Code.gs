@@ -17,6 +17,8 @@ const HEADERS = {
     "browser", "os", "kamera_resolusi", "fps_rata",
     "baseline_kedip_per_menit", "baseline_durasi_kedip_ms", "baseline_ear_terbuka", "baseline_ear_terpejam",
     "n_evaluasi", "n_kss", "n_koreksi", "n_jeda",
+    // Added 28 Oct (app uji-2). New columns go last: rows are written by position, and the rows already stored keep theirs.
+    "manfaat",
   ],
   evaluasi: [
     "id_kiriman", "kode", "sesi", "t", "waktu", "label", "label_mentah", "dinilai", "sebab_ditahan", "skor", "poin",
@@ -78,6 +80,7 @@ function doPost(e) {
       p.browser, p.os, p.kamera, p.fps_rata,
       b.kedip_per_menit, b.durasi_kedip_ms, b.ear_terbuka, b.ear_terpejam,
       sub.evaluasi.length, sub.kss.length, sub.koreksi_label.length, sub.jeda.length,
+      f.manfaat,
     ]]);
     append_(ss, "evaluasi", sub.evaluasi.map((r) => [
       id, kode, r.sesi, r.t, time_(r.t), r.label, r.label_mentah, r.dinilai, r.sebab_ditahan, r.skor, r.poin,
@@ -176,6 +179,9 @@ function sheet_(ss, name) {
     sh = ss.insertSheet(name);
     sh.getRange(1, 1, 1, HEADERS[name].length).setValues([HEADERS[name]]).setFontWeight("bold");
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < HEADERS[name].length) {
+    // A sheet made before a column was added (manfaat, 28 Oct): the earlier titles are unchanged, so rewrite the row.
+    sh.getRange(1, 1, 1, HEADERS[name].length).setValues([HEADERS[name]]).setFontWeight("bold");
   }
   return sh;
 }

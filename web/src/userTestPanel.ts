@@ -208,7 +208,8 @@ export class UserTestPanel {
     const never = el("p", "Video, foto, titik wajah, nama, dan email. Video tetap diproses di browsermu saja.");
     const rights = el(
       "p",
-      `Data uji hanya untuk mengukur ketepatan Equilibre dan dihapus paling lambat ${DELETE_BY}. Kamu boleh berhenti kapan saja ` +
+      "Data uji dipakai untuk mengukur ketepatan Equilibre dan, tanpa nama, sebagai bukti uji pengguna untuk lomba; dihapus " +
+        `paling lambat ${DELETE_BY}. Kamu boleh berhenti kapan saja ` +
         "dengan menutup halaman; tidak ada yang terkirim sebelum kamu menekan Kirim. Untuk menghapus data yang sudah terkirim, " +
         "hubungi orang yang memberimu link dan sebut kodemu.",
       "fine",
@@ -317,7 +318,10 @@ export class UserTestPanel {
     const form = el("div", "", "uji-form");
     for (const q of FEEDBACK_QUESTIONS) form.append(radioGroup(`fb-${q.key}`, q.teks, q.pilihan));
     const commentSet = el("fieldset");
-    const commentLabel = el("label", `Komentar atau saran (opsional, maks. ${COMMENT_MAX} karakter)`);
+    const commentLabel = el(
+      "label",
+      `Apa yang paling bermanfaat, dan apa yang perlu diperbaiki? (opsional, maks. ${COMMENT_MAX} karakter)`,
+    );
     const comment = el("textarea");
     comment.maxLength = COMMENT_MAX;
     comment.rows = 3;
@@ -337,7 +341,7 @@ export class UserTestPanel {
       }
       const feedback = checkFeedback(answers, comment.value);
       if (!feedback) {
-        status.textContent = "Jawab kelima pertanyaan dulu (komentar boleh kosong).";
+        status.textContent = `Jawab ${FEEDBACK_QUESTIONS.length} pertanyaan dulu (komentar boleh kosong).`;
         return;
       }
       void this.send(feedback, { send, download, status });
@@ -346,7 +350,7 @@ export class UserTestPanel {
     actions.append(send, download);
     return [
       el("p", "Langkah 3 dari 3 · Ceritakan pengalamanmu", "step"),
-      el("p", `Uji tercatat ${minutes} menit. Jawab 5 pertanyaan lalu kirim.`, "helper"),
+      el("p", `Uji tercatat ${minutes} menit. Jawab ${FEEDBACK_QUESTIONS.length} pertanyaan lalu kirim.`, "helper"),
       form,
       actions,
       status,

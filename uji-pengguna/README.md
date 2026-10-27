@@ -23,6 +23,17 @@ dengan kolom `aktif` dicentang; kiriman kedua dengan kode yang sama tetap disimp
 "Anyone" diperlukan supaya browser penguji bisa mengirim tanpa login Google; penjaganya adalah daftar kode. Kode tidak disimpan di
 repo ini.
 
+## Memperbarui penerima (setelah `Code.gs` berubah)
+
+1. Buka Sheet → **Extensions → Apps Script**, ganti isi `Code.gs` dengan versi terbaru dari folder ini, simpan.
+2. **Deploy → Manage deployments →** ikon pensil pada deployment yang ada → *Version:* **New version** → **Deploy**. URL `/exec`
+   tetap sama, jadi `UJI_URL` di app tidak perlu diubah.
+3. Uji dengan `?kode=EQ-TEST&calib=30` (kirim sampai selesai), lalu lihat baris baru di sheet `kiriman`.
+
+Penerima lama tetap menerima kiriman app yang lebih baru, tetapi field yang belum dikenalnya dibuang tanpa error. Contohnya `manfaat`
+(app `uji-2`, 28 Okt): perbarui penerima **sebelum** membagikan link. Kolom baru selalu ditambahkan di akhir; judulnya ditulis
+otomatis pada kiriman berikutnya.
+
 ## Selama uji
 
 - Bagikan link dari kolom `link` sheet `kode`, satu kode per orang. Pemetaan kode → nama simpan sendiri, di luar Sheet kalau Sheet
@@ -30,13 +41,15 @@ repo ini.
 - Menonaktifkan kode: hapus centang `aktif`.
 - Penguji minta datanya dihapus: di editor Apps Script jalankan `hapusKode('EQ-XXXX')` (semua baris kode itu dihapus dari sheet data,
   kodenya dinonaktifkan).
-- Data uji dihapus paling lambat 31 Oktober 2026 (janji di layar persetujuan).
+- Data uji dihapus sesuai janji di layar persetujuan yang disetujui penguji: gelombang 1 (app `uji-1`, 7–8 Okt) paling lambat
+  **31 Oktober 2026**; gelombang 2 (app `uji-2`, mulai 28 Okt) paling lambat **30 November 2026**. Persetujuan `uji-2` juga menyebut
+  pemakaian tanpa nama sebagai bukti uji pengguna untuk lomba. Hapus per kode dengan `hapusKode`.
 
 ## Sheet
 
 | Sheet | Satu baris = | Kolom penting |
 |---|---|---|
-| `kiriman` | satu kiriman | `kode`, `duplikat`, `durasi_menit`, isian awal, feedback, perangkat, baseline, jumlah baris |
+| `kiriman` | satu kiriman | `kode`, `duplikat`, `app`, `durasi_menit`, isian awal, feedback (`manfaat` di kolom terakhir, sejak `uji-2`), perangkat, baseline, jumlah baris |
 | `evaluasi` | satu evaluasi (tiap 10 detik) | `label`, `label_mentah`, `dinilai`, angka payload, `tanda`, `hemat_daya` |
 | `kss` | satu isian KSS | `kss` (1–9, mencakup 5 menit sebelumnya), `label_tampil`, `pengingat` |
 | `koreksi_label` | satu koreksi | `label_tampil`, `label_koreksi`, `alasan` |

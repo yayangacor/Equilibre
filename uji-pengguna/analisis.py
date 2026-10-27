@@ -153,6 +153,9 @@ def main(path, timeline):
     for key in ("label_sesuai", "mengganggu", "mau_pakai"):
         values = [int(k[key]) for k in sent]
         print(f"  {key}: {values} median {st.median(values)}")
+    # manfaat: asked from app uji-2 (28 Oct); empty or absent in earlier submissions and Sheets.
+    benefit = [int(k["manfaat"]) for k in sent if str(k.get("manfaat") or "").strip()]
+    print(f"  manfaat: {benefit} median {st.median(benefit) if benefit else '-'} | app {dict(Counter(k.get('app') for k in sent))}")
     for key in ("alarm_palsu", "kantuk_terlewat"):
         print(f"  {key}: {dict(Counter(k[key] for k in sent))}")
     for k in sent:

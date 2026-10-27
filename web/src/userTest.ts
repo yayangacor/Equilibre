@@ -16,7 +16,10 @@ export const UJI_URL = "https://script.google.com/macros/s/AKfycbyTHyKflpJSsveMM
 export const TEST_MINUTES = 60;
 export const EARLY_FINISH_MINUTES = 30;
 export const COMMENT_MAX = 500;
-export const DELETE_BY = "31 Oktober 2026";
+// Shown on the consent card. ~~31 Oktober 2026~~ → 30 November 2026 (user, 28 Oct): the second wave is evidence of
+// user validation for the semifinal, the Komdigi session and the final (14 Nov). Testers of the first wave (7–8 Oct)
+// consented to 31 October and are deleted by then.
+export const DELETE_BY = "30 November 2026";
 
 // The test code stands in for an account: no name, no email, no password.
 const CODE_PATTERN = /^EQ-[A-Z0-9]{4,8}$/;
@@ -96,6 +99,12 @@ export const FEEDBACK_QUESTIONS = [
     key: "mengganggu",
     teks: "Seberapa mengganggu Equilibre selama kamu bekerja?",
     pilihan: scale5("tidak mengganggu", "sangat mengganggu"),
+  },
+  // The semifinal asks for feedback on use and benefit (28 Oct); the comment field asks what helped most.
+  {
+    key: "manfaat",
+    teks: "Seberapa bermanfaat Equilibre buatmu selama uji ini?",
+    pilihan: scale5("tidak bermanfaat", "sangat bermanfaat"),
   },
   {
     key: "mau_pakai",
@@ -357,7 +366,8 @@ export type TestRecords = {
   jeda: readonly BreakRecord[];
 };
 
-export const APP_VERSION = "uji-1";
+// The "app" column of the Sheet. uji-2 (28 Oct): feedback adds manfaat, consent names the evidence use and 30 November.
+export const APP_VERSION = "uji-2";
 
 // One submission per tester: the records inside the test window only, each cut down to its *_KEYS.
 export function toSubmission(
