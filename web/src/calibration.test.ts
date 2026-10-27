@@ -8,6 +8,7 @@ import {
   loadBaseline,
   MAX_CLOSED_EAR_RATIO,
   median,
+  MIN_CLOSED_EAR,
   percentile,
   perclosThreshold,
   saveBaseline,
@@ -52,6 +53,22 @@ describe("thresholds", () => {
     // Tester with glasses, 7 Oct (NOTES G-73): 0.160 without the cap.
     expect(perclosThreshold({ earOpen: 0.269, earClosed: 0.15 })).toBeCloseTo(0.0587, 3);
     expect(MAX_CLOSED_EAR_RATIO).toBe(0.15);
+  });
+
+  it("never cap the closed EAR below MIN_CLOSED_EAR, so a low open EAR keeps a closed eye below both thresholds", () => {
+    // Squinting at stage B (27 Oct, NOTES G-79): 0.15 × 0.107 = 0.016 put both under the closed eye (0.0233, 0.0279).
+    const squint = { earOpen: 0.107, earClosed: 0.03 };
+    expect(perclosThreshold(squint)).toBeCloseTo(0.0362, 4);
+    expect(closureConfirmThreshold(squint)).toBeCloseTo(0.04, 4);
+    expect(perclosThreshold(squint)).toBeGreaterThan(squint.earClosed);
+    // A high closed EAR with a low open EAR is still capped, at the floor.
+    expect(perclosThreshold({ earOpen: 0.15, earClosed: 0.06 })).toBeCloseTo(0.032 + 0.08 * 0.118, 4);
+    // From an open EAR of 0.213 up the floor changes nothing: the user's normal calibration (27 Oct), a capped
+    // closed EAR, and the 23 Sep session, whose cap (0.0342) a 0.035 floor would have lifted.
+    expect(perclosThreshold({ earOpen: 0.266, earClosed: 0.031 })).toBeCloseTo(0.0498, 4);
+    expect(perclosThreshold({ earOpen: 0.24, earClosed: 0.1 })).toBeCloseTo(0.036 + 0.08 * 0.204, 4);
+    expect(closureConfirmThreshold({ earOpen: 0.228, earClosed: 0.03475 })).toBeCloseTo(0.0342 + 0.13 * 0.1938, 5);
+    expect(MIN_CLOSED_EAR).toBe(0.032);
   });
 });
 

@@ -49,8 +49,15 @@ export const blinkThreshold = (b: EyeRange) => b.earClosed + 0.5 * (b.earOpen - 
 // capping it too took the locked UTA-RLDD test from 77.9% to 57.3%). Blinks shorter than
 // MAX_BLINK_MS never reach the closure confirmation, so the score is unchanged.
 export const MAX_CLOSED_EAR_RATIO = 0.15;
+// The cap never goes below MIN_CLOSED_EAR: a closed eye reads 0.02–0.035 from landmark noise (D-33)
+// however wide the eye was open at calibration. Squinting at stage B (27 Oct, NOTES G-79: open 0.107,
+// closed 0.030) put 0.15 of the open EAR at 0.016, and both thresholds below the truly closed eye.
+// Any floor from 0.030 to 0.034 fixes that and leaves the four replayed sessions and UTA-RLDD unchanged;
+// 0.035 brought back a false 1 s closure on 23 Sep (open 0.228, 0.15 × 0.228 = 0.0342). Nothing changes
+// from an open EAR of 0.213 (MIN_CLOSED_EAR / MAX_CLOSED_EAR_RATIO) up.
+export const MIN_CLOSED_EAR = 0.032; // ⚠️ from two data points (27 Oct squint, 23 Sep session)
 const aboveClosed = (b: EyeRange, fraction: number) => {
-  const closed = Math.min(b.earClosed, MAX_CLOSED_EAR_RATIO * b.earOpen);
+  const closed = Math.min(b.earClosed, Math.max(MAX_CLOSED_EAR_RATIO * b.earOpen, MIN_CLOSED_EAR));
   return closed + fraction * (b.earOpen - closed);
 };
 // Eye counted as closed for PERCLOS. ~~0.2 (P80)~~ → 0.08 (23 Sep, D-33): looking down at
