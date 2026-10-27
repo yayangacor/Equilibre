@@ -7,6 +7,11 @@ Yang dikirim ke server hanya label, angka ringkasan, dan nama aturan yang terpen
 jeda berbasis bukti dalam Bahasa Indonesia, dan **IBM Bob** menjadi agen percakapan "Tanya Equilibre" yang memanggil flow
 Langflow lewat MCP.
 
+**Untuk siapa.** Equilibre gratis bagi pekerja yang seharian di depan laptop untuk mengenali kelelahan dan mengambil jeda, dan
+dibayar perusahaan sebagai program kesejahteraan dan K3: pekerja memilih sendiri untuk ikut, wajah dianalisis di perangkat, dan
+perusahaan hanya melihat ringkasan kelompok minimal 10 orang. Yang sudah dibangun adalah app untuk pekerja; ringkasan untuk
+perusahaan masih rencana (lihat "Langkah lanjut").
+
 > Status: prototipe untuk IBM × Hacktiv8 National Hackathon 2026. Demo online (frontend saja): https://equilibre-orcin.vercel.app;
 > versi lengkap dengan Langflow dan IBM Bob berjalan lokal.
 > Equilibre memberikan **indikator risiko**, bukan diagnosis medis.
