@@ -24,11 +24,33 @@ export const HARI_INI_FIELDS = {
 export type HariIni = { -readonly [K in keyof typeof HARI_INI_FIELDS]: K extends "kss_rata_rata" ? number | null : number };
 
 export type TanyaInput = {
-  pertanyaan: string;
+  pertanyaan: string; // after maskPii
   label: Label | null;
   status: Status | null; // null: no label yet, or "tidak di depan layar"
   hari_ini: HariIni | null;
+  disamarkan: PiiKind[]; // what maskPii replaced, reported back with the answer
 };
+
+// Personal data a question may carry by accident (P17 C10), masked before the question goes on to Bob,
+// Langflow and watsonx: e-mail addresses, and runs of 9 or more digits (phone, NIK, account or card numbers)
+// with single spaces, dots or dashes between them. Shorter numbers stay (times, dates, minutes, KSS). Names
+// cannot be told apart from other words, so they pass.
+export type PiiKind = "email" | "nomor";
+const PII: readonly (readonly [PiiKind, RegExp])[] = [
+  ["email", /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu],
+  ["nomor", /\+?\d(?:[ .-]?\d){8,}/g],
+];
+
+export function maskPii(text: string): { text: string; disamarkan: PiiKind[] } {
+  const disamarkan: PiiKind[] = [];
+  let out = text;
+  for (const [kind, pattern] of PII) {
+    const masked = out.replace(pattern, `[${kind}]`);
+    if (masked !== out) disamarkan.push(kind);
+    out = masked;
+  }
+  return { text: out, disamarkan };
+}
 
 type Parsed = { ok: true; value: TanyaInput } | { ok: false; error: string };
 
@@ -84,7 +106,11 @@ export function parseTanya(body: unknown): Parsed {
     hari_ini = parsed.value;
   }
   const flow = label ? toFlowInput({ label, ...(lelah === undefined ? {} : { menit_lelah_60: lelah }) }) : null;
-  return { ok: true, value: { pertanyaan: q, label, status: flow?.status ?? null, hari_ini } };
+  const masked = maskPii(q);
+  return {
+    ok: true,
+    value: { pertanyaan: masked.text, label, status: flow?.status ?? null, hari_ini, disamarkan: masked.disamarkan },
+  };
 }
 
 // ── The prompt Bob gets ─────────────────────────────────────────────────────────
@@ -168,11 +194,14 @@ export function bobArgs(prompt: string, limits: { maxTurns: number; maxCost: num
 export type RunBob = (args: string[]) => Promise<string>; // resolves with stdout (bob.ts)
 
 // One question, one Bob run. The time is measured here so it can be reported with the answer.
-export async function tanya(input: TanyaInput, run: RunBob): Promise<TanyaAnswer & { detik: number }> {
+export async function tanya(
+  input: TanyaInput,
+  run: RunBob,
+): Promise<TanyaAnswer & { detik: number; disamarkan: PiiKind[] }> {
   const start = Date.now();
   const answer = parseBobOutput(await run(bobArgs(tanyaPrompt(input))));
   const jawaban = input.hari_ini ? withoutNoHistory(answer.jawaban) : answer.jawaban;
-  return { ...answer, jawaban, detik: Math.round((Date.now() - start) / 100) / 10 };
+  return { ...answer, jawaban, detik: Math.round((Date.now() - start) / 100) / 10, disamarkan: input.disamarkan };
 }
 
 // The ringkasan_harian flow's fixed answer when the app has no history for today. With today's numbers

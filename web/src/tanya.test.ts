@@ -78,4 +78,13 @@ describe("toTanyaView", () => {
     expect(view.catatan).toHaveLength(2);
     expect(view.catatan[0]).toBe("Dijawab IBM Bob dalam 3 detik.");
   });
+
+  it("says what the server masked in the question (P17 C10)", () => {
+    const reply = { jawaban: "Halo", sumber: [], format_bebas: false, tool_calls: 1, biaya: null, detik: 3 };
+    expect(toTanyaView({ ...reply, disamarkan: ["email", "nomor"] }).catatan.at(-1)).toBe(
+      "Alamat email dan nomor panjang (telepon, NIK, rekening) di pertanyaanmu disamarkan sebelum dikirim.",
+    );
+    expect(toTanyaView({ ...reply, disamarkan: [] }).catatan).toHaveLength(1);
+    expect(toTanyaView(reply).catatan).toHaveLength(1); // a server from before C10 sends no field
+  });
 });

@@ -57,15 +57,21 @@ export type TanyaResponse = {
   tool_calls: number | null;
   biaya: number | null;
   detik: number;
+  disamarkan?: string[]; // what the server masked in the question before sending it on (maskPii, P17 C10)
 };
 
 export type TanyaView = { jawaban: string; sumber: Source[]; catatan: string[] };
 
 const number = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+const MASKED: Record<string, string> = { email: "alamat email", nomor: "nomor panjang (telepon, NIK, rekening)" };
 
 export function toTanyaView(r: TanyaResponse): TanyaView {
   const calls = r.tool_calls === null ? "" : `, ${r.tool_calls} panggilan flow Langflow`;
   const catatan = [`Dijawab IBM Bob dalam ${number.format(r.detik)} detik${calls}.`];
   if (r.format_bebas) catatan.push("Bob tidak menjawab dalam format yang diminta, jadi teksnya ditampilkan apa adanya.");
+  if (r.disamarkan && r.disamarkan.length > 0) {
+    const what = r.disamarkan.map((k) => MASKED[k] ?? k).join(" dan ");
+    catatan.push(`${what[0].toUpperCase()}${what.slice(1)} di pertanyaanmu disamarkan sebelum dikirim.`);
+  }
   return { jawaban: r.jawaban, sumber: r.sumber.map(toSource), catatan };
 }
