@@ -5,6 +5,7 @@ import type { Label } from "./rules.ts";
 // label name itself stays in the chip next to it; specific advice comes from the Langflow flow.
 
 export type HeroState =
+  | { kind: "off" }
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "uncalibrated" }
@@ -39,6 +40,12 @@ const LABEL_COPY: Record<Label, { title: string; text: string }> = {
 
 export function heroCopy(state: HeroState): HeroCopy {
   switch (state.kind) {
+    case "off":
+      return {
+        chip: "Kamera mati",
+        title: "Kamera belum menyala",
+        text: "Video tidak pernah keluar dari laptop ini. Nyalakan kamera untuk mulai.",
+      };
     case "loading":
       return {
         chip: "Memuat…",

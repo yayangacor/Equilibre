@@ -65,6 +65,7 @@
               <p id="hero-text" class="hero-text">Kamera dan model deteksi sedang dimuat. Semuanya diproses di perangkat ini.</p>
               <div id="hero-progress" class="bar progress" hidden><span></span></div>
               <div class="hero-actions">
+                <button id="hero-camera" type="button" class="btn primary" hidden>Nyalakan kamera</button>
                 <button id="hero-calib" type="button" class="btn primary" hidden>Mulai kalibrasi</button>
                 <a id="hero-saran" class="btn tonal" href="#saran" hidden>Lihat saran</a>
               </div>
@@ -562,6 +563,44 @@
         <p id="calib-done" class="cs-lead"></p>
         <div class="cs-actions">
           <button type="button" class="btn primary cs-go" data-calib-close>Selesai</button>
+        </div>
+      </section>
+    </dialog>
+
+    <!-- Welcome before the camera (plans/P17 C5), first visit only: what stays on this laptop, then the browser's
+         camera prompt after "Nyalakan kamera" (welcome.ts). The calibration screen's look. -->
+    <dialog id="welcome" class="calib-screen welcome" aria-labelledby="welcome-title">
+      <section class="cs">
+        <div class="cs-card"><div id="welcome-bear" class="cs-bear cs-bear-head"></div></div>
+        <h2 id="welcome-title" class="cs-title">Sebelum kamera menyala</h2>
+        <p class="cs-lead">Equilibre membaca tanda lelah dari wajahmu, lalu mengingatkanmu untuk jeda.</p>
+        <ul class="data-flow welcome-flow">
+          <li>
+            <span class="flow-icon never" aria-hidden="true"></span>
+            <div>
+              <p class="flow-title">Video tidak pernah keluar dari laptop ini</p>
+              <p class="muted">Wajahmu dibaca di browser ini. Yang tersisa hanya angka.</p>
+            </div>
+          </li>
+          <li>
+            <span class="flow-icon sent" aria-hidden="true"></span>
+            <div>
+              <p class="flow-title">Data dikirim hanya atas permintaanmu</p>
+              <p class="muted">Saran: label dan angka. Tanya: juga teks pertanyaanmu.</p>
+            </div>
+          </li>
+          <li>
+            <span class="flow-icon local" aria-hidden="true"></span>
+            <div>
+              <p class="flow-title">Riwayat hanya di perangkat ini</p>
+              <p class="muted">Tersimpan di browser ini selama 30 hari.</p>
+            </div>
+          </li>
+        </ul>
+        <p id="welcome-next" class="cs-note"></p>
+        <div class="cs-actions">
+          <button id="welcome-go" type="button" class="btn primary cs-go">Nyalakan kamera</button>
+          <a id="welcome-privacy" class="btn text" href="#privasi">Detail privasi</a>
         </div>
       </section>
     </dialog>

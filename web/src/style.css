@@ -2508,6 +2508,21 @@ html:has(.calib-screen[open]) {
   line-height: 1.5;
 }
 
+/* Welcome before the camera (P17 C5): a smaller bear, so the promises fit a 768 px laptop screen. */
+.welcome .cs-card {
+  width: min(280px, 100%, 30vh);
+}
+
+.welcome .cs-title {
+  font-size: clamp(2rem, 4.5vw, 3rem);
+}
+
+.welcome-flow {
+  width: min(520px, 100%);
+  margin: 0;
+  text-align: left;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 1080px) {

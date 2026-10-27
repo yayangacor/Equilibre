@@ -75,6 +75,7 @@ import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
+import { afterClick, needsWelcome, saveWelcomeDone, welcomeDone } from "./welcome.ts";
 import { YAWN_JAW_OPEN, YAWN_MIN_MS } from "./yawn.ts";
 
 // ── Config. Dev shortcuts: ?calib=30&window=20&tidur=1&debug=1 · test: ?uji=1&riwayat=uji ──
@@ -200,6 +201,11 @@ for (const [box, prefix] of [
   bear.setMood("tertidur");
   byId(box).append(bear.root);
 }
+// Welcome before the camera (P17 C5), first visit only; the hero offers the same button after Esc.
+const welcomeScreen = byId<HTMLDialogElement>("welcome");
+const welcomeGo = byId<HTMLButtonElement>("welcome-go");
+const heroCamera = byId<HTMLButtonElement>("hero-camera");
+byId("welcome-bear").append(createBear(document, "", "welcome-eye").root);
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -309,6 +315,7 @@ let calibration: CalibrationRun | null = null;
 let detecting = false;
 let bodyDetection = false; // the segmenter loaded
 let cameraProblem: string | null = null; // why the camera or the model is not running
+let cameraOff = false; // waiting for "Nyalakan kamera" on a first visit (P17 C5)
 
 // Rolling window + label (only while calibrated and not calibrating).
 let monitor: Monitor | null = null;
@@ -696,6 +703,7 @@ function renderBlinkScore() {
 
 function heroState(): HeroState {
   if (cameraProblem) return { kind: "error", message: cameraProblem };
+  if (cameraOff) return { kind: "off" };
   if (calibration) return { kind: "calibrating" };
   if (!detecting) return { kind: "loading" };
   if (!baseline) return { kind: "uncalibrated" };
@@ -723,6 +731,7 @@ function renderStatus() {
   heroTitle.textContent = copy.title;
   if (state.kind !== "calibrating") heroText.textContent = copy.text; // calibration writes its own steps
   heroProgress.hidden = state.kind !== "calibrating" || calibProgress.hidden;
+  heroCamera.hidden = state.kind !== "off";
   heroCalib.hidden = state.kind !== "uncalibrated";
   heroSaran.hidden = !(saran !== null || label === "lelah ringan" || label === "lelah" || label === "tertidur");
   document.body.toggleAttribute("data-calibrated", baseline !== null);
@@ -811,11 +820,13 @@ function renderCalibrationIdle(message?: string, isError = false) {
   calibStatus.dataset.state = isError ? "error" : "";
   calibStatus.textContent =
     message ??
-    (baseline
-      ? baseline.bodyArea === null && bodyDetection
-        ? "Baseline ini dibuat sebelum ada deteksi tubuh. Kalibrasi ulang supaya Equilibre juga mengenal posisi dudukmu."
-        : "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
-      : `Kalibrasi ${calibLength()}: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
+    (cameraOff
+      ? "Kamera belum menyala. Nyalakan dari Dashboard."
+      : baseline
+        ? baseline.bodyArea === null && bodyDetection
+          ? "Baseline ini dibuat sebelum ada deteksi tubuh. Kalibrasi ulang supaya Equilibre juga mengenal posisi dudukmu."
+          : "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
+        : `Kalibrasi ${calibLength()}: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
   renderBaseline();
 }
 
@@ -1293,6 +1304,8 @@ calibScreen.addEventListener("cancel", (event) => {
   }
 });
 heroCalib.addEventListener("click", () => calibButton.click());
+// The privacy page sits behind the modal screen: close it, the link then opens the page.
+byId("welcome-privacy").addEventListener("click", () => welcomeScreen.close());
 
 // The camera box leaves the dock on two pages (D-63, D-65): on the dashboard it goes into the live view,
 // where the overlay draws the face mesh and the plain view plays the same stream beside it; on the
@@ -1512,6 +1525,26 @@ async function main() {
   if (NO_CAMERA) {
     cameraFailed("Kamera tidak dinyalakan (?kamera=0).");
     return;
+  }
+
+  // First visit: the welcome screen says what stays on this laptop before the browser asks for the
+  // camera; getUserMedia runs only after "Nyalakan kamera" (P17 C5).
+  if (needsWelcome({ noCamera: NO_CAMERA, done: store !== null && welcomeDone(store), calibrated: baseline !== null })) {
+    cameraOff = true;
+    setFaceStatus("loading", "Kamera belum menyala");
+    byId("welcome-next").textContent =
+      `Setelah itu: kalibrasi ${calibLength()}, lalu label tiap ${EVAL_INTERVAL_MS / 1000} detik.`;
+    renderStatus();
+    renderCalibrationIdle();
+    welcomeScreen.showModal();
+    await afterClick([welcomeGo, heroCamera], async () => {
+      if (store) saveWelcomeDone(store);
+      if (welcomeScreen.open) welcomeScreen.close();
+      cameraOff = false;
+      setFaceStatus("loading", "Memuat kamera dan model…");
+      renderStatus();
+      renderCalibrationIdle();
+    });
   }
 
   const [camera, model] = await Promise.allSettled([startCamera(), createDetectors()]);
