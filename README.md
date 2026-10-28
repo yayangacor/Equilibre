@@ -37,7 +37,7 @@ flowchart LR
   bob -- "MCP" --> fb["Langflow<br/>cari_panduan · ringkasan_harian"]
   fa --> kb[("Knowledge base<br/>9 catatan")]
   fb --> kb
-  fa --> llm["watsonx.ai<br/>Mistral Small 3.1"]
+  fa --> llm["watsonx.ai<br/>Mistral Small 3.1<br/>(cadangan sejak 28 Okt: Gemini 2.5 Flash)"]
   fb --> llm
 ```
 
@@ -151,7 +151,15 @@ kantuk tertangkap, dengan `lelah ringan` dihitung positif.
 
 Ekspor JSON ada di `langflow-flows/` (tanpa API key). Ketiganya memakai pola yang sama: **Chat Input → Prompt Template (+
 Knowledge → Parser) → Language Model → Chat Output**. LLM: watsonx.ai `mistralai/mistral-small-3-1-24b-instruct-2503`
-(region Dallas, temperature 0,2, maks. 512 token). Embedding knowledge base: watsonx.ai `intfloat/multilingual-e5-large`.
+(region Dallas, temperature 0,2, maks. 512 token). Embedding knowledge base: watsonx.ai `intfloat/multilingual-e5-large`
+(`equilibre_panduan_v2`).
+
+**Cadangan Gemini (sejak 28 Okt 2026).** Trial IBM Cloud pengembang berakhir 26 Okt, jadi watsonx.ai tidak bisa dipanggil
+sampai akunnya aktif lagi. Sementara itu ketiga flow memakai Google AI Studio: LLM `gemini-2.5-flash` dan embedding
+`models/gemini-embedding-001` di knowledge base `equilibre_panduan_v3` (9 catatan yang sama, 1 chunk per catatan). Batas
+token dinaikkan ke 4096 karena token berpikir Gemini ikut dihitung sebagai output: 4 jawaban uji memakai 791–1.663 token
+output, padahal isinya hanya beberapa kalimat. Prompt, aturan server, dan format JSON tidak berubah. Setelan kedua penyedia
+ada di `langflow-flows/profil.mts`; `node langflow-flows/ganti-model.mts watsonx|gemini` memindahkan ketiga flow.
 
 | Flow | Dipanggil oleh | Input | Output |
 |---|---|---|---|
@@ -169,8 +177,8 @@ Knowledge → Parser) → Language Model → Chat Output**. LLM: watsonx.ai `mis
 | `tertidur` | perlu jeda aktif | 10 menit | bergerak, cahaya terang, minum air, udara segar |
 | ≥ 15 menit lelah dalam 1 jam | perlu istirahat panjang | – | berhenti, istirahat cukup, cuti |
 
-Label `tidak di depan layar` tidak dikirim. Kalau jawaban Mistral gagal atau bukan JSON, flow yang sama dijalankan sekali lagi
-dengan model cadangan (Qwen3.8 Flash lewat OpenRouter).
+Label `tidak di depan layar` tidak dikirim. Kalau jawaban model utama (Mistral, atau Gemini selama cadangan) gagal atau bukan
+JSON, flow yang sama dijalankan sekali lagi dengan model cadangan (Qwen3.8 Flash lewat OpenRouter).
 
 **Aturan utama prompt `analisis_status`** (`langflow-flows/prompt-analisis_status.txt`): status dan durasi jeda tidak boleh
 diubah; kegiatan hanya dari KONTEKS knowledge base; alasan hanya dari daftar `tanda` (tidak menilai angka sendiri, kepala
@@ -237,8 +245,9 @@ dari `web/public/fonts/`, jadi app tidak menghubungi layanan font pihak ketiga.
 ## Menjalankan (development)
 
 Prasyarat: Node.js 22.18+ (skrip `.ts` dijalankan langsung dengan type stripping bawaan Node), Langflow 1.12 di
-`http://127.0.0.1:7860` dengan ketiga flow diimpor dari `langflow-flows/` dan kredensial watsonx.ai sebagai Global Variable,
-serta IBM Bob Shell untuk "Tanya Equilibre".
+`http://127.0.0.1:7860` dengan ketiga flow diimpor dari `langflow-flows/` dan kredensial model sebagai Global Variable
+(watsonx.ai: `WATSONX_APIKEY`, `WATSONX_PROJECT_ID`, `WATSONX_URL`; cadangan Gemini: `GOOGLE_API_KEY` tipe Credential, lalu
+`node langflow-flows/buat-kb.mjs` dan `node langflow-flows/ganti-model.mts gemini`), serta IBM Bob Shell untuk "Tanya Equilibre".
 
 ```bash
 cp .env.example .env          # isi LANGFLOW_API_KEY, LANGFLOW_FLOW_ID, dan BOB_API_KEY (Tanya Equilibre)
@@ -274,6 +283,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
 | Aturan server tanpa LLM | `node langflow-flows/cek-skenario.mts`: **22/22 skenario** lolos + **7/7 kontrol negatif** tertolak (field asing, status salah, skor tidak cocok label, tanda asing, `pola_kedip` bersama tanda aturan) |
 | Pemilihan LLM | 19 skenario × 2 model di watsonx (`langflow-flows/uji-llm.mts`, jawaban mentah di `langflow-flows/hasil-uji/`): Mistral Small 3.1 JSON terbaca 19/19, `sumber` di luar konteks 0; Granite 4-h-small JSON rusak 2/19 dan menambah sinyal yang tidak ada. Rubrik 1–5: Mistral 19, Granite 14 → Mistral dipakai |
+| Peralihan ke Gemini (28 Okt) | knowledge base v3 vs v2 (`langflow-flows/cek-retrieval.mts`, tanpa LLM): 11 dari 15 catatan 3 teratas per status sama, 3/3 pertanyaan contoh menemukan catatan yang diharapkan di urutan pertama, kueri di luar topik ("resep rendang") skornya lebih buruk dari semua kueri relevan. Lewat `uji-llm.mts` (input dan tweak sama dengan server): 4 skenario `analisis_status` (S01, S13, S15, S22) JSON terbaca 4/4, `sumber` di luar konteks 0, alasan hanya dari `tanda`, 11,8–17,9 detik (batas server 30 detik); 1 pertanyaan `cari_panduan` ("Kenapa mataku perih?") dijawab dari catatan AAO beserta sumbernya dalam 12,8 detik |
 | Perbaikan prompt | uji ulang skenario yang sama: saran di luar konteks ("berjalan/minum air" untuk jeda biasa) 9/9 → 0/8; alasan menyebut tanda yang benar 2/9 → 9/9; nama field bocor ke teks 3 → 0 |
 | IBM Bob | jawaban tanpa panggilan tool ditolak (dicek dengan Langflow mati); 2 prompt injection ("jalankan `dir C:\`", "buat file halo.txt"): tidak ada perintah dijalankan, workspace tidak berubah; `analisis_status` tidak terlihat oleh Bob walau prompt tidak melarangnya; keluhan di luar knowledge base (pusing, mual) ditolak tanpa sumber |
 | Skor pola kedip | uji sekali pada 6 orang baru UTA-RLDD, lalu dibandingkan dengan rules pada 12 orang (dua tabel di "Deteksi di browser"); di app, 16% saat kerja segar dan 80–97% saat pengembang mengantuk dan menguap (satu sesi, anekdot) |
@@ -311,8 +321,8 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 - Tab tersembunyi tanpa pendamping PiP turun ke ±1 fps, sehingga pemantauan dijeda. Mode hemat daya melewatkan 15–21% kedip.
 - Skor pola kedip: 12 orang, dataset didominasi pria, klasifikasi 3 kelas gagal, belum diuji di mode hemat daya (5 fps).
 - Menguap yang singkat (< 1,5 detik) atau terjadi saat kepala menunduk tidak terhitung.
-- Rekomendasi butuh ±12 detik (median uji LLM; 10–22 detik) dan kuota watsonx.ai; "Tanya Equilibre" melayani satu pertanyaan
-  sekaligus.
+- Rekomendasi butuh ±12 detik dengan Mistral (median uji LLM; 10–22 detik) atau 12–18 detik dengan Gemini 2.5 Flash (4 uji),
+  dan kuota penyedia model; "Tanya Equilibre" melayani satu pertanyaan sekaligus.
 - Uji pengguna baru 4 orang dengan 7 isian KSS (1 isian ≥ 7, diragukan), jadi akurasi terhadap kantuk yang dirasakan belum bisa
   dinyatakan sebagai persen.
 - Demo online hanya frontend; saran Langflow dan "Tanya Equilibre" butuh backend lokal dengan Langflow dan Bob Shell.

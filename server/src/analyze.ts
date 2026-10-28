@@ -1,9 +1,11 @@
 import { panduanTweaks, type FlowInput } from "./features.ts";
 import { LangflowError, parseJsonReply } from "./reply.ts";
 
-// The flow's LLM node runs the primary model (Mistral Small 3.1 on watsonx). When that call
-// fails or its reply cannot be read, the same flow runs once more with the node switched to
-// the fallback model (Qwen3.8 Flash on OpenRouter). User decision 26 Sep (NOTES D-11).
+// The flow's LLM node runs the primary model: Mistral Small 3.1 on watsonx until the IBM Cloud
+// trial ended on 26 Oct, Gemini 2.5 Flash from 28 Oct while the IBM code is pending (NOTES D-76;
+// both setups in langflow-flows/profil.mts). When that call fails or its reply cannot be read,
+// the same flow runs once more with the node switched to the fallback model (Qwen3.8 Flash on
+// OpenRouter). User decision 26 Sep (NOTES D-11).
 // Prompt and knowledge base stay the same for both, and the second call only happens after
 // a failure, so a normal request still costs one LLM call.
 export const LLM_NODE_ID = "LanguageModelComponent-FLeYF";

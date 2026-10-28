@@ -32,9 +32,9 @@ export type TanyaInput = {
 };
 
 // Personal data a question may carry by accident (P17 C10), masked before the question goes on to Bob,
-// Langflow and watsonx: e-mail addresses, and runs of 9 or more digits (phone, NIK, account or card numbers)
-// with single spaces, dots or dashes between them. Shorter numbers stay (times, dates, minutes, KSS). Names
-// cannot be told apart from other words, so they pass.
+// Langflow and the model provider (watsonx, or Gemini while NOTES D-76 holds): e-mail addresses, and runs
+// of 9 or more digits (phone, NIK, account or card numbers) with single spaces, dots or dashes between them.
+// Shorter numbers stay (times, dates, minutes, KSS). Names cannot be told apart from other words, so they pass.
 export type PiiKind = "email" | "nomor";
 const PII: readonly (readonly [PiiKind, RegExp])[] = [
   ["email", /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu],
