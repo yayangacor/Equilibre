@@ -4,14 +4,17 @@
 // (NOTES D-19): without it the script only prints what it would send.
 // The model is set per run with a tweak on the LLM node; which model actually answered and
 // which notes were retrieved are read back from Langflow's transaction log, not assumed.
+// The knowledge base and max tokens are the flow's own, so a gemini run needs the flow on the
+// Gemini setup first (ganti-model.mts gemini): v2 can only be searched with a watsonx key.
 // Usage (from equilibre/):
-//   node langflow-flows/uji-llm.mts --model=mistral|granite [--skenario=S01,S15] [--jalankan]
+//   node langflow-flows/uji-llm.mts --model=mistral|granite|gemini [--skenario=S01,S15] [--jalankan]
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { LLM_NODE_ID } from "../server/src/analyze.ts";
 import { PANDUAN_TOP_K, panduanTweaks, parseFeatures, toFlowInput, type FlowInput } from "../server/src/features.ts";
 import { parseJsonReply } from "../server/src/reply.ts";
+import { MODELS } from "./profil.mts";
 
 const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
@@ -19,24 +22,8 @@ const BASE = (process.env.LANGFLOW_URL || "http://127.0.0.1:7860").replace(/\/+$
 const FLOW_ID = process.env.LANGFLOW_FLOW_ID ?? "";
 const API_KEY = process.env.LANGFLOW_API_KEY ?? "";
 
-const WATSONX_METADATA = {
-  icon: "IBM",
-  tool_calling: true,
-  reasoning: false,
-  search: false,
-  preview: false,
-  not_supported: false,
-  deprecated: false,
-  default: false,
-  model_type: "llm",
-  created: 0,
-};
-// Candidates on watsonx Dallas (NOTES D-39, G-41). Qwen is not tested here: user decision 26 Sep
-// to leave the fallback as it is (G-42).
-const MODELS: Record<string, string> = {
-  mistral: "mistralai/mistral-small-3-1-24b-instruct-2503",
-  granite: "ibm/granite-4-h-small",
-};
+// Candidates in profil.mts: watsonx Dallas (NOTES D-39, G-41) and Gemini (D-76). Qwen is not tested
+// here: user decision 26 Sep to leave the fallback as it is (G-42).
 const TIMEOUT_MS = 60_000;
 const MAX_FAILURES_IN_A_ROW = 3;
 const PAUSE_MS = 1_000;
@@ -62,7 +49,8 @@ if (!(modelKey in MODELS)) {
   console.error(`--model harus salah satu dari: ${Object.keys(MODELS).join(", ")}`);
   process.exit(1);
 }
-const modelName = MODELS[modelKey];
+const model = MODELS[modelKey];
+const modelName = model.name;
 
 const file = JSON.parse(readFileSync(new URL("./skenario-uji.json", import.meta.url), "utf8")) as ScenarioFile;
 const knowledgeFiles = new Set(
@@ -163,7 +151,7 @@ const results = [];
 let failuresInARow = 0;
 for (const { s, input } of toCall) {
   const seen = new Set((await transactions()).map((t) => t.id));
-  const tweaks = { ...panduanTweaks(input.status), [LLM_NODE_ID]: { model: [{ name: modelName, provider: "IBM WatsonX", category: "IBM WatsonX", icon: "IBM", metadata: WATSONX_METADATA }] } };
+  const tweaks = { ...panduanTweaks(input.status), [LLM_NODE_ID]: { model: [model] } };
   const started = Date.now();
   let http: number | null = null;
   let text = "";
