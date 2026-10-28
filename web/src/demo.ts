@@ -7,7 +7,7 @@ export const REPO_URL = "https://github.com/yayangacor/Equilibre";
 
 export const DEMO_NOTE = {
   saran:
-    "Di demo online, saran tidak diminta: saran disusun flow Langflow dengan LLM watsonx lewat backend yang berjalan " +
+    "Di demo online, saran tidak diminta: saran disusun flow Langflow dengan LLM lewat backend yang berjalan " +
     "di laptop pengembang.",
   autoSend: "Tidak tersedia di demo online: saran butuh backend dan Langflow yang berjalan lokal.",
   tanya: "Di demo online, Tanya Equilibre tidak aktif: IBM Bob dan flow Langflow berjalan di laptop pengembang.",
