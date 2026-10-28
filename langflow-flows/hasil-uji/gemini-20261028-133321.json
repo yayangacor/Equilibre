@@ -1,0 +1,148 @@
+{
+  "model": "gemini-2.5-flash",
+  "waktu_utc": "2026-10-28T13:34:05.084Z",
+  "prompt_sha256": "c0fd4ec73d02",
+  "dipanggil": 3,
+  "berhasil": 3,
+  "hasil": [
+    {
+      "id": "S01",
+      "judul": "normal, baru mulai bekerja",
+      "status": "baik",
+      "durasi_jeda_menit": 0,
+      "http": 200,
+      "latency_ms": 11837,
+      "model_dipakai": "gemini-2.5-flash",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.4386770725250244
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.47679346799850464
+        },
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.5440335869789124
+        }
+      ],
+      "usage": {
+        "input_tokens": 2621,
+        "output_tokens": 791,
+        "total_tokens": 3412
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Karena statusmu baik, kamu tidak perlu jeda sekarang.\",\n  \"alasan\": \"Tidak ada tanda kelelahan yang terdeteksi.\",\n  \"sumber\": []\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 1,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "tidak menyuruh jeda; paling jauh pengingat ringan"
+      ]
+    },
+    {
+      "id": "S13",
+      "judul": "lelah, tepat 15 menit lelah per jam",
+      "status": "perlu istirahat panjang",
+      "durasi_jeda_menit": null,
+      "http": 200,
+      "latency_ms": 15012,
+      "model_dipakai": "gemini-2.5-flash",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.5298529863357544
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.54240483045578
+        },
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.5500524044036865
+        }
+      ],
+      "usage": {
+        "input_tokens": 2723,
+        "output_tokens": 1663,
+        "total_tokens": 4386
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu sudah lelah selama 15 menit dalam satu jam terakhir. Sebaiknya kamu berhenti dulu dan istirahat yang cukup; kalau badan terasa kurang fit, pertimbangkan untuk minta izin.\",\n  \"alasan\": \"Mata kamu lebih sering tertutup dan terpejam 1 detik atau lebih.\",\n  \"sumber\": [\"niosh-kewaspadaan-kerja.md\", \"permenkes-48-2016-k3-perkantoran.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": null,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "berhenti dulu dan istirahat cukup; pertimbangkan izin"
+      ]
+    },
+    {
+      "id": "S15",
+      "judul": "tertidur pertama kali (mata terpejam, kepala tegak)",
+      "status": "perlu jeda aktif",
+      "durasi_jeda_menit": 10,
+      "http": 200,
+      "latency_ms": 14352,
+      "model_dipakai": "gemini-2.5-flash",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "niosh-kewaspadaan-kerja.md",
+          "skor": -0.3521775007247925
+        },
+        {
+          "file": "eu-432-2012-air-minum.md",
+          "skor": -0.5864681005477905
+        },
+        {
+          "file": "allen-2016-ventilasi.md",
+          "skor": -0.5932366847991943
+        }
+      ],
+      "usage": {
+        "input_tokens": 2607,
+        "output_tokens": 1342,
+        "total_tokens": 3949
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Kamu terdeteksi tertidur. Ayo bangun dan bergerak sebentar, seperti jalan cepat atau naik tangga, lalu minum air dan cari tempat yang lebih terang atau berudara segar selama 10 menit.\",\n  \"alasan\": \"Mata kamu terpejam beberapa menit sementara tubuh diam.\",\n  \"sumber\": [\n    \"niosh-kewaspadaan-kerja.md\",\n    \"eu-432-2012-air-minum.md\",\n    \"allen-2016-ventilasi.md\"\n  ]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "ajak bangun",
+        "bergerak / minum air / cahaya atau udara segar (D-27)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "model": "gemini-2.5-flash",
+  "waktu_utc": "2026-10-28T13:33:02.464Z",
+  "prompt_sha256": "c0fd4ec73d02",
+  "dipanggil": 1,
+  "berhasil": 1,
+  "hasil": [
+    {
+      "id": "S22",
+      "judul": "lelah ringan dari pola kedip saja (?label=gabungan, D-72)",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 17945,
+      "model_dipakai": "gemini-2.5-flash",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.4396307170391083
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.45329952239990234
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.46671193838119507
+        }
+      ],
+      "usage": {
+        "input_tokens": 2283,
+        "output_tokens": 1144,
+        "total_tokens": 3427
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Ayo jeda 5 menit. Kamu bisa mengistirahatkan mata dengan melihat benda jauh atau melakukan peregangan ringan.\",\n  \"alasan\": \"Pola kedipan matamu menunjukkan kamu mulai mengantuk.\",\n  \"sumber\": [\n    \"permenkes-48-2016-k3-perkantoran.md\",\n    \"albulescu-2022-micro-break.md\",\n    \"aao-20-20-20.md\"\n  ]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 2,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut pola kedipan yang mirip orang mengantuk (dari tanda), tanpa angka skor",
+        "tidak mengarang tanda lain seperti menguap atau mata sering tertutup"
+      ]
+    }
+  ]
+}
