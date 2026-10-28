@@ -2,6 +2,7 @@
 // Usage (from equilibre/): node langflow-flows/export.mjs [flowId]   (default: LANGFLOW_FLOW_ID)
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { exportedPart, KEY_PATTERN } from "./bentuk-ekspor.mjs";
 
 const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
@@ -20,35 +21,15 @@ if (!res.ok) {
   console.error(`Gagal mengambil flow: HTTP ${res.status}`);
   process.exit(1);
 }
-const flow = await res.json();
+const { part, blanked } = exportedPart(await res.json());
+const json = JSON.stringify(part, null, 2);
 
-// Password fields either reference a Global Variable by name (load_from_db) or hold a raw
-// secret. Keep the references, blank everything else.
-let blanked = 0;
-for (const node of flow.data?.nodes ?? []) {
-  for (const field of Object.values(node.data?.node?.template ?? {})) {
-    if (field && typeof field === "object" && field.password && !field.load_from_db && field.value) {
-      field.value = "";
-      blanked++;
-    }
-  }
-}
-
-const { id, name, description, data, endpoint_name, mcp_enabled, action_name, action_description } = flow;
-const json = JSON.stringify(
-  { id, name, description, endpoint_name, mcp_enabled, action_name, action_description, data },
-  null,
-  2,
-);
-
-// Last line of defence: Langflow keys (sk-...), OpenRouter keys (sk-or-...), Google AI Studio
-// keys (AIza... and the newer AQ.... format), bearer tokens.
-const leak = json.match(/sk-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{35}|AQ\.[A-Za-z0-9_-]{30,}|Bearer\s+[A-Za-z0-9._-]{20,}/);
-if (leak) {
+// Last line of defence: a key outside a password field.
+if (KEY_PATTERN.test(json)) {
   console.error("Ekspor dibatalkan: ditemukan string yang mirip API key. Periksa flow di Langflow.");
-  process.exit(1);
+  // process.exit() with fetch handles still open aborts Node on Windows (UV_HANDLE_CLOSING), so set exitCode.
+  process.exitCode = 1;
+} else {
+  writeFileSync(fileURLToPath(new URL(`./${part.name}.json`, import.meta.url)), json + "\n");
+  console.log(`Tersimpan: langflow-flows/${part.name}.json (${blanked} field rahasia dikosongkan)`);
 }
-
-const outPath = fileURLToPath(new URL(`./${name}.json`, import.meta.url));
-writeFileSync(outPath, json + "\n");
-console.log(`Tersimpan: langflow-flows/${name}.json (${blanked} field rahasia dikosongkan)`);

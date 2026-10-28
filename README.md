@@ -342,7 +342,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 |---|---|
 | `web/` | Frontend Vite + TypeScript + `@mediapipe/tasks-vision`; `web/src/` berisi pipeline murni (fitur, rules, kedip, menguap, tubuh, skor pola kedip) yang dipakai app dan replay; `web/scripts/` berisi replay dan skrip UTA-RLDD |
 | `server/` | Backend perantara Node.js + Express: whitelist payload, keputusan status, pemanggilan Langflow dan Bob. Menyimpan API key supaya tidak pernah sampai ke browser |
-| `langflow-flows/` | Ekspor JSON ketiga flow (tanpa API key), prompt, 21 skenario uji + pengecek, runner uji LLM (`uji-llm.mts`, memanggil LLM hanya dengan `--jalankan`) dan hasilnya, `cek-flow.mjs [--pulihkan]` untuk memastikan edge flow sama dengan ekspor, `pasang-prompt.mjs` untuk memasang prompt, `pesan-flow.mjs` untuk membaca teks masuk/keluar flow terakhir |
+| `langflow-flows/` | Ekspor JSON ketiga flow (tanpa API key), prompt, 21 skenario uji + pengecek, runner uji LLM (`uji-llm.mts`, memanggil LLM hanya dengan `--jalankan`) dan hasilnya, `cek-flow.mjs [--penuh] [--pulihkan]` untuk memastikan flow live sama dengan ekspor (edge, atau dengan `--penuh` seluruh field termasuk `show`; dijalankan sebelum demo), `pasang-prompt.mjs` untuk memasang prompt, `pesan-flow.mjs` untuk membaca teks masuk/keluar flow terakhir |
 | `knowledge/` | Knowledge base RAG: 9 catatan parafrase dengan sitasi dan lisensi |
 | `docs/` | Catatan penyetelan threshold dari rekaman sesi |
 | `uji-pengguna/` | Penerima hasil uji pengguna jarak jauh (Google Apps Script → Google Sheet) dan cara memasangnya |
