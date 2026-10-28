@@ -949,7 +949,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 512
+                "value": 4096
               },
               "model": {
                 "_input_type": "ModelInput",
@@ -1139,6 +1139,24 @@
                       "created": 0,
                       "not_enabled_locally": true
                     }
+                  },
+                  {
+                    "name": "gemini-2.5-flash",
+                    "provider": "Google Generative AI",
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
+                    "metadata": {
+                      "icon": "GoogleGenerativeAI",
+                      "tool_calling": true,
+                      "reasoning": false,
+                      "search": false,
+                      "preview": false,
+                      "not_supported": false,
+                      "deprecated": false,
+                      "default": false,
+                      "model_type": "llm",
+                      "created": 0
+                    }
                   }
                 ],
                 "override_skip": false,
@@ -1154,12 +1172,12 @@
                 "type": "model",
                 "value": [
                   {
-                    "name": "mistralai/mistral-small-3-1-24b-instruct-2503",
-                    "provider": "IBM WatsonX",
-                    "category": "IBM WatsonX",
-                    "icon": "IBM",
+                    "name": "gemini-2.5-flash",
+                    "provider": "Google Generative AI",
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
                     "metadata": {
-                      "icon": "IBM",
+                      "icon": "GoogleGenerativeAI",
                       "tool_calling": true,
                       "reasoning": false,
                       "search": false,

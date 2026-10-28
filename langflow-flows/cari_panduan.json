@@ -780,7 +780,7 @@
             ],
             "frozen": false,
             "icon": "brain-circuit",
-            "last_updated": "2026-09-27T13:03:06.425Z",
+            "last_updated": "2026-10-28T13:29:11.994Z",
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
@@ -975,7 +975,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "int",
-                "value": 512
+                "value": 4096
               },
               "model": {
                 "_input_type": "ModelInput",
@@ -1003,22 +1003,92 @@
                 "name": "model",
                 "options": [
                   {
-                    "name": "ibm/granite-4-h-small",
-                    "icon": "WatsonxAI",
-                    "category": "IBM WatsonX",
-                    "provider": "IBM WatsonX",
+                    "name": "gemini-4-argon",
+                    "icon": "GoogleGenerativeAI",
+                    "category": "Google Generative AI",
+                    "provider": "Google Generative AI",
                     "metadata": {
                       "context_length": 128000,
-                      "model_class": "ChatWatsonx",
-                      "model_name_param": "model_id",
-                      "api_key_param": "apikey",
-                      "max_tokens_field_name": "max_tokens",
-                      "url_param": "url",
-                      "project_id_param": "project_id"
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "api_key_param": "google_api_key",
+                      "max_tokens_field_name": "max_output_tokens",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-4-argon"
+                      ]
                     }
                   },
                   {
-                    "name": "ibm/granite-guardian-3-8b",
+                    "name": "gemini-3.8-flash",
+                    "icon": "GoogleGenerativeAI",
+                    "category": "Google Generative AI",
+                    "provider": "Google Generative AI",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "api_key_param": "google_api_key",
+                      "max_tokens_field_name": "max_output_tokens",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-3.8-flash"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "gemini-flash-latest",
+                    "icon": "GoogleGenerativeAI",
+                    "category": "Google Generative AI",
+                    "provider": "Google Generative AI",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "api_key_param": "google_api_key",
+                      "max_tokens_field_name": "max_output_tokens",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-flash-latest"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "gemini-3.7-flash",
+                    "icon": "GoogleGenerativeAI",
+                    "category": "Google Generative AI",
+                    "provider": "Google Generative AI",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "api_key_param": "google_api_key",
+                      "max_tokens_field_name": "max_output_tokens",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-3.7-flash"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "gemini-3.5-flash-lite",
+                    "icon": "GoogleGenerativeAI",
+                    "category": "Google Generative AI",
+                    "provider": "Google Generative AI",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatGoogleGenerativeAIFixed",
+                      "model_name_param": "model",
+                      "api_key_param": "google_api_key",
+                      "max_tokens_field_name": "max_output_tokens",
+                      "reasoning": true,
+                      "reasoning_models": [
+                        "gemini-3.5-flash-lite"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "ibm/granite-4-h-small",
                     "icon": "WatsonxAI",
                     "category": "IBM WatsonX",
                     "provider": "IBM WatsonX",
@@ -1064,6 +1134,21 @@
                   },
                   {
                     "name": "mistral-large-2512",
+                    "icon": "WatsonxAI",
+                    "category": "IBM WatsonX",
+                    "provider": "IBM WatsonX",
+                    "metadata": {
+                      "context_length": 128000,
+                      "model_class": "ChatWatsonx",
+                      "model_name_param": "model_id",
+                      "api_key_param": "apikey",
+                      "max_tokens_field_name": "max_tokens",
+                      "url_param": "url",
+                      "project_id_param": "project_id"
+                    }
+                  },
+                  {
+                    "name": "mistralai/mistral-medium-2505",
                     "icon": "WatsonxAI",
                     "category": "IBM WatsonX",
                     "provider": "IBM WatsonX",
@@ -1165,6 +1250,24 @@
                       "created": 0,
                       "not_enabled_locally": true
                     }
+                  },
+                  {
+                    "name": "gemini-2.5-flash",
+                    "provider": "Google Generative AI",
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
+                    "metadata": {
+                      "icon": "GoogleGenerativeAI",
+                      "tool_calling": true,
+                      "reasoning": false,
+                      "search": false,
+                      "preview": false,
+                      "not_supported": false,
+                      "deprecated": false,
+                      "default": false,
+                      "model_type": "llm",
+                      "created": 0
+                    }
                   }
                 ],
                 "override_skip": false,
@@ -1180,12 +1283,12 @@
                 "type": "model",
                 "value": [
                   {
-                    "name": "mistralai/mistral-small-3-1-24b-instruct-2503",
-                    "provider": "IBM WatsonX",
-                    "category": "IBM WatsonX",
-                    "icon": "IBM",
+                    "name": "gemini-2.5-flash",
+                    "provider": "Google Generative AI",
+                    "category": "Google Generative AI",
+                    "icon": "GoogleGenerativeAI",
                     "metadata": {
-                      "icon": "IBM",
+                      "icon": "GoogleGenerativeAI",
                       "tool_calling": true,
                       "reasoning": false,
                       "search": false,
@@ -1809,7 +1912,8 @@
                 "info": "Select the knowledge to load data from.",
                 "name": "knowledge_base",
                 "options": [
-                  "equilibre_panduan_v2"
+                  "equilibre_panduan_v2",
+                  "equilibre_panduan_v3"
                 ],
                 "options_metadata": [],
                 "override_skip": false,
@@ -1824,7 +1928,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "str",
-                "value": "equilibre_panduan_v2"
+                "value": "equilibre_panduan_v3"
               },
               "metadata_filter": {
                 "_input_type": "MessageTextInput",
@@ -2334,9 +2438,9 @@
       }
     ],
     "viewport": {
-      "x": 176.67906009907801,
-      "y": -336.052010534431,
-      "zoom": 0.5538264032846935
+      "x": 189.61291903738072,
+      "y": -498.69275661807967,
+      "zoom": 0.8035564789129269
     }
   }
 }
