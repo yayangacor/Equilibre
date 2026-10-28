@@ -27,7 +27,9 @@ repo ini.
 
 1. Buka Sheet → **Extensions → Apps Script**, ganti isi `Code.gs` dengan versi terbaru dari folder ini, simpan.
 2. **Deploy → Manage deployments →** ikon pensil pada deployment yang ada → *Version:* **New version** → **Deploy**. URL `/exec`
-   tetap sama, jadi `UJI_URL` di app tidak perlu diubah.
+   tetap sama, jadi `UJI_URL` di app tidak perlu diubah. **Deploy → New deployment** membuat URL baru, dan URL lama bisa langsung
+   "Halaman Tidak Ditemukan" (28 Okt). Dalam kasus itu ganti `UJI_URL` di `web/src/userTest.ts`, lalu build dan deploy app. Tanpa itu
+   semua kiriman penguji gagal.
 3. Uji dengan `?kode=EQ-TEST&calib=30` (kirim sampai selesai), lalu lihat baris baru di sheet `kiriman`.
 
 Penerima lama tetap menerima kiriman app yang lebih baru, tetapi field yang belum dikenalnya dibuang tanpa error. Contohnya `manfaat`
