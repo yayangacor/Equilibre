@@ -42,8 +42,8 @@ const json = JSON.stringify(
 );
 
 // Last line of defence: Langflow keys (sk-...), OpenRouter keys (sk-or-...), Google AI Studio
-// keys (AIza...), bearer tokens.
-const leak = json.match(/sk-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{35}|Bearer\s+[A-Za-z0-9._-]{20,}/);
+// keys (AIza... and the newer AQ.... format), bearer tokens.
+const leak = json.match(/sk-[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{35}|AQ\.[A-Za-z0-9_-]{30,}|Bearer\s+[A-Za-z0-9._-]{20,}/);
 if (leak) {
   console.error("Ekspor dibatalkan: ditemukan string yang mirip API key. Periksa flow di Langflow.");
   process.exit(1);
