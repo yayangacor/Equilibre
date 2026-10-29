@@ -54,7 +54,13 @@ flowchart LR
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan; `pola_kedip` hanya dengan `?label=gabungan`), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
 | `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain dan menyamarkan email serta deret ≥ 9 angka (telepon, NIK, rekening) sebelum pertanyaan diteruskan; nama tidak bisa disaring. Halaman Tanya menyebutkan apa yang dikirim di bawah kotak pertanyaan, dan jawaban memberi tahu bila ada yang disamarkan |
 | Google Sheet pengembang, **hanya mode uji `?kode=`** setelah penguji setuju dan menekan Kirim | riwayat jendela uji (label + angka payload per evaluasi, KSS, koreksi label, jeda), 4 angka baseline kalibrasi, jenis browser/OS, resolusi kamera, fps rata-rata, isian awal, feedback, kode uji | whitelist field di `web/src/userTest.ts` (dites); penerima menolak kode yang tidak terdaftar (`uji-pengguna/Code.gs`); data dihapus paling lambat 30 Nov 2026 (gelombang pertama: 31 Okt), sesuai layar persetujuan |
+| Google (`odml.pa.googleapis.com`), dari library MediaPipe Tasks tiap 60 detik per task | **diblokir.** Metrik kinerja dan pemakaian MediaPipe: jenis task, mode, keluarga OS, versi library, waktu muat, jumlah dan lama inferensi (88–103 byte per kiriman, diukur 29 Okt); tanpa video, gambar, landmark, atau label. MediaPipe tidak punya opsi untuk mematikannya ([Privacy Notice](https://github.com/google-ai-edge/mediapipe#privacy-notice)) | `Content-Security-Policy` `connect-src` di `web/index.html` hanya mengizinkan origin sendiri dan penerima uji Apps Script (`web/src/csp.test.ts`) |
 | tidak pernah | video, gambar, landmark wajah, EAR per frame, skor pola kedip; baseline kalibrasi dan riwayat di luar mode uji | diproses dan disimpan hanya di browser |
+
+Penjaga di browser berlaku untuk semua host, jadi library yang ditambah kemudian pun tidak bisa mengirim ke tempat lain. Diukur
+dengan Chrome headless dan kamera palsu berwajah selama 150 detik: tanpa CSP, 4 POST ke `odml.pa.googleapis.com` dijawab HTTP 200
+pada detik 60 dan 120; dengan CSP, 0 terkirim, 2 ditolak pada detik 60, lalu logger MediaPipe berhenti sendiri, dan label tetap
+berjalan (9,2 fps).
 
 ## Deteksi di browser
 
@@ -277,7 +283,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **292 test, 24 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **296 test, 25 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera, CSP). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |

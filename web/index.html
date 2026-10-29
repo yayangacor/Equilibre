@@ -2,6 +2,12 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
+    <!-- The page may only connect to its own origin and the user-test Sheet (plans/P08). MediaPipe Tasks post usage
+         metrics to Google every 60 s with no option to turn them off (NOTES G-90); this keeps them on the device (D-01). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="connect-src 'self' https://script.google.com https://script.googleusercontent.com"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
