@@ -1037,6 +1037,20 @@ function cameraErrorMessage(err: unknown): string {
   }
 }
 
+// The body segmenter reads a 2D-canvas copy of the frame, not the camera's <video> (G-95). With the user's UGREEN
+// camera in Brave (30 Oct) it read the video element as an almost empty picture (body 5.7% of the frame, against
+// 48–60% in the September logs) while the face landmarker read the same element fine; a dataset clip played into
+// the same element segmented normally (37.7%). Same frame, same size, so the rules see what they were tuned on.
+const bodyFrame = document.createElement("canvas");
+function bodyFrameOf(source: HTMLVideoElement): HTMLCanvasElement {
+  if (bodyFrame.width !== source.videoWidth || bodyFrame.height !== source.videoHeight) {
+    bodyFrame.width = source.videoWidth;
+    bodyFrame.height = source.videoHeight;
+  }
+  bodyFrame.getContext("2d")?.drawImage(source, 0, 0, bodyFrame.width, bodyFrame.height);
+  return bodyFrame;
+}
+
 function runDetection({ landmarker, segmenter }: Detectors) {
   let lastVideoTime = -1;
   let fpsFrames = 0;
@@ -1066,7 +1080,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const result = landmarker.detectForVideo(video, now);
       if (segmenter && now - lastBodyT >= BODY_INTERVAL_MS) {
         lastBodyT = now;
-        const next = segmentBody(segmenter, video, now, (mask, width, height) => {
+        const next = segmentBody(segmenter, bodyFrameOf(video), now, (mask, width, height) => {
           bodyView = maskToGrid(mask, width, height, SCAN.viewCols);
           maskSize = { width, height, values: mask.length };
         });
