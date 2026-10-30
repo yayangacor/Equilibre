@@ -4,7 +4,9 @@ import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 // The calibration scan (NOTES D-78, the user's "Tab UX Calibration" sheet): the plain camera → a scan line sweeps
 // down in 1 s and turns the person into pixels → 0.5 s later, labelled boxes appear on the left eye, the right eye
 // and the mouth with their live values, named as on the Debug page (EAR, Jaw Open). Canvas 2D on the camera's
-// overlay canvas; the canvas is mirrored with the video, so text is flipped back.
+// overlay canvas; the canvas is mirrored with the video, so text is flipped back. The canvas is at the screen's
+// resolution and its context draws in video pixels (overlayFit.ts); the block grid, the boxes, the labels and the
+// scan line are placed on whole device pixels so they stay sharp.
 // The pixels follow the body segmentation mask (a finer grid of the same mask the rules use), kept only where it
 // connects to the face, so a chair the model also marks stays clear. When no part of the mask touches the face (on
 // the user's laptop, 30 Oct, the mask landed beside the body, G-95), a head-and-shoulders silhouette built from the
@@ -332,6 +334,8 @@ export class ScanEffect {
   private shapeAt = 0;
   private ringsFrom = 0; // when stage B's rings started; 0 while it is off
   private readonly small = document.createElement("canvas");
+  // The context's transform for this frame, video px → device px (x' = s·x + x), and device px per CSS px.
+  private device = { s: 1, x: 0, y: 0, css: 1 };
   // Whether the last frame drew the mask (true) or the silhouette fallback (false); for Debug.
   followsMask = false;
 
@@ -371,7 +375,8 @@ export class ScanEffect {
     return now - this.startedAt < SCAN_TOTAL_MS;
   }
 
-  // Draws one frame on a cleared canvas the size of the video. `view` is the finer grid of the latest body mask.
+  // Draws one frame on a cleared canvas whose context draws in video pixels. `view` is the finer grid of the latest
+  // body mask.
   draw(
     ctx: CanvasRenderingContext2D,
     video: HTMLVideoElement,
@@ -381,7 +386,8 @@ export class ScanEffect {
     now: number,
   ) {
     if (!this.running) return;
-    const { width: w, height: h } = ctx.canvas;
+    const { videoWidth: w, videoHeight: h } = video;
+    if (!w || !h) return;
     const found = landmarks ? bodyShape(landmarks, w, h) : null;
     if (found && landmarks) {
       this.shape = found;
@@ -395,16 +401,18 @@ export class ScanEffect {
       if (!this.shape) return; // the plain camera until a face shows
       this.startedAt = now;
     }
-    // Canvas px per CSS px: the canvas has the video's size and is scaled to cover its box.
+    // CSS px per video px: the video covers its box (object-fit: cover).
     const scale = Math.max(ctx.canvas.clientWidth / w, ctx.canvas.clientHeight / h) || 1;
     const unit = 1 / scale;
+    const m = ctx.getTransform();
+    this.device = { s: m.a, x: m.e, y: m.f, css: m.a * unit };
     const { sweep, settle, boxes } = scanProgress(now - this.startedAt);
     const lineY = sweep * h;
     if (this.shape && sweep > 0) {
       const masked = view && this.face ? personBlocks(view, blockCells(settle), this.face, w, h) : null;
       this.followsMask = masked !== null;
       const blocks = masked ?? silhouetteBlocks(this.shape, blockSize(settle), w, h);
-      this.pixelateBlocks(ctx, video, blocks, w, h, lineY, unit);
+      this.pixelateBlocks(ctx, video, blocks, w, h, lineY);
       if (this.ringsFrom > 0 && sweep >= 1) this.crossRing(ctx, blocks, now - this.ringsFrom, this.shape.cx, unit);
     }
     if (sweep > 0 && sweep < 1) this.sweepLine(ctx, w, lineY, sweep, unit);
@@ -419,17 +427,21 @@ export class ScanEffect {
     band.addColorStop(1, "rgb(246 245 241 / 0.42)");
     ctx.fillStyle = band;
     ctx.fillRect(0, lineY - bandH, w, bandH);
+    const { s, y: oy, css } = this.device;
+    const thick = Math.max(2, Math.round(3 * css));
     ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.shadowColor = PAPER;
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 18 * s; // device px, untouched by the transform: the glow of 18 video px it always had
     ctx.fillStyle = PAPER;
-    ctx.fillRect(0, lineY - 1.5 * unit, w, 3 * unit);
+    ctx.fillRect(0, Math.round(lineY * s + oy - thick / 2), ctx.canvas.width, thick);
     ctx.restore();
-    this.label(ctx, `SCANNING ${Math.round(sweep * 100)}%`, w - 70 * unit, lineY - 12 * unit, 1, false, unit);
+    this.label(ctx, `SCANNING ${Math.round(sweep * 100)}%`, w - 70 * unit, lineY - 12 * unit, 1, false);
   }
 
   // The person (mask or silhouette) above the scan line, as blocks of the camera image with a thin grid between them.
-  private pixelateBlocks(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, b: Blocks, w: number, h: number, lineY: number, unit: number) {
+  // Drawn in device px: every block edge on a whole pixel, so neighbouring blocks meet without a soft seam.
+  private pixelateBlocks(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, b: Blocks, w: number, h: number, lineY: number) {
     if (this.small.width !== b.cols || this.small.height !== b.rows) {
       this.small.width = b.cols;
       this.small.height = b.rows;
@@ -438,15 +450,21 @@ export class ScanEffect {
     if (!sctx) return;
     // The last block may run past the frame's edge: sample the frame at the blocks' own scale.
     sctx.drawImage(video, 0, 0, w / b.bw, h / b.bh);
+    const { s, x: ox, y: oy } = this.device;
+    const colX = (c: number) => Math.round(c * b.bw * s + ox);
+    const rowY = (r: number) => Math.round(r * b.bh * s + oy);
+    const lineAt = Math.round(lineY * s + oy);
     ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.beginPath();
     let any = false;
     for (let r = 0; r < b.rows; r++) {
-      const y = r * b.bh;
-      if (y > lineY) break;
+      const y0 = rowY(r);
+      const y1 = Math.min(rowY(r + 1), lineAt);
+      if (y1 <= y0) break;
       for (let c = 0; c < b.cols; c++) {
         if (!b.on[r * b.cols + c]) continue;
-        ctx.rect(c * b.bw, y, b.bw, Math.min(b.bh, lineY - y));
+        ctx.rect(colX(c), y0, colX(c + 1) - colX(c), y1 - y0);
         any = true;
       }
     }
@@ -456,26 +474,24 @@ export class ScanEffect {
     }
     ctx.clip();
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.small, 0, 0, b.cols * b.bw, b.rows * b.bh);
-    this.blockGrid(ctx, b.cols, b.rows, b.bw, b.bh, w, h, unit);
+    ctx.drawImage(this.small, ox, oy, b.cols * b.bw * s, b.rows * b.bh * s);
+    this.blockGrid(ctx, b, colX, rowY);
     ctx.restore();
   }
 
-  private blockGrid(ctx: CanvasRenderingContext2D, cols: number, rows: number, bw: number, bh: number, w: number, h: number, unit: number) {
+  // In device px: a light tint, then 1-CSS-px lines on the block edges, filled as one path so crossings are not
+  // doubled.
+  private blockGrid(ctx: CanvasRenderingContext2D, b: Blocks, colX: (c: number) => number, rowY: (r: number) => number) {
+    const { width, height } = ctx.canvas;
     ctx.fillStyle = "rgb(18 21 24 / 0.18)";
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = "rgb(246 245 241 / 0.28)";
-    ctx.lineWidth = unit;
+    ctx.fillRect(0, 0, width, height);
+    const line = Math.max(1, Math.round(this.device.css));
+    const back = Math.floor(line / 2);
+    ctx.fillStyle = "rgb(246 245 241 / 0.28)";
     ctx.beginPath();
-    for (let c = 0; c <= cols; c++) {
-      ctx.moveTo(c * bw, 0);
-      ctx.lineTo(c * bw, h);
-    }
-    for (let r = 0; r <= rows; r++) {
-      ctx.moveTo(0, r * bh);
-      ctx.lineTo(w, r * bh);
-    }
-    ctx.stroke();
+    for (let c = 0; c <= b.cols; c++) ctx.rect(colX(c) - back, 0, line, height);
+    for (let r = 0; r <= b.rows; r++) ctx.rect(0, rowY(r) - back, width, line);
+    ctx.fill();
   }
 
   // Stage B's ring: a cross on the centre of the person's blocks (every block, or every few so they stay
@@ -567,20 +583,33 @@ export class ScanEffect {
       const bh = box.h * scale;
       const bx = box.x + (box.w - bw) / 2;
       const by = box.y + (box.h - bh) / 2;
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = 3 * unit;
-      ctx.strokeRect(bx, by, bw, bh);
-      ctx.strokeStyle = PAPER;
-      ctx.lineWidth = 1.5 * unit;
-      ctx.strokeRect(bx, by, bw, bh);
+      // A paper line ±1.5 CSS px on a dark rim each side; both widths of one parity, so the paper sits centred.
+      const paper = Math.max(1, Math.round(1.5 * this.device.css));
+      const rim = Math.max(1, Math.round(0.75 * this.device.css));
+      this.crispRect(ctx, bx, by, bw, bh, paper + 2 * rim, INK);
+      this.crispRect(ctx, bx, by, bw, bh, paper, PAPER);
       // Eye labels hang off the outer edge of their box so the two never overlap.
       let x = bx + bw / 2;
       if (outward) {
         const tab = this.tabWidth(ctx, text, unit);
         x = bx + bw / 2 < faceX ? bx + bw - tab / 2 : bx + tab / 2;
       }
-      this.label(ctx, text, x, by - 6 * unit, t, true, unit);
+      this.label(ctx, text, x, by - 6 * unit, t, true);
     }
+    ctx.restore();
+  }
+
+  // A rectangle outline `line` device px wide with its edges on whole device pixels.
+  private crispRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, line: number, color: string) {
+    const { s, x: ox, y: oy } = this.device;
+    const x0 = Math.round(x * s + ox);
+    const y0 = Math.round(y * s + oy);
+    const half = (line % 2) / 2; // an odd width is centred on a pixel, an even one between two
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = line;
+    ctx.strokeRect(x0 + half, y0 + half, Math.round((x + w) * s + ox) - x0, Math.round((y + h) * s + oy) - y0);
     ctx.restore();
   }
 
@@ -597,18 +626,19 @@ export class ScanEffect {
   }
 
   // A mono label on a paper tab, centred on x with its baseline at y; the canvas is mirrored, so flip it back.
-  private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, alpha: number, tab: boolean, unit: number) {
+  // Set in device px from a whole pixel, so the tab's edges and the glyphs stay sharp.
+  private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, alpha: number, tab: boolean) {
+    const { s, x: ox, y: oy, css } = this.device;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.translate(x, y);
-    ctx.scale(-1, 1);
-    ctx.font = this.font(unit);
+    ctx.setTransform(-1, 0, 0, 1, Math.round(x * s + ox), Math.round(y * s + oy));
+    ctx.font = this.font(css);
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     if (tab) {
-      const width = ctx.measureText(text).width + 10 * unit;
+      const width = 2 * Math.round((ctx.measureText(text).width + 10 * css) / 2);
       ctx.fillStyle = PAPER;
-      ctx.fillRect(-width / 2, -14 * unit, width, 19 * unit);
+      ctx.fillRect(-width / 2, -Math.round(14 * css), width, Math.round(19 * css));
       ctx.fillStyle = INK;
     } else {
       ctx.fillStyle = PAPER;

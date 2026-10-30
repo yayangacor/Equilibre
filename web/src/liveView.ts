@@ -14,7 +14,8 @@ const EYE: Record<EyeState, string> = { terbuka: "#3ddc97", tertutup: "#ff5a5f",
 const IRIS = "#4dd2ff";
 const MOUTH_YAWN = "#ffc233";
 
-// The face mesh in video pixels; the canvas has the video's size and the same CSS box and mirroring.
+// The face mesh in video pixels; the context maps them onto the canvas (overlayFit.ts), which has the video's CSS
+// box and mirroring.
 export function drawFaceMesh(
   ctx: CanvasRenderingContext2D,
   landmarks: NormalizedLandmark[],

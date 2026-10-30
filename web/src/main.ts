@@ -54,6 +54,7 @@ import { renderTodayStrip } from "./insightCharts.ts";
 import { eyeState, liveTiles, yawning } from "./live.ts";
 import { drawFaceMesh, LiveView } from "./liveView.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
+import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import {
@@ -904,13 +905,23 @@ function renderControls() {
 
 // ── Debug overlay (?debug=1) ────────────────────────────────────────────────────
 
-// The overlay canvas in video pixels, cleared; null without a 2D context.
+// The overlay canvas at the screen's resolution (overlayFit.ts), cleared, its context drawing in video pixels;
+// null without a 2D context or before the video has a size.
 function overlayContext(): CanvasRenderingContext2D | null {
-  if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
+  if (!video.videoWidth || !video.videoHeight) return null;
+  const fit = overlayFit(video.videoWidth, video.videoHeight, overlay.clientWidth, overlay.clientHeight, devicePixelRatio);
+  if (overlay.width !== fit.width || overlay.height !== fit.height) {
+    overlay.width = fit.width;
+    overlay.height = fit.height;
   }
+  const ctx = clearOverlay();
+  ctx?.setTransform(fit.scale, 0, 0, fit.scale, fit.x, fit.y);
+  return ctx;
+}
+
+function clearOverlay(): CanvasRenderingContext2D | null {
   const ctx = overlay.getContext("2d");
+  ctx?.setTransform(1, 0, 0, 1, 0, 0);
   ctx?.clearRect(0, 0, overlay.width, overlay.height);
   return ctx;
 }
@@ -921,7 +932,7 @@ let lastLiveChart = 0;
 function renderLive(result: FaceLandmarkerResult, s: FrameSignal) {
   const ctx = overlayContext();
   const landmarks = result.faceLandmarks[0];
-  if (ctx && landmarks) drawFaceMesh(ctx, landmarks, overlay.width, overlay.height, eyeState(s, baseline), yawning(s));
+  if (ctx && landmarks) drawFaceMesh(ctx, landmarks, video.videoWidth, video.videoHeight, eyeState(s, baseline), yawning(s));
   if (s.t - lastLiveChart >= 100) {
     lastLiveChart = s.t;
     live.chart.draw(baseline);
@@ -961,8 +972,8 @@ function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
   if (!ctx) return;
   if (grid) {
     // The coarse person mask the body features are computed from.
-    const w = overlay.width / grid.cols;
-    const h = overlay.height / grid.rows;
+    const w = video.videoWidth / grid.cols;
+    const h = video.videoHeight / grid.rows;
     ctx.fillStyle = "#7c5cff";
     for (let i = 0; i < grid.cells.length; i++) {
       ctx.globalAlpha = 0.35 * grid.cells[i];
@@ -977,7 +988,7 @@ function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
       [LEFT_EYE, "#4dd2ff"],
     ];
     for (const [indices, color] of eyes) {
-      const p = indices.map((i) => ({ x: landmarks[i].x * overlay.width, y: landmarks[i].y * overlay.height }));
+      const p = indices.map((i) => ({ x: landmarks[i].x * video.videoWidth, y: landmarks[i].y * video.videoHeight }));
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1491,7 +1502,7 @@ function onPage(page: string) {
   }
   const overlayOn = DEBUG || debugOn || liveOn;
   overlay.hidden = !overlayOn;
-  overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+  clearOverlay();
   if (debugOn) earChart.draw(baseline);
   if (liveOn) {
     live.chart.draw(baseline);
