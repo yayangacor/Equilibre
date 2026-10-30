@@ -252,7 +252,9 @@ Tiga halaman (`web/index.html`, `web/auth.html`, `web/app.html`; Vite multi-page
 1 detik dan mengubah tubuh menjadi piksel (mask segmentasi tubuh dalam grid 48 kolom, hanya bagian yang tersambung ke wajah;
 bila mask tidak menyentuh wajah, siluet kepala-bahu dari titik wajah menggantikannya; Debug menulis posisi mask vs wajah) → 0,5 detik
 kemudian kotak berlabel di mata kiri, mata kanan, dan mulut dengan nilai langsung (EAR, Jaw Open), tetap tampil selama kalibrasi.
-Pembukaan digambar tiap frame layar, sesudahnya hanya pada frame detektor.
+Selama progress bar langkah 2 berjalan, pita tanda "+" yang berpendar (rujukan: Codrops ScanEffect, effect 3) turun dari kepala
+ke bawah lalu naik lagi (2,4 detik per lintasan), hanya di blok piksel tubuh; di tepi pita tanda "+" pecah menjadi potongan.
+Pembukaan dan pita digambar tiap frame layar, sisanya hanya pada frame detektor.
 
 **Gaya visual "The Readout"** (hasil riset brand-fit, `src/design/tokens.css`): kertas `#F3F2ED` dan tinta `#121518`; warna
 hanya untuk kondisi tubuh (Normal `#1F9D8A`, Mildly tired `#E0A526`, Tired `#E5483B`, Asleep `#6B5BD2`, Away `#9AA1A9`);
@@ -295,7 +297,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **357 test, 29 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, sapaan PiP, skor pola kedip, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **364 test, 29 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, sapaan PiP, skor pola kedip, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |

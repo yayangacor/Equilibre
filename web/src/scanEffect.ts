@@ -10,6 +10,8 @@ import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 // the user's laptop, 30 Oct, the mask landed beside the body, G-95), a head-and-shoulders silhouette built from the
 // face landmarks stands in.
 // The timeline starts on the first frame with a face, so the sweep is never spent before there is a picture.
+// While stage B's progress bar runs, a band of glowing crosses (the user's reference: Codrops ScanEffect, effect 3)
+// runs down the pixelated person and back up, drawn only on the blocks of the mask.
 
 export const SCAN = {
   delayMs: 250, // the plain camera first
@@ -23,6 +25,11 @@ export const SCAN = {
   coarsePixel: 32,
   keepShapeMs: 1000, // a face lost for a moment keeps its silhouette
   waitForFaceMs: 30_000, // after this, only detector frames redraw while no face has been seen
+  bandPassMs: 2400, // ⚠️ the cross band crosses the person in this long, then turns back
+  bandShare: 0.3, // ⚠️ its height, as a share of the person's height
+  bandFadeMs: 400,
+  crossGap: 18, // ⚠️ CSS px between crosses at least: one per block, or per few blocks
+  crossArm: 5, // CSS px from a cross's centre to the tip of an arm
 } as const;
 
 export const SCAN_TOTAL_MS =
@@ -198,6 +205,46 @@ export function personBlocks(view: BodyGrid, k: number, face: Box, width: number
   return { cols, rows, bw, bh, on };
 }
 
+// The silhouette fallback in the same blocks: on where a block's centre is inside the shape. The blocks tile the
+// frame, `block` canvas px on a side or a little more.
+export function silhouetteBlocks(shape: BodyShape, block: number, width: number, height: number): Blocks {
+  const cols = Math.max(1, Math.round(width / block));
+  const rows = Math.max(1, Math.round(height / block));
+  const bw = width / cols;
+  const bh = height / rows;
+  const on = new Uint8Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (inBody(shape, (c + 0.5) * bw, (r + 0.5) * bh)) on[r * cols + c] = 1;
+    }
+  }
+  return { cols, rows, bw, bh, on };
+}
+
+// The cross band's centre at `elapsed` ms: from `top` down to `bottom` in one pass and back up in the next, slowing
+// at each end.
+export function bandCentre(elapsed: number, top: number, bottom: number): number {
+  return top + ((bottom - top) * (1 - Math.cos((Math.PI * elapsed) / SCAN.bandPassMs))) / 2;
+}
+
+// How lit a cross `d` px from the band's centre is: 1 at the centre, easing to 0 at `half` px away.
+export function bandLight(d: number, half: number): number {
+  const x = Math.abs(d) / half;
+  return x < 1 ? 0.5 + 0.5 * Math.cos(Math.PI * x) : 0;
+}
+
+// How many of a cross's 4 arms show: all of them in the lit middle, fragments towards the band's edges, as in the
+// reference. `seed` (0–1) is fixed per cross, so which crosses break up does not flicker between frames.
+export function armsShown(light: number, seed: number): number {
+  return Math.min(4, Math.floor(light * 4 + seed));
+}
+
+// A fixed number in 0–1 for a grid position.
+export function seedOf(c: number, r: number): number {
+  const x = Math.sin(c * 12.9898 + r * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 // The confidence-weighted centre of a grid, normalised 0–1 (Debug's mask readout); null for an empty grid.
 export function gridCentre(view: BodyGrid): Point | null {
   let sum = 0;
@@ -216,6 +263,13 @@ export type ScanValues = { earLeft: number; earRight: number; jawOpen: number };
 
 const PAPER = "#f6f5f1";
 const INK = "#121518";
+// A cross's arms in the order its fragments appear: two in a row give "-", "|" or a corner.
+const ARMS = [
+  [1, 0],
+  [-1, 0],
+  [0, -1],
+  [0, 1],
+] as const;
 
 export class ScanEffect {
   private armedAt = 0;
@@ -223,6 +277,7 @@ export class ScanEffect {
   private shape: BodyShape | null = null;
   private face: Box | null = null;
   private shapeAt = 0;
+  private bandFrom = 0; // when stage B's cross band started; 0 while it is off
   private readonly small = document.createElement("canvas");
   // Whether the last frame drew the mask (true) or the silhouette fallback (false); for Debug.
   followsMask = false;
@@ -242,11 +297,23 @@ export class ScanEffect {
     this.armedAt = 0;
     this.startedAt = 0;
     this.shape = null;
+    this.bandFrom = 0;
   }
 
-  // Whether to redraw every display frame: during the opening, or while waiting for a face (bounded).
+  // The cross band runs from `now` until stopBand() or stop(), once the opening's line has passed.
+  startBand(now: number) {
+    this.bandFrom = now;
+  }
+
+  stopBand() {
+    this.bandFrom = 0;
+  }
+
+  // Whether to redraw every display frame: during the opening, while the cross band runs, or while waiting for a
+  // face (bounded).
   animating(now: number): boolean {
     if (!this.running) return false;
+    if (this.bandFrom > 0) return true;
     if (this.startedAt === 0) return now - this.armedAt < SCAN.waitForFaceMs;
     return now - this.startedAt < SCAN_TOTAL_MS;
   }
@@ -281,10 +348,11 @@ export class ScanEffect {
     const { sweep, settle, boxes } = scanProgress(now - this.startedAt);
     const lineY = sweep * h;
     if (this.shape && sweep > 0) {
-      const blocks = view && this.face ? personBlocks(view, blockCells(settle), this.face, w, h) : null;
-      this.followsMask = blocks !== null;
-      if (blocks) this.pixelateBlocks(ctx, video, blocks, w, h, lineY, unit);
-      else this.pixelate(ctx, video, this.shape, w, h, lineY, blockSize(settle), unit);
+      const masked = view && this.face ? personBlocks(view, blockCells(settle), this.face, w, h) : null;
+      this.followsMask = masked !== null;
+      const blocks = masked ?? silhouetteBlocks(this.shape, blockSize(settle), w, h);
+      this.pixelateBlocks(ctx, video, blocks, w, h, lineY, unit);
+      if (this.bandFrom > 0 && sweep >= 1) this.crossBand(ctx, blocks, now - this.bandFrom, unit);
     }
     if (sweep > 0 && sweep < 1) this.sweepLine(ctx, w, lineY, sweep, unit);
     if (boxes > 0 && landmarks && values && this.shape) this.boxes(ctx, landmarks, values, this.shape.cx, w, h, easeOut(boxes), unit);
@@ -307,7 +375,7 @@ export class ScanEffect {
     this.label(ctx, `SCANNING ${Math.round(sweep * 100)}%`, w - 70 * unit, lineY - 12 * unit, 1, false, unit);
   }
 
-  // The person from the mask above the scan line, as blocks of the camera image with a thin grid between them.
+  // The person (mask or silhouette) above the scan line, as blocks of the camera image with a thin grid between them.
   private pixelateBlocks(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, b: Blocks, w: number, h: number, lineY: number, unit: number) {
     if (this.small.width !== b.cols || this.small.height !== b.rows) {
       this.small.width = b.cols;
@@ -357,49 +425,68 @@ export class ScanEffect {
     ctx.stroke();
   }
 
-  // Fallback: a silhouette from the face above the scan line, as blocks of the camera image.
-  private pixelate(
-    ctx: CanvasRenderingContext2D,
-    video: HTMLVideoElement,
-    shape: BodyShape,
-    w: number,
-    h: number,
-    lineY: number,
-    block: number,
-    unit: number,
-  ) {
-    const sw = Math.max(1, Math.round(w / block));
-    const sh = Math.max(1, Math.round(h / block));
-    if (this.small.width !== sw || this.small.height !== sh) {
-      this.small.width = sw;
-      this.small.height = sh;
-    }
-    const sctx = this.small.getContext("2d");
-    if (!sctx) return;
-    sctx.drawImage(video, 0, 0, sw, sh);
-
-    const bw = w / sw;
-    const bh = h / sh;
-    ctx.save();
-    ctx.beginPath();
-    let any = false;
-    for (let r = 0; r < sh; r++) {
-      const y = r * bh;
-      if (y > lineY) break;
-      for (let c = 0; c < sw; c++) {
-        if (!inBody(shape, (c + 0.5) * bw, y + bh / 2)) continue;
-        ctx.rect(c * bw, y, bw, Math.min(bh, lineY - y));
-        any = true;
+  // Stage B's band: a cross on the centre of the person's blocks (every block, or every few so they stay
+  // SCAN.crossGap CSS px apart), lit near the band's centre and broken into fragments towards its edges. Each cross
+  // is a faint wide stroke for the glow, a dark rim so it reads on light skin, then a thin bright core; crosses
+  // share 4 brightness levels, stroked once each.
+  private crossBand(ctx: CanvasRenderingContext2D, b: Blocks, elapsed: number, unit: number) {
+    let top = -1;
+    let bottom = -1;
+    for (let r = 0; r < b.rows; r++) {
+      for (let c = 0; c < b.cols; c++) {
+        if (!b.on[r * b.cols + c]) continue;
+        if (top < 0) top = r;
+        bottom = r;
+        break;
       }
     }
-    if (!any) {
-      ctx.restore();
-      return;
+    if (top < 0) return;
+    const y0 = top * b.bh;
+    const y1 = (bottom + 1) * b.bh;
+    const half = (SCAN.bandShare * (y1 - y0)) / 2;
+    const centre = bandCentre(elapsed, y0, y1);
+    const step = Math.max(1, Math.round((SCAN.crossGap * unit) / b.bw));
+    const arm = SCAN.crossArm * unit;
+    const levels = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];
+    let any = false;
+    for (let r = 0; r < b.rows; r += step) {
+      const y = (r + 0.5) * b.bh;
+      const light = bandLight(y - centre, half);
+      if (light === 0) continue;
+      const path = levels[Math.min(3, Math.floor(light * 4))];
+      for (let c = 0; c < b.cols; c += step) {
+        if (!b.on[r * b.cols + c]) continue;
+        const seed = seedOf(c, r);
+        const arms = armsShown(light, seed);
+        const x = (c + 0.5) * b.bw;
+        const first = Math.floor(seed * 4);
+        for (let i = 0; i < arms; i++) {
+          const [dx, dy] = ARMS[(first + i) % 4];
+          path.moveTo(x, y);
+          path.lineTo(x + dx * arm, y + dy * arm);
+          any = true;
+        }
+      }
     }
-    ctx.clip();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.small, 0, 0, w, h);
-    this.blockGrid(ctx, sw, sh, bw, bh, w, h, unit);
+    if (!any) return;
+    const fade = clamp01(elapsed / SCAN.bandFadeMs);
+    ctx.save();
+    ctx.lineCap = "round";
+    levels.forEach((path, i) => {
+      const alpha = (fade * (i + 1)) / 4;
+      ctx.strokeStyle = PAPER;
+      ctx.globalAlpha = 0.18 * alpha;
+      ctx.lineWidth = 7 * unit;
+      ctx.stroke(path);
+      ctx.strokeStyle = INK;
+      ctx.globalAlpha = 0.35 * alpha;
+      ctx.lineWidth = 3.5 * unit;
+      ctx.stroke(path);
+      ctx.strokeStyle = PAPER;
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = 1.6 * unit;
+      ctx.stroke(path);
+    });
     ctx.restore();
   }
 

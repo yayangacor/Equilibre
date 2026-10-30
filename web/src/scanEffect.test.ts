@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { blockCells, blockSize, bodyShape, boxOf, faceBox, gridCentre, inBody, personBlocks, SCAN, SCAN_TOTAL_MS, scanProgress } from "./scanEffect.ts";
+import {
+  armsShown,
+  bandCentre,
+  bandLight,
+  blockCells,
+  blockSize,
+  bodyShape,
+  boxOf,
+  faceBox,
+  gridCentre,
+  inBody,
+  personBlocks,
+  SCAN,
+  SCAN_TOTAL_MS,
+  scanProgress,
+  seedOf,
+  silhouetteBlocks,
+} from "./scanEffect.ts";
 
 describe("scanProgress", () => {
   it("shows the plain camera first, then sweeps in 1 s, then the boxes 0.5 s later", () => {
@@ -135,5 +152,82 @@ describe("personBlocks (the scan follows the body mask)", () => {
     expect(centre.y).toBeGreaterThan(0.5);
     expect(gridCentre({ cols: 2, rows: 1, cells: new Float32Array(2) })).toBeNull();
     expect(faceBox([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.6 }], 1, 1)).toEqual({ x: 0.2, y: 0.3, w: 0.2, h: 0.3 });
+  });
+});
+
+describe("silhouetteBlocks (the fallback in the same blocks as the mask)", () => {
+  const face = [
+    { x: 0.42, y: 0.35 },
+    { x: 0.58, y: 0.35 },
+    { x: 0.5, y: 0.2 },
+    { x: 0.5, y: 0.5 },
+  ];
+  const s = bodyShape(face, 640, 480)!;
+  const b = silhouetteBlocks(s, 14, 640, 480);
+  const at = (x: number, y: number) => b.on[Math.floor(y / b.bh) * b.cols + Math.floor(x / b.bw)] === 1;
+
+  it("tiles the frame and marks the person", () => {
+    expect(b.cols * b.bw).toBeCloseTo(640);
+    expect(b.rows * b.bh).toBeCloseTo(480);
+    expect(at(320, 168)).toBe(true); // face centre
+    expect(at(320, 470)).toBe(true); // chest at the bottom edge
+  });
+
+  it("leaves the corners and beside the head out (negative control)", () => {
+    expect(at(10, 10)).toBe(false);
+    expect(at(40, 470)).toBe(false);
+    expect(at(150, 168)).toBe(false);
+  });
+});
+
+describe("the cross band (stage B)", () => {
+  it("runs from the top of the person to the bottom in one pass and back up in the next", () => {
+    expect(bandCentre(0, 100, 400)).toBeCloseTo(100);
+    expect(bandCentre(SCAN.bandPassMs / 2, 100, 400)).toBeCloseTo(250);
+    expect(bandCentre(SCAN.bandPassMs, 100, 400)).toBeCloseTo(400);
+    expect(bandCentre(1.5 * SCAN.bandPassMs, 100, 400)).toBeCloseTo(250);
+    expect(bandCentre(2 * SCAN.bandPassMs, 100, 400)).toBeCloseTo(100);
+    // Slower at the ends than in the middle.
+    const step = SCAN.bandPassMs / 20;
+    const nearEnd = bandCentre(step, 100, 400) - bandCentre(0, 100, 400);
+    const middle = bandCentre(SCAN.bandPassMs / 2 + step, 100, 400) - bandCentre(SCAN.bandPassMs / 2, 100, 400);
+    expect(nearEnd).toBeLessThan(middle / 3);
+  });
+
+  it("stays between the top and the bottom of the person", () => {
+    for (let t = 0; t < 4 * SCAN.bandPassMs; t += 97) {
+      const y = bandCentre(t, 100, 400);
+      expect(y).toBeGreaterThanOrEqual(100 - 1e-9);
+      expect(y).toBeLessThanOrEqual(400 + 1e-9);
+    }
+  });
+
+  it("lights crosses at its centre and none half a band away or further (negative control)", () => {
+    expect(bandLight(0, 50)).toBe(1);
+    expect(bandLight(25, 50)).toBeCloseTo(0.5);
+    expect(bandLight(-25, 50)).toBeCloseTo(0.5);
+    expect(bandLight(50, 50)).toBe(0);
+    expect(bandLight(-80, 50)).toBe(0);
+  });
+
+  it("shows whole crosses in the lit middle and fragments towards the edges", () => {
+    for (const seed of [0, 0.3, 0.99]) {
+      expect(armsShown(1, seed)).toBe(4);
+      expect(armsShown(0, seed)).toBe(0);
+      expect(armsShown(0.5, seed)).toBeGreaterThanOrEqual(2);
+      expect(armsShown(0.5, seed)).toBeLessThanOrEqual(3);
+    }
+    expect(armsShown(0.1, 0.2)).toBe(0);
+    expect(armsShown(0.1, 0.9)).toBe(1);
+  });
+
+  it("gives each cross a fixed seed in 0–1, different between neighbours", () => {
+    expect(seedOf(3, 7)).toBe(seedOf(3, 7));
+    const seeds = [seedOf(0, 0), seedOf(1, 0), seedOf(0, 1), seedOf(5, 9), seedOf(47, 35)];
+    for (const v of seeds) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(1);
+    }
+    expect(new Set(seeds.map((v) => v.toFixed(3))).size).toBe(seeds.length);
   });
 });

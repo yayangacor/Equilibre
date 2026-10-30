@@ -1217,7 +1217,11 @@ function setCalibScreen(phase: CalibScreenPhase, detail = "") {
   }
   if (phase === "error") calibError.textContent = detail;
   if (phase === "done") calibDone.textContent = detail;
-  if (phase === "progress") renderCalibPip();
+  if (phase === "progress") {
+    renderCalibPip();
+    scan.startBand(performance.now()); // the cross band runs over the person with the progress bar
+    animateScan();
+  } else scan.stopBand();
   calibScreen.scrollTop = 0;
 }
 
@@ -1252,20 +1256,28 @@ function renderScan() {
   scan.draw(ctx, video, result.faceLandmarks[0], values, bodyView, performance.now());
 }
 
-// The camera box moves into the screen. The opening (it starts on the first face) is drawn every display frame,
-// after that on detector frames only.
+// The opening (it starts on the first face) and stage B's cross band are drawn every display frame, the rest on
+// detector frames only.
+let scanFrame = 0;
+function animateScan() {
+  if (scanFrame) return;
+  const frame = () => {
+    scanFrame = 0;
+    if (!scan.running) return;
+    renderScan();
+    if (scan.animating(performance.now())) scanFrame = requestAnimationFrame(frame);
+  };
+  scanFrame = requestAnimationFrame(frame);
+}
+
+// The camera box moves into the screen.
 function enterCalibStage() {
   calibSlot.prepend(cameraBox);
   if (video.srcObject) void video.play().catch(() => {});
   overlay.hidden = false;
   scanInput = null;
   scan.arm(performance.now());
-  const frame = () => {
-    if (!scan.running) return;
-    renderScan();
-    if (scan.animating(performance.now())) requestAnimationFrame(frame);
-  };
-  requestAnimationFrame(frame);
+  animateScan();
 }
 
 calibScreen.addEventListener("close", () => {
