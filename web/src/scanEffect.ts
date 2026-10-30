@@ -10,8 +10,9 @@ import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 // the user's laptop, 30 Oct, the mask landed beside the body, G-95), a head-and-shoulders silhouette built from the
 // face landmarks stands in.
 // The timeline starts on the first frame with a face, so the sweep is never spent before there is a picture.
-// While stage B's progress bar runs, a band of glowing crosses (the user's reference: Codrops ScanEffect, effect 3)
-// runs down the pixelated person and back up, drawn only on the blocks of the mask.
+// While stage B's progress bar runs, glowing crosses (the user's reference: Codrops ScanEffect, effect 3) start as a
+// point at the top of the pixelated person and spread down as a widening ring, again and again, drawn only on the
+// blocks of the mask.
 
 export const SCAN = {
   delayMs: 250, // the plain camera first
@@ -25,9 +26,11 @@ export const SCAN = {
   coarsePixel: 32,
   keepShapeMs: 1000, // a face lost for a moment keeps its silhouette
   waitForFaceMs: 30_000, // after this, only detector frames redraw while no face has been seen
-  bandPassMs: 2400, // ⚠️ the cross band crosses the person in this long, then turns back
-  bandShare: 0.3, // ⚠️ its height, as a share of the person's height
-  bandFadeMs: 400,
+  pulseMs: 3200, // ⚠️ one ring, from a point at the top of the person to the farthest block
+  pulseRestMs: 300, // between rings
+  ringEase: [0.4, 0, 0.2, 1] as const, // ⚠️ cubic-bezier: the point swells, spreads, then slows to a stop
+  ringStart: 0.035, // the ring's half-thickness as a share of its reach: a point at first…
+  ringEnd: 0.09, // …thickening as it spreads
   crossGap: 18, // ⚠️ CSS px between crosses at least: one per block, or per few blocks
   crossArm: 5, // CSS px from a cross's centre to the tip of an arm
 } as const;
@@ -221,19 +224,69 @@ export function silhouetteBlocks(shape: BodyShape, block: number, width: number,
   return { cols, rows, bw, bh, on };
 }
 
-// The cross band's centre at `elapsed` ms: from `top` down to `bottom` in one pass and back up in the next, slowing
-// at each end.
-export function bandCentre(elapsed: number, top: number, bottom: number): number {
-  return top + ((bottom - top) * (1 - Math.cos((Math.PI * elapsed) / SCAN.bandPassMs))) / 2;
+// A CSS-style cubic-bezier timing function: x(s) = t is solved for s (Newton, then bisection), y(s) returned.
+export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const xAt = (s: number) => ((ax * s + bx) * s + cx) * s;
+  const yAt = (s: number) => ((ay * s + by) * s + cy) * s;
+  const slopeAt = (s: number) => (3 * ax * s + 2 * bx) * s + cx;
+  return (t) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    let s = t;
+    for (let i = 0; i < 8; i++) {
+      const err = xAt(s) - t;
+      if (Math.abs(err) < 1e-6) return yAt(s);
+      const slope = slopeAt(s);
+      if (Math.abs(slope) < 1e-6) break;
+      s -= err / slope;
+    }
+    let lo = 0;
+    let hi = 1;
+    s = t;
+    while (hi - lo > 1e-6) {
+      if (xAt(s) < t) lo = s;
+      else hi = s;
+      s = (lo + hi) / 2;
+    }
+    return yAt(s);
+  };
 }
 
-// How lit a cross `d` px from the band's centre is: 1 at the centre, easing to 0 at `half` px away.
-export function bandLight(d: number, half: number): number {
+const ringEase = cubicBezier(...SCAN.ringEase);
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+export type Ring = { radius: number; half: number; alpha: number };
+
+// Stage B's ring `elapsed` ms after it started: a point (radius 0) that spreads to `reach` px on SCAN.ringEase,
+// thickening as it goes, fading in at once and out while it slows (gone by 0.9 of the pulse, when it only crawls
+// along the bottom corners); null in the rest between rings.
+export function ringAt(elapsed: number, reach: number): Ring | null {
+  const t = (elapsed % (SCAN.pulseMs + SCAN.pulseRestMs)) / SCAN.pulseMs;
+  if (t >= 1) return null;
+  const e = ringEase(t);
+  return {
+    radius: e * reach,
+    half: reach * (SCAN.ringStart + (SCAN.ringEnd - SCAN.ringStart) * e),
+    alpha: clamp01(t / 0.06) * (1 - smoothstep(0.55, 0.9, t)),
+  };
+}
+
+// How lit a cross `d` px from the ring's line is: 1 on it, easing to 0 at `half` px away.
+export function ringLight(d: number, half: number): number {
   const x = Math.abs(d) / half;
   return x < 1 ? 0.5 + 0.5 * Math.cos(Math.PI * x) : 0;
 }
 
-// How many of a cross's 4 arms show: all of them in the lit middle, fragments towards the band's edges, as in the
+// How many of a cross's 4 arms show: all of them on the ring's line, fragments towards its edges, as in the
 // reference. `seed` (0–1) is fixed per cross, so which crosses break up does not flicker between frames.
 export function armsShown(light: number, seed: number): number {
   return Math.min(4, Math.floor(light * 4 + seed));
@@ -277,7 +330,7 @@ export class ScanEffect {
   private shape: BodyShape | null = null;
   private face: Box | null = null;
   private shapeAt = 0;
-  private bandFrom = 0; // when stage B's cross band started; 0 while it is off
+  private ringsFrom = 0; // when stage B's rings started; 0 while it is off
   private readonly small = document.createElement("canvas");
   // Whether the last frame drew the mask (true) or the silhouette fallback (false); for Debug.
   followsMask = false;
@@ -297,23 +350,23 @@ export class ScanEffect {
     this.armedAt = 0;
     this.startedAt = 0;
     this.shape = null;
-    this.bandFrom = 0;
+    this.ringsFrom = 0;
   }
 
-  // The cross band runs from `now` until stopBand() or stop(), once the opening's line has passed.
-  startBand(now: number) {
-    this.bandFrom = now;
+  // The rings of crosses run from `now` until stopRings() or stop(), once the opening's line has passed.
+  startRings(now: number) {
+    this.ringsFrom = now;
   }
 
-  stopBand() {
-    this.bandFrom = 0;
+  stopRings() {
+    this.ringsFrom = 0;
   }
 
-  // Whether to redraw every display frame: during the opening, while the cross band runs, or while waiting for a
+  // Whether to redraw every display frame: during the opening, while the rings run, or while waiting for a
   // face (bounded).
   animating(now: number): boolean {
     if (!this.running) return false;
-    if (this.bandFrom > 0) return true;
+    if (this.ringsFrom > 0) return true;
     if (this.startedAt === 0) return now - this.armedAt < SCAN.waitForFaceMs;
     return now - this.startedAt < SCAN_TOTAL_MS;
   }
@@ -352,7 +405,7 @@ export class ScanEffect {
       this.followsMask = masked !== null;
       const blocks = masked ?? silhouetteBlocks(this.shape, blockSize(settle), w, h);
       this.pixelateBlocks(ctx, video, blocks, w, h, lineY, unit);
-      if (this.bandFrom > 0 && sweep >= 1) this.crossBand(ctx, blocks, now - this.bandFrom, unit);
+      if (this.ringsFrom > 0 && sweep >= 1) this.crossRing(ctx, blocks, now - this.ringsFrom, this.shape.cx, unit);
     }
     if (sweep > 0 && sweep < 1) this.sweepLine(ctx, w, lineY, sweep, unit);
     if (boxes > 0 && landmarks && values && this.shape) this.boxes(ctx, landmarks, values, this.shape.cx, w, h, easeOut(boxes), unit);
@@ -425,40 +478,34 @@ export class ScanEffect {
     ctx.stroke();
   }
 
-  // Stage B's band: a cross on the centre of the person's blocks (every block, or every few so they stay
-  // SCAN.crossGap CSS px apart), lit near the band's centre and broken into fragments towards its edges. Each cross
-  // is a faint wide stroke for the glow, a dark rim so it reads on light skin, then a thin bright core; crosses
-  // share 4 brightness levels, stroked once each.
-  private crossBand(ctx: CanvasRenderingContext2D, b: Blocks, elapsed: number, unit: number) {
+  // Stage B's ring: a cross on the centre of the person's blocks (every block, or every few so they stay
+  // SCAN.crossGap CSS px apart), lit near a circle centred at the top of the person (above the face, `originX`) and
+  // broken into fragments towards the ring's edges. Each cross is a faint wide stroke for the glow, a dark rim so it
+  // reads on light skin, then a thin bright core; crosses share 4 brightness levels, stroked once each.
+  private crossRing(ctx: CanvasRenderingContext2D, b: Blocks, elapsed: number, originX: number, unit: number) {
     let top = -1;
-    let bottom = -1;
-    for (let r = 0; r < b.rows; r++) {
-      for (let c = 0; c < b.cols; c++) {
-        if (!b.on[r * b.cols + c]) continue;
-        if (top < 0) top = r;
-        bottom = r;
-        break;
-      }
-    }
+    for (let i = 0; i < b.on.length && top < 0; i++) if (b.on[i]) top = Math.floor(i / b.cols);
     if (top < 0) return;
-    const y0 = top * b.bh;
-    const y1 = (bottom + 1) * b.bh;
-    const half = (SCAN.bandShare * (y1 - y0)) / 2;
-    const centre = bandCentre(elapsed, y0, y1);
+    const oy = top * b.bh;
+    const dist = (c: number, r: number) => Math.hypot((c + 0.5) * b.bw - originX, (r + 0.5) * b.bh - oy);
+    let reach = 0;
+    for (let i = 0; i < b.on.length; i++) if (b.on[i]) reach = Math.max(reach, dist(i % b.cols, Math.floor(i / b.cols)));
+    const ring = ringAt(elapsed, reach);
+    if (!ring || ring.alpha === 0) return;
     const step = Math.max(1, Math.round((SCAN.crossGap * unit) / b.bw));
     const arm = SCAN.crossArm * unit;
     const levels = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];
     let any = false;
-    for (let r = 0; r < b.rows; r += step) {
-      const y = (r + 0.5) * b.bh;
-      const light = bandLight(y - centre, half);
-      if (light === 0) continue;
-      const path = levels[Math.min(3, Math.floor(light * 4))];
+    for (let r = top - (top % step); r < b.rows; r += step) {
       for (let c = 0; c < b.cols; c += step) {
         if (!b.on[r * b.cols + c]) continue;
+        const light = ringLight(dist(c, r) - ring.radius, ring.half);
+        if (light === 0) continue;
         const seed = seedOf(c, r);
         const arms = armsShown(light, seed);
+        const path = levels[Math.min(3, Math.floor(light * 4))];
         const x = (c + 0.5) * b.bw;
+        const y = (r + 0.5) * b.bh;
         const first = Math.floor(seed * 4);
         for (let i = 0; i < arms; i++) {
           const [dx, dy] = ARMS[(first + i) % 4];
@@ -469,11 +516,10 @@ export class ScanEffect {
       }
     }
     if (!any) return;
-    const fade = clamp01(elapsed / SCAN.bandFadeMs);
     ctx.save();
     ctx.lineCap = "round";
     levels.forEach((path, i) => {
-      const alpha = (fade * (i + 1)) / 4;
+      const alpha = (ring.alpha * (i + 1)) / 4;
       ctx.strokeStyle = PAPER;
       ctx.globalAlpha = 0.18 * alpha;
       ctx.lineWidth = 7 * unit;

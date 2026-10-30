@@ -1219,9 +1219,9 @@ function setCalibScreen(phase: CalibScreenPhase, detail = "") {
   if (phase === "done") calibDone.textContent = detail;
   if (phase === "progress") {
     renderCalibPip();
-    scan.startBand(performance.now()); // the cross band runs over the person with the progress bar
+    scan.startRings(performance.now()); // rings of crosses spread over the person while the progress bar runs
     animateScan();
-  } else scan.stopBand();
+  } else scan.stopRings();
   calibScreen.scrollTop = 0;
 }
 
@@ -1256,7 +1256,7 @@ function renderScan() {
   scan.draw(ctx, video, result.faceLandmarks[0], values, bodyView, performance.now());
 }
 
-// The opening (it starts on the first face) and stage B's cross band are drawn every display frame, the rest on
+// The opening (it starts on the first face) and stage B's rings are drawn every display frame, the rest on
 // detector frames only.
 let scanFrame = 0;
 function animateScan() {

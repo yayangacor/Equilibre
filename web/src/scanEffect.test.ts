@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   armsShown,
-  bandCentre,
-  bandLight,
   blockCells,
   blockSize,
   bodyShape,
   boxOf,
+  cubicBezier,
   faceBox,
   gridCentre,
   inBody,
   personBlocks,
+  ringAt,
+  ringLight,
   SCAN,
   SCAN_TOTAL_MS,
   scanProgress,
@@ -180,34 +181,67 @@ describe("silhouetteBlocks (the fallback in the same blocks as the mask)", () =>
   });
 });
 
-describe("the cross band (stage B)", () => {
-  it("runs from the top of the person to the bottom in one pass and back up in the next", () => {
-    expect(bandCentre(0, 100, 400)).toBeCloseTo(100);
-    expect(bandCentre(SCAN.bandPassMs / 2, 100, 400)).toBeCloseTo(250);
-    expect(bandCentre(SCAN.bandPassMs, 100, 400)).toBeCloseTo(400);
-    expect(bandCentre(1.5 * SCAN.bandPassMs, 100, 400)).toBeCloseTo(250);
-    expect(bandCentre(2 * SCAN.bandPassMs, 100, 400)).toBeCloseTo(100);
-    // Slower at the ends than in the middle.
-    const step = SCAN.bandPassMs / 20;
-    const nearEnd = bandCentre(step, 100, 400) - bandCentre(0, 100, 400);
-    const middle = bandCentre(SCAN.bandPassMs / 2 + step, 100, 400) - bandCentre(SCAN.bandPassMs / 2, 100, 400);
-    expect(nearEnd).toBeLessThan(middle / 3);
+describe("cubicBezier", () => {
+  it("is the identity for a straight curve and pins both ends", () => {
+    const linear = cubicBezier(1 / 3, 1 / 3, 2 / 3, 2 / 3);
+    for (const t of [0.1, 0.37, 0.5, 0.82]) expect(linear(t)).toBeCloseTo(t, 5);
+    const ease = cubicBezier(...SCAN.ringEase);
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+    expect(ease(-0.5)).toBe(0);
+    expect(ease(1.5)).toBe(1);
   });
 
-  it("stays between the top and the bottom of the person", () => {
-    for (let t = 0; t < 4 * SCAN.bandPassMs; t += 97) {
-      const y = bandCentre(t, 100, 400);
-      expect(y).toBeGreaterThanOrEqual(100 - 1e-9);
-      expect(y).toBeLessThanOrEqual(400 + 1e-9);
+  it("matches the CSS ease-out curve (0, 0, 0.58, 1)", () => {
+    // From the Bernstein form: s = 0.5 gives x = 3·0.5·0.25·0.58 + 0.125 = 0.3425, y = 3·0.5·0.25 + 0.125 = 0.5.
+    expect(cubicBezier(0, 0, 0.58, 1)(0.3425)).toBeCloseTo(0.5, 4);
+  });
+});
+
+describe("the rings of crosses (stage B)", () => {
+  const reach = 400;
+  const at = (t: number) => ringAt(t * SCAN.pulseMs, reach)!;
+
+  it("starts as a point at the top and spreads to the farthest block", () => {
+    expect(at(0).radius).toBe(0);
+    expect(at(0).half).toBeCloseTo(SCAN.ringStart * reach);
+    expect(at(0.5).radius).toBeGreaterThan(0.5 * reach);
+    expect(at(0.999).radius).toBeCloseTo(reach, 0);
+    expect(at(0.999).half).toBeCloseTo(SCAN.ringEnd * reach, 0);
+    let last = -1;
+    for (let t = 0; t < 1; t += 0.01) {
+      expect(at(t).radius).toBeGreaterThanOrEqual(last); // only ever outwards
+      last = at(t).radius;
     }
   });
 
-  it("lights crosses at its centre and none half a band away or further (negative control)", () => {
-    expect(bandLight(0, 50)).toBe(1);
-    expect(bandLight(25, 50)).toBeCloseTo(0.5);
-    expect(bandLight(-25, 50)).toBeCloseTo(0.5);
-    expect(bandLight(50, 50)).toBe(0);
-    expect(bandLight(-80, 50)).toBe(0);
+  it("slows towards the end (negative control: a straight curve would not)", () => {
+    const early = at(0.4).radius - at(0.3).radius;
+    const late = at(0.9).radius - at(0.8).radius;
+    expect(late).toBeLessThan(early / 4);
+  });
+
+  it("fades in at once and out as it settles", () => {
+    expect(at(0).alpha).toBe(0);
+    expect(at(0.1).alpha).toBe(1);
+    expect(at(0.5).alpha).toBe(1);
+    expect(at(0.8).alpha).toBeGreaterThan(0);
+    expect(at(0.8).alpha).toBeLessThan(1);
+  });
+
+  it("rests between rings, then starts again from the point", () => {
+    expect(ringAt(SCAN.pulseMs + SCAN.pulseRestMs / 2, reach)).toBeNull();
+    const next = ringAt(SCAN.pulseMs + SCAN.pulseRestMs, reach)!;
+    expect(next.radius).toBe(0);
+    expect(ringAt(3 * (SCAN.pulseMs + SCAN.pulseRestMs) + SCAN.pulseMs / 2, reach)!.radius).toBeCloseTo(at(0.5).radius);
+  });
+
+  it("lights crosses on its line and none half a ring away or further (negative control)", () => {
+    expect(ringLight(0, 50)).toBe(1);
+    expect(ringLight(25, 50)).toBeCloseTo(0.5);
+    expect(ringLight(-25, 50)).toBeCloseTo(0.5);
+    expect(ringLight(50, 50)).toBe(0);
+    expect(ringLight(-80, 50)).toBe(0);
   });
 
   it("shows whole crosses in the lit middle and fragments towards the edges", () => {
