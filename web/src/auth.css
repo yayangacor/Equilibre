@@ -263,6 +263,76 @@ body.auth-body {
   width: 100%;
 }
 
+.auth-oauth {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.btn-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out), background 0.15s;
+}
+
+.btn-line:hover {
+  background: var(--paper-sunk);
+}
+
+.btn-line:active {
+  transform: translateY(1px);
+}
+
+.btn-line:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.btn-line.block {
+  width: 100%;
+}
+
+.btn-line[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.g-logo {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--rule);
+}
+
 .spinner {
   display: none;
   width: 14px;

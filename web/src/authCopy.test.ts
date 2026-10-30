@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authFailure, displayName, MIN_PASSWORD, nextPage, validate } from "./authCopy.ts";
+import { authFailure, displayName, MIN_PASSWORD, nextPage, oauthFailure, oauthRedirect, validate } from "./authCopy.ts";
 
 describe("validate", () => {
   it("asks for every field on sign up", () => {
@@ -52,11 +52,36 @@ describe("displayName and nextPage", () => {
     expect(displayName("ayu@kantor.id", {})).toBe("ayu");
   });
 
+  it("uses the name Google shares when there is no full_name", () => {
+    expect(displayName("ayu@gmail.com", { name: "Ayu L" })).toBe("Ayu L");
+    expect(displayName("ayu@gmail.com", { full_name: "", name: " " })).toBe("ayu");
+  });
+
   it("only returns to our own app page", () => {
     expect(nextPage("app.html#insights")).toBe("app.html#insights");
     expect(nextPage("app.html?riwayat=demo#insights")).toBe("app.html?riwayat=demo#insights");
     expect(nextPage("app.htmlx")).toBe("app.html");
     expect(nextPage("https://evil.example")).toBe("app.html");
     expect(nextPage(null)).toBe("app.html");
+  });
+});
+
+describe("Google sign-in (D-79)", () => {
+  it("comes back to the same page with only next kept", () => {
+    expect(oauthRedirect("https://equilibre-orcin.vercel.app/auth.html?next=app.html&x=1#signin", "app.html#insights")).toBe(
+      "https://equilibre-orcin.vercel.app/auth.html?next=app.html%23insights",
+    );
+    expect(oauthRedirect("http://localhost:5173/auth.html", "app.html")).toBe("http://localhost:5173/auth.html?next=app.html");
+  });
+
+  it("says why Google sign-in did not finish", () => {
+    expect(oauthFailure("?next=app.html&error=access_denied&error_code=access_denied", "")).toMatch(/cancelled/);
+    expect(oauthFailure("?next=app.html", "#error=server_error&error_description=x")).toMatch(/didn't finish/);
+    expect(oauthFailure("?next=app.html&code=abc", "")).toMatch(/didn't finish/);
+  });
+
+  it("stays quiet on a normal visit (negative control)", () => {
+    expect(oauthFailure("?next=app.html", "#signin")).toBeNull();
+    expect(oauthFailure("", "")).toBeNull();
   });
 });

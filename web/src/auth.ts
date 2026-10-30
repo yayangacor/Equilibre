@@ -1,10 +1,10 @@
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { displayName } from "./authCopy.ts";
 
-// Accounts (NOTES D-78): Supabase Auth, email + password. Supabase keeps the name, email, a password hash
-// and its sign-in logs; video, face points, labels, history and the baseline stay in this browser.
-// The publishable key is meant for browsers. Without both variables (a local run without a project) the app
-// opens without an account, as it did before D-78.
+// Accounts (NOTES D-78, D-79): Supabase Auth, email + password or Google. Supabase keeps the name, email, a
+// password hash (or the Google identity) and its sign-in logs; video, face points, labels, history and the
+// baseline stay in this browser. The publishable key is meant for browsers. Without both variables (a local run
+// without a project) the app opens without an account, as it did before D-78.
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
@@ -14,8 +14,24 @@ let client: SupabaseClient | null = null;
 
 export function supabase(): SupabaseClient | null {
   if (!ACCOUNTS) return null;
-  client ??= createClient(URL!, KEY!);
+  // PKCE: Google sends back "?code=…", which the client exchanges on load. The default (implicit) flow would put
+  // the tokens in the URL hash, which the auth page reads as its mode and the app as its page.
+  client ??= createClient(URL!, KEY!, { auth: { flowType: "pkce" } });
   return client;
+}
+
+// Whether "Continue with Google" is switched on in the Supabase project. Asked once on the auth page (no personal
+// data), so the button appears only when it works and turning the provider on needs no rebuild.
+export async function googleEnabled(): Promise<boolean> {
+  if (!ACCOUNTS) return false;
+  try {
+    const res = await fetch(`${URL}/auth/v1/settings`, { headers: { apikey: KEY! }, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return false;
+    const settings = (await res.json()) as { external?: Record<string, boolean> };
+    return settings.external?.google === true;
+  } catch {
+    return false;
+  }
 }
 
 export type Account = { id: string; email: string; name: string };

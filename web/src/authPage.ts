@@ -1,7 +1,17 @@
 import "./design/tokens.css";
 import "./auth.css";
-import { ACCOUNTS, accountOf, supabase } from "./auth.ts";
-import { authFailure, MIN_PASSWORD, nextPage, validate, type AuthInput, type AuthMode, type FieldErrors } from "./authCopy.ts";
+import { ACCOUNTS, accountOf, googleEnabled, supabase } from "./auth.ts";
+import {
+  authFailure,
+  MIN_PASSWORD,
+  nextPage,
+  oauthFailure,
+  oauthRedirect,
+  validate,
+  type AuthInput,
+  type AuthMode,
+  type FieldErrors,
+} from "./authCopy.ts";
 
 // Sign up / sign in (NOTES D-78), as the auth research recommended: one form for both modes, errors by
 // Supabase code under the field or in a summary, the password never cleared except after a wrong password,
@@ -32,6 +42,9 @@ const showButton = byId<HTMLButtonElement>("auth-show");
 const rule = byId("auth-password-rule");
 const forgot = byId<HTMLButtonElement>("auth-forgot");
 const forgotNote = byId("auth-forgot-note");
+const oauth = byId("auth-oauth");
+const google = byId<HTMLButtonElement>("auth-google");
+const googleText = byId("auth-google-text");
 
 const COPY: Record<AuthMode, { eyebrow: string; title: string; sub: string; submit: string; busy: string; cross: string; link: string; doc: string }> = {
   signup: {
@@ -167,7 +180,28 @@ async function onSubmit(event: SubmitEvent) {
   }
 }
 
+// Google (D-79): the browser leaves for Google and comes back to this page with "?code=…"; start() finishes it.
+async function onGoogle() {
+  if (busy) return;
+  clearErrors();
+  const sb = supabase();
+  if (!sb) return;
+  if (!navigator.onLine) {
+    showSummary(authFailure(null, false).message);
+    return;
+  }
+  google.setAttribute("aria-busy", "true");
+  googleText.textContent = "Opening Google…";
+  const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: oauthRedirect(location.href, next) } });
+  if (error) {
+    google.removeAttribute("aria-busy");
+    googleText.textContent = "Continue with Google";
+    showSummary(authFailure(error, navigator.onLine).message);
+  }
+}
+
 form.addEventListener("submit", (event) => void onSubmit(event));
+google.addEventListener("click", () => void onGoogle());
 switchToSignIn.addEventListener("click", () => {
   location.hash = "#signin";
   fields.password.value = "";
@@ -313,9 +347,18 @@ async function start() {
     form.hidden = true;
     return;
   }
-  // Already signed in on this browser: straight on.
+  // Already signed in on this browser, or just back from Google (the client exchanged "?code=…"): straight on.
   const { data } = await supabase()!.auth.getSession();
-  if (accountOf(data.session)) location.replace(next);
+  if (accountOf(data.session)) {
+    location.replace(next);
+    return;
+  }
+  const failure = oauthFailure(location.search, location.hash);
+  if (failure) {
+    showSummary(failure);
+    history.replaceState(null, "", oauthRedirect(location.href, next));
+  }
+  if (await googleEnabled()) oauth.hidden = false;
 }
 
 void start();

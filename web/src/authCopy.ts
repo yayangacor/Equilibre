@@ -66,11 +66,34 @@ export function authFailure(error: ErrorLike, online = true): AuthFailure {
   }
 }
 
-// The name shown in the app: the one given at sign up, else the part of the email before "@".
+// The name shown in the app: the one given at sign up (or by Google), else the part of the email before "@".
 export function displayName(email: string | undefined, metadata: Record<string, unknown> | undefined): string {
-  const name = metadata?.full_name;
-  if (typeof name === "string" && name.trim() !== "") return name.trim();
+  for (const name of [metadata?.full_name, metadata?.name]) {
+    if (typeof name === "string" && name.trim() !== "") return name.trim();
+  }
   return email?.split("@")[0] ?? "there";
+}
+
+// Where Google sends the user back (NOTES D-79): this same page with only "next" kept, so the page can finish the
+// sign-in and move on. Supabase accepts it only if the origin is in its Redirect URLs list.
+export function oauthRedirect(href: string, next: string): string {
+  const url = new URL(href);
+  url.search = new URLSearchParams({ next }).toString();
+  url.hash = "";
+  return url.toString();
+}
+
+// What to say when the page comes back from Google without a session. Supabase reports the failure in the query
+// (or, for some errors, the hash); "code" without a session means the exchange failed, e.g. another browser.
+export function oauthFailure(search: string, hash: string): string | null {
+  const query = new URLSearchParams(search);
+  const fragment = new URLSearchParams(hash.replace(/^#/, ""));
+  const error = query.get("error") ?? fragment.get("error");
+  if (error === "access_denied") return "Google sign-in was cancelled. Try again, or use your email.";
+  if (error !== null || query.has("code")) {
+    return "Google sign-in didn't finish. Try again in this browser, or use your email.";
+  }
+  return null;
 }
 
 // Where to go after signing in: back to the page that sent the user here, but only to our own pages.
