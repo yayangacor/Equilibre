@@ -57,13 +57,23 @@ async function createBodySegmenter(fileset: WasmFileset): Promise<ImageSegmenter
 
 // The person mask reduced to a coarse grid; the full mask is released right away.
 // `image` is the camera <video> in the app, a decoded dataset frame in extract.html.
-export function segmentBody(segmenter: ImageSegmenter, image: TexImageSource, t: number): BodyGrid | null {
+// `view` sees the same mask before it is released (the calibration scan draws a finer grid from it); the grid the
+// rules use does not depend on it.
+export function segmentBody(
+  segmenter: ImageSegmenter,
+  image: TexImageSource,
+  t: number,
+  view?: (mask: Float32Array, width: number, height: number) => void,
+): BodyGrid | null {
   const result = segmenter.segmentForVideo(image, t);
   try {
     // The selfie model has a single "person" mask; if a model also returns a
     // background mask first, the person is still the last one.
     const mask = result.confidenceMasks?.at(-1);
-    return mask ? maskToGrid(mask.getAsFloat32Array(), mask.width, mask.height) : null;
+    if (!mask) return null;
+    const data = mask.getAsFloat32Array();
+    view?.(data, mask.width, mask.height);
+    return maskToGrid(data, mask.width, mask.height);
   } finally {
     result.close();
   }

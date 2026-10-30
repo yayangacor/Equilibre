@@ -249,7 +249,8 @@ Tiga halaman (`web/index.html`, `web/auth.html`, `web/app.html`; Vite multi-page
 | **Debug** (di menu hanya saat **Debug mode** menyala di Settings atau lewat `?debug=1`) | Kamera dengan 6 titik EAR per mata dan mask tubuh, grafik EAR dengan batas pribadi, tile sinyal per frame, fitur jendela, baseline, skor pola kedip, JSON yang dikirim, unduh log CSV |
 
 **Kalibrasi** (`scanEffect.ts`): kamera biasa → begitu wajah pertama terlihat, garis scan menyapu dari atas ke bawah dalam
-1 detik dan mengubah tubuh (siluet kepala, leher, bahu, dan badan yang dibentuk dari titik wajah) menjadi piksel → 0,5 detik
+1 detik dan mengubah tubuh menjadi piksel (mask segmentasi tubuh dalam grid 48 kolom, hanya bagian yang tersambung ke wajah;
+bila mask tidak menyentuh wajah, siluet kepala-bahu dari titik wajah menggantikannya; Debug menulis posisi mask vs wajah) → 0,5 detik
 kemudian kotak berlabel di mata kiri, mata kanan, dan mulut dengan nilai langsung (EAR, Jaw Open), tetap tampil selama kalibrasi.
 Pembukaan digambar tiap frame layar, sesudahnya hanya pada frame detektor.
 
@@ -294,7 +295,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **352 test, 29 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, sapaan PiP, skor pola kedip, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **357 test, 29 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, sapaan PiP, skor pola kedip, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |

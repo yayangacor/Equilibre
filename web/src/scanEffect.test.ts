@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockSize, bodyShape, boxOf, inBody, SCAN, SCAN_TOTAL_MS, scanProgress } from "./scanEffect.ts";
+import { blockCells, blockSize, bodyShape, boxOf, faceBox, gridCentre, inBody, personBlocks, SCAN, SCAN_TOTAL_MS, scanProgress } from "./scanEffect.ts";
 
 describe("scanProgress", () => {
   it("shows the plain camera first, then sweeps in 1 s, then the boxes 0.5 s later", () => {
@@ -75,5 +75,65 @@ describe("bodyShape and inBody", () => {
   it("needs a face", () => {
     expect(bodyShape([], 640, 480)).toBeNull();
     expect(bodyShape([{ x: 0.5, y: 0.5 }], 640, 480)).toBeNull(); // no size
+  });
+});
+
+describe("personBlocks (the scan follows the body mask)", () => {
+  // A 12×9 mask on a 120×90 canvas (10 px cells): a person in the middle (head rows 1–3, torso rows 4–8) and a
+  // chair in the bottom-left corner that the model also marks, not touching the person.
+  const rows = [
+    "............",
+    ".....##.....",
+    "....####....",
+    ".....##.....",
+    "...######...",
+    "..########..",
+    "#.########..",
+    "#.########..",
+    "##########..",
+  ];
+  const view = {
+    cols: 12,
+    rows: 9,
+    cells: Float32Array.from(rows.join("").split(""), (ch) => (ch === "#" ? 0.9 : 0.05)),
+  };
+  const face = { x: 45, y: 12, w: 30, h: 26 }; // over the head cells
+  const on = (b: NonNullable<ReturnType<typeof personBlocks>>, c: number, r: number) => b.on[r * b.cols + c] === 1;
+
+  it("keeps the person connected to the face, down to the torso", () => {
+    const b = personBlocks(view, 1, face, 120, 90)!;
+    expect(on(b, 5, 1)).toBe(true); // head
+    expect(on(b, 5, 8)).toBe(true); // torso at the bottom
+  });
+
+  it("keeps a blob joined to the body and drops one apart from it", () => {
+    const b = personBlocks(view, 1, face, 120, 90)!;
+    expect(on(b, 0, 8)).toBe(true); // joined through row 8
+    const apart = { ...view, cells: view.cells.slice() };
+    apart.cells[8 * 12 + 1] = 0.05; // cut the join
+    const c = personBlocks(apart, 1, face, 120, 90)!;
+    expect(on(c, 0, 6)).toBe(false); // negative control: a separate chair is not pixelated
+    expect(on(c, 5, 6)).toBe(true);
+  });
+
+  it("gives null when no person block overlaps the face (the mask beside the body, G-95)", () => {
+    expect(personBlocks(view, 1, { x: 100, y: 5, w: 15, h: 10 }, 120, 90)).toBeNull();
+  });
+
+  it("merges cells into coarser blocks while the line passes", () => {
+    const b = personBlocks(view, 3, face, 120, 90)!;
+    expect([b.cols, b.rows, b.bw, b.bh]).toEqual([4, 3, 30, 30]);
+    expect(blockCells(0)).toBe(3);
+    expect(blockCells(0.5)).toBe(2);
+    expect(blockCells(1)).toBe(1);
+  });
+
+  it("reports where the mask and the face are for Debug", () => {
+    const centre = gridCentre(view)!;
+    expect(centre.x).toBeGreaterThan(0.35);
+    expect(centre.x).toBeLessThan(0.6);
+    expect(centre.y).toBeGreaterThan(0.5);
+    expect(gridCentre({ cols: 2, rows: 1, cells: new Float32Array(2) })).toBeNull();
+    expect(faceBox([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.6 }], 1, 1)).toEqual({ x: 0.2, y: 0.3, w: 0.2, h: 0.3 });
   });
 });

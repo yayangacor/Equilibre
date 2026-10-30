@@ -1,12 +1,14 @@
+import type { BodyGrid } from "./body.ts";
 import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 
 // The calibration scan (NOTES D-78, the user's "Tab UX Calibration" sheet): the plain camera → a scan line sweeps
 // down in 1 s and turns the person into pixels → 0.5 s later, labelled boxes appear on the left eye, the right eye
 // and the mouth with their live values, named as on the Debug page (EAR, Jaw Open). Canvas 2D on the camera's
 // overlay canvas; the canvas is mirrored with the video, so text is flipped back.
-// The person is a silhouette built from the face landmarks (head, neck, shoulders, torso), not the body
-// segmentation grid: that grid is fine for the area and motion the rules use, but on the user's laptop (30 Oct) its
-// cells landed beside the body, while the face landmarks always sit on the face.
+// The pixels follow the body segmentation mask (a finer grid of the same mask the rules use), kept only where it
+// connects to the face, so a chair the model also marks stays clear. When no part of the mask touches the face (on
+// the user's laptop, 30 Oct, the mask landed beside the body, G-95), a head-and-shoulders silhouette built from the
+// face landmarks stands in.
 // The timeline starts on the first frame with a face, so the sweep is never spent before there is a picture.
 
 export const SCAN = {
@@ -15,7 +17,9 @@ export const SCAN = {
   settleMs: 600, // the blocks shrink from coarse to fine once the line has passed
   boxesAfterMs: 500,
   boxesInMs: 350,
-  pixel: 14, // px of the camera image per block, once settled
+  viewCols: 48, // columns of the display grid drawn from the body mask
+  personAt: 0.5, // mask confidence that counts as the person
+  pixel: 14, // px of the camera image per block in the silhouette fallback, once settled
   coarsePixel: 32,
   keepShapeMs: 1000, // a face lost for a moment keeps its silhouette
   waitForFaceMs: 30_000, // after this, only detector frames redraw while no face has been seen
@@ -40,6 +44,11 @@ export function scanProgress(elapsed: number): { sweep: number; settle: number; 
 // Block size in canvas px: coarse while the line passes, then settling to SCAN.pixel.
 export function blockSize(settle: number): number {
   return Math.round(SCAN.coarsePixel + (SCAN.pixel - SCAN.coarsePixel) * easeOut(clamp01(settle)));
+}
+
+// Mask cells per block side: 3 while the line passes, then 2, then 1.
+export function blockCells(settle: number): number {
+  return settle < 1 / 3 ? 3 : settle < 2 / 3 ? 2 : 1;
 }
 
 export type Point = { x: number; y: number };
@@ -79,7 +88,8 @@ export type BodyShape = {
   bottom: number;
 };
 
-export function bodyShape(landmarks: readonly Point[], width: number, height: number): BodyShape | null {
+// The box around all face landmarks in canvas px, or null without a face of some size.
+export function faceBox(landmarks: readonly Point[], width: number, height: number): Box | null {
   if (landmarks.length === 0) return null;
   let minX = Infinity;
   let maxX = -Infinity;
@@ -91,9 +101,17 @@ export function bodyShape(landmarks: readonly Point[], width: number, height: nu
     minY = Math.min(minY, p.y * height);
     maxY = Math.max(maxY, p.y * height);
   }
-  const fw = maxX - minX;
-  const fh = maxY - minY;
-  if (!(fw > 0 && fh > 0)) return null;
+  const w = maxX - minX;
+  const h = maxY - minY;
+  return w > 0 && h > 0 ? { x: minX, y: minY, w, h } : null;
+}
+
+export function bodyShape(landmarks: readonly Point[], width: number, height: number): BodyShape | null {
+  const face = faceBox(landmarks, width, height);
+  if (!face) return null;
+  const { x: minX, y: minY, w: fw, h: fh } = face;
+  const maxX = minX + fw;
+  const maxY = minY + fh;
   const shoulderY = maxY + 0.45 * fh;
   return {
     cx: (minX + maxX) / 2,
@@ -126,6 +144,74 @@ export function inBody(s: BodyShape, x: number, y: number): boolean {
   return Math.abs(x - s.cx) <= half;
 }
 
+// The person in blocks of k×k mask cells: on where the block's mean confidence counts as the person, then only the
+// blocks connected (4-neighbours) to one that overlaps the face. Null when no person block overlaps the face.
+export type Blocks = { cols: number; rows: number; bw: number; bh: number; on: Uint8Array };
+
+export function personBlocks(view: BodyGrid, k: number, face: Box, width: number, height: number): Blocks | null {
+  const cols = Math.ceil(view.cols / k);
+  const rows = Math.ceil(view.rows / k);
+  const bw = (k * width) / view.cols;
+  const bh = (k * height) / view.rows;
+  const person = new Uint8Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let sum = 0;
+      let n = 0;
+      for (let y = r * k; y < Math.min(view.rows, (r + 1) * k); y++) {
+        for (let x = c * k; x < Math.min(view.cols, (c + 1) * k); x++) {
+          sum += view.cells[y * view.cols + x];
+          n++;
+        }
+      }
+      if (n > 0 && sum / n >= SCAN.personAt) person[r * cols + c] = 1;
+    }
+  }
+  const on = new Uint8Array(cols * rows);
+  const queue: number[] = [];
+  const c0 = Math.max(0, Math.floor(face.x / bw));
+  const c1 = Math.min(cols - 1, Math.floor((face.x + face.w) / bw));
+  const r0 = Math.max(0, Math.floor(face.y / bh));
+  const r1 = Math.min(rows - 1, Math.floor((face.y + face.h) / bh));
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c <= c1; c++) {
+      const i = r * cols + c;
+      if (person[i] && !on[i]) {
+        on[i] = 1;
+        queue.push(i);
+      }
+    }
+  }
+  if (queue.length === 0) return null;
+  while (queue.length > 0) {
+    const i = queue.pop()!;
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    const next = [r > 0 ? i - cols : -1, r < rows - 1 ? i + cols : -1, c > 0 ? i - 1 : -1, c < cols - 1 ? i + 1 : -1];
+    for (const j of next) {
+      if (j >= 0 && person[j] && !on[j]) {
+        on[j] = 1;
+        queue.push(j);
+      }
+    }
+  }
+  return { cols, rows, bw, bh, on };
+}
+
+// The confidence-weighted centre of a grid, normalised 0–1 (Debug's mask readout); null for an empty grid.
+export function gridCentre(view: BodyGrid): Point | null {
+  let sum = 0;
+  let sx = 0;
+  let sy = 0;
+  for (let i = 0; i < view.cells.length; i++) {
+    const v = view.cells[i];
+    sum += v;
+    sx += v * ((i % view.cols) + 0.5);
+    sy += v * (Math.floor(i / view.cols) + 0.5);
+  }
+  return sum > 0 ? { x: sx / sum / view.cols, y: sy / sum / view.rows } : null;
+}
+
 export type ScanValues = { earLeft: number; earRight: number; jawOpen: number };
 
 const PAPER = "#f6f5f1";
@@ -135,8 +221,11 @@ export class ScanEffect {
   private armedAt = 0;
   private startedAt = 0;
   private shape: BodyShape | null = null;
+  private face: Box | null = null;
   private shapeAt = 0;
   private readonly small = document.createElement("canvas");
+  // Whether the last frame drew the mask (true) or the silhouette fallback (false); for Debug.
+  followsMask = false;
 
   get running(): boolean {
     return this.armedAt > 0;
@@ -162,15 +251,26 @@ export class ScanEffect {
     return now - this.startedAt < SCAN_TOTAL_MS;
   }
 
-  // Draws one frame on a cleared canvas the size of the video.
-  draw(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, landmarks: readonly Point[] | undefined, values: ScanValues | null, now: number) {
+  // Draws one frame on a cleared canvas the size of the video. `view` is the finer grid of the latest body mask.
+  draw(
+    ctx: CanvasRenderingContext2D,
+    video: HTMLVideoElement,
+    landmarks: readonly Point[] | undefined,
+    values: ScanValues | null,
+    view: BodyGrid | null,
+    now: number,
+  ) {
     if (!this.running) return;
     const { width: w, height: h } = ctx.canvas;
     const found = landmarks ? bodyShape(landmarks, w, h) : null;
-    if (found) {
+    if (found && landmarks) {
       this.shape = found;
+      this.face = faceBox(landmarks, w, h);
       this.shapeAt = now;
-    } else if (now - this.shapeAt > SCAN.keepShapeMs) this.shape = null;
+    } else if (now - this.shapeAt > SCAN.keepShapeMs) {
+      this.shape = null;
+      this.face = null;
+    }
     if (this.startedAt === 0) {
       if (!this.shape) return; // the plain camera until a face shows
       this.startedAt = now;
@@ -180,7 +280,12 @@ export class ScanEffect {
     const unit = 1 / scale;
     const { sweep, settle, boxes } = scanProgress(now - this.startedAt);
     const lineY = sweep * h;
-    if (this.shape && sweep > 0) this.pixelate(ctx, video, this.shape, w, h, lineY, blockSize(settle), unit);
+    if (this.shape && sweep > 0) {
+      const blocks = view && this.face ? personBlocks(view, blockCells(settle), this.face, w, h) : null;
+      this.followsMask = blocks !== null;
+      if (blocks) this.pixelateBlocks(ctx, video, blocks, w, h, lineY, unit);
+      else this.pixelate(ctx, video, this.shape, w, h, lineY, blockSize(settle), unit);
+    }
     if (sweep > 0 && sweep < 1) this.sweepLine(ctx, w, lineY, sweep, unit);
     if (boxes > 0 && landmarks && values && this.shape) this.boxes(ctx, landmarks, values, this.shape.cx, w, h, easeOut(boxes), unit);
   }
@@ -202,7 +307,57 @@ export class ScanEffect {
     this.label(ctx, `SCANNING ${Math.round(sweep * 100)}%`, w - 70 * unit, lineY - 12 * unit, 1, false, unit);
   }
 
-  // The person above the scan line, as blocks of the camera image with a thin grid between them.
+  // The person from the mask above the scan line, as blocks of the camera image with a thin grid between them.
+  private pixelateBlocks(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, b: Blocks, w: number, h: number, lineY: number, unit: number) {
+    if (this.small.width !== b.cols || this.small.height !== b.rows) {
+      this.small.width = b.cols;
+      this.small.height = b.rows;
+    }
+    const sctx = this.small.getContext("2d");
+    if (!sctx) return;
+    // The last block may run past the frame's edge: sample the frame at the blocks' own scale.
+    sctx.drawImage(video, 0, 0, w / b.bw, h / b.bh);
+    ctx.save();
+    ctx.beginPath();
+    let any = false;
+    for (let r = 0; r < b.rows; r++) {
+      const y = r * b.bh;
+      if (y > lineY) break;
+      for (let c = 0; c < b.cols; c++) {
+        if (!b.on[r * b.cols + c]) continue;
+        ctx.rect(c * b.bw, y, b.bw, Math.min(b.bh, lineY - y));
+        any = true;
+      }
+    }
+    if (!any) {
+      ctx.restore();
+      return;
+    }
+    ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.small, 0, 0, b.cols * b.bw, b.rows * b.bh);
+    this.blockGrid(ctx, b.cols, b.rows, b.bw, b.bh, w, h, unit);
+    ctx.restore();
+  }
+
+  private blockGrid(ctx: CanvasRenderingContext2D, cols: number, rows: number, bw: number, bh: number, w: number, h: number, unit: number) {
+    ctx.fillStyle = "rgb(18 21 24 / 0.18)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgb(246 245 241 / 0.28)";
+    ctx.lineWidth = unit;
+    ctx.beginPath();
+    for (let c = 0; c <= cols; c++) {
+      ctx.moveTo(c * bw, 0);
+      ctx.lineTo(c * bw, h);
+    }
+    for (let r = 0; r <= rows; r++) {
+      ctx.moveTo(0, r * bh);
+      ctx.lineTo(w, r * bh);
+    }
+    ctx.stroke();
+  }
+
+  // Fallback: a silhouette from the face above the scan line, as blocks of the camera image.
   private pixelate(
     ctx: CanvasRenderingContext2D,
     video: HTMLVideoElement,
@@ -244,20 +399,7 @@ export class ScanEffect {
     ctx.clip();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.small, 0, 0, w, h);
-    ctx.fillStyle = "rgb(18 21 24 / 0.18)";
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = "rgb(246 245 241 / 0.28)";
-    ctx.lineWidth = unit;
-    ctx.beginPath();
-    for (let c = 0; c <= sw; c++) {
-      ctx.moveTo(c * bw, 0);
-      ctx.lineTo(c * bw, h);
-    }
-    for (let r = 0; r <= sh; r++) {
-      ctx.moveTo(0, r * bh);
-      ctx.lineTo(w, r * bh);
-    }
-    ctx.stroke();
+    this.blockGrid(ctx, sw, sh, bw, bh, w, h, unit);
     ctx.restore();
   }
 

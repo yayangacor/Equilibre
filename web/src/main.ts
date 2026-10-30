@@ -13,7 +13,7 @@ import {
   type AutoTarget,
 } from "./autoSend.ts";
 import { BLINK_SEQUENCE, calibrateBlinks, MIN_SCORE_BLINKS } from "./blinkScore.ts";
-import { bodyPresent, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
+import { bodyPresent, maskToGrid, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
 import {
   BASELINE_KEY,
   computeBaseline,
@@ -74,7 +74,7 @@ import {
 import { Router } from "./router.ts";
 import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
-import { ScanEffect } from "./scanEffect.ts";
+import { faceBox, gridCentre, ScanEffect, SCAN } from "./scanEffect.ts";
 import { stateName } from "./stateCopy.ts";
 import { heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
@@ -938,7 +938,25 @@ function renderLiveTiles(s: FrameSignal | null = sessionLog.at(-1) ?? null) {
 }
 
 let lastMatrixRender = 0;
+// Where the body mask puts the person next to where the face is (G-95): the numbers that tell a mask placed beside
+// the body from one on it, without a picture of the camera.
+let lastBodyDiag = 0;
+function renderBodyDiag(result: FaceLandmarkerResult) {
+  const now = performance.now();
+  if (now - lastBodyDiag < 500) return;
+  lastBodyDiag = now;
+  const pair = (p: { x: number; y: number } | null) => (p ? `${p.x.toFixed(2)}, ${p.y.toFixed(2)}` : "–");
+  const person = bodyView ? gridCentre(bodyView) : null;
+  const face = result.faceLandmarks[0] ? faceBox(result.faceLandmarks[0], 1, 1) : null;
+  const size = maskSize ? `${maskSize.width}×${maskSize.height} (${maskSize.values} values)` : "–";
+  byId("body-diag").textContent =
+    `Body mask ${size} · video ${video.videoWidth}×${video.videoHeight} · person centre ${pair(person)} · ` +
+    `face centre ${pair(face && { x: face.x + face.w / 2, y: face.y + face.h / 2 })} · ` +
+    `last scan: ${scan.followsMask ? "mask" : "silhouette"}`;
+}
+
 function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
+  renderBodyDiag(result);
   const ctx = overlayContext();
   if (!ctx) return;
   if (grid) {
@@ -1048,7 +1066,10 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const result = landmarker.detectForVideo(video, now);
       if (segmenter && now - lastBodyT >= BODY_INTERVAL_MS) {
         lastBodyT = now;
-        const next = segmentBody(segmenter, video, now);
+        const next = segmentBody(segmenter, video, now, (mask, width, height) => {
+          bodyView = maskToGrid(mask, width, height, SCAN.viewCols);
+          maskSize = { width, height, values: mask.length };
+        });
         if (next) {
           const body = toBodySample(next, grid, now);
           grid = next;
@@ -1205,13 +1226,16 @@ function closeCalibScreen() {
 
 const scan = new ScanEffect();
 let scanInput: { result: FaceLandmarkerResult; signal: FrameSignal } | null = null;
+// A finer grid of the latest body mask (SCAN.viewCols columns), for the scan only; the rules use their own grid.
+let bodyView: BodyGrid | null = null;
+let maskSize: { width: number; height: number; values: number } | null = null;
 
 function renderScan() {
   const ctx = overlayContext();
   if (!ctx || !scanInput) return;
   const { result, signal } = scanInput;
   const values = signal.face ? { earLeft: signal.earLeft, earRight: signal.earRight, jawOpen: signal.jawOpen } : null;
-  scan.draw(ctx, video, result.faceLandmarks[0], values, performance.now());
+  scan.draw(ctx, video, result.faceLandmarks[0], values, bodyView, performance.now());
 }
 
 // The camera box moves into the screen. The opening (it starts on the first face) is drawn every display frame,
