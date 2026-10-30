@@ -137,7 +137,7 @@ describe("Monitor: long rest advice", () => {
     play(monitor, 2 * 60, drowsy, 14 * 60_000, steps);
     const after = steps.at(-1)!;
     expect(after.menitLelah).toBeGreaterThanOrEqual(15);
-    expect(after.saran).toMatch(/^Dalam 60 menit terakhir kamu 1\d menit dalam kondisi "lelah"/);
+    expect(after.saran).toMatch(/^In the last 60 min you spent 1\d min "Tired"/);
   });
 
   it("does not count the held minutes before tertidur", () => {

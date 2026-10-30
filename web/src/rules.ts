@@ -1,5 +1,6 @@
 import type { Baseline } from "./calibration.ts";
 import type { WindowFeatures } from "./features.ts";
+import { LOCALE } from "./format.ts";
 
 // Same list as server/src/features.ts.
 export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di depan layar"] as const;
@@ -80,9 +81,9 @@ export const ADVICE = {
 export function longRestAdvice(menitLelah: number): string | null {
   if (menitLelah < ADVICE.longRestMinutes) return null;
   return (
-    `Dalam ${ADVICE.historyMinutes} menit terakhir kamu ${Math.floor(menitLelah)} menit dalam kondisi "lelah" ` +
-    `atau "tertidur" (batas ${ADVICE.longRestMinutes} menit). Sebaiknya berhenti dulu dan istirahat yang cukup. ` +
-    "Kalau badan terasa kurang fit, pertimbangkan untuk minta izin."
+    `In the last ${ADVICE.historyMinutes} min you spent ${Math.floor(menitLelah)} min "Tired" ` +
+    `or "Asleep" (limit ${ADVICE.longRestMinutes} min). Stop for now and get proper rest. ` +
+    "If you feel unwell, consider taking time off."
   );
 }
 
@@ -97,15 +98,15 @@ export type Evaluation = {
   label: Label;
   skor: number; // 0–1, temporary until the RLDD classifier gives probabilities (24–26 Sep)
   poin: number;
-  alasan: string[]; // one Indonesian sentence per triggered rule: the explainability part
+  alasan: string[]; // one sentence per triggered rule: the explainability part
   tanda: Tanda[]; // the same triggered rules by name, in the same order
   catatan: string[]; // context that did not count toward the label (e.g. head down)
 };
 
-const number = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+const number = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 const pct = (x: number) => `${number.format(x * 100)}%`;
 const ms = (x: number) => `${Math.round(x)} ms`;
-const spanOf = (f: WindowFeatures) => `${Math.round(f.durasi_jendela_detik)} detik terakhir`;
+const spanOf = (f: WindowFeatures) => `the last ${Math.round(f.durasi_jendela_detik)} s`;
 
 // Eyes not seen open, most of the body in view, and still. minutes = the lookback
 // length, whose data must be complete enough; undefined for the current window.
@@ -124,21 +125,21 @@ function looksAsleep(f: WindowFeatures, minutes?: number): boolean {
 function sleepReasons(f: WindowFeatures, lookback: SleepLookback | null): { alasan: string[]; tanda: Tanda } | null {
   if (!lookback || !looksAsleep(f)) return null;
   const reasons = (eyes: string, w: WindowFeatures, minutes: number) => [
-    `${eyes} selama ${minutes} menit terakhir, dan hanya terlihat terbuka ${pct(w.pct_mata_terbuka ?? 0)} ` +
-      `(batas ${pct(SLEEP.maxEyesOpen)}).`,
-    `Tubuh tetap di depan kamera dan diam ${pct(w.pct_tubuh_diam ?? 0)} dari waktu itu (batas ${pct(SLEEP.minStill)}).`,
+    `${eyes} over the last ${minutes} min, and seen open only ${pct(w.pct_mata_terbuka ?? 0)} ` +
+      `(limit ${pct(SLEEP.maxEyesOpen)}).`,
+    `Body stayed in front of the camera and still ${pct(w.pct_tubuh_diam ?? 0)} of that time (limit ${pct(SLEEP.minStill)}).`,
   ];
   const { eyesClosed: closed, eyesHidden: hidden } = lookback;
   const closedShare = closed.pct_mata_tertutup ?? 0;
   if (looksAsleep(closed, lookback.eyesClosedMinutes) && closedShare >= SLEEP.minEyesClosed) {
     return {
-      alasan: reasons(`Mata terlihat terpejam ${pct(closedShare)}`, closed, lookback.eyesClosedMinutes),
+      alasan: reasons(`Eyes closed ${pct(closedShare)}`, closed, lookback.eyesClosedMinutes),
       tanda: "tertidur_mata_terpejam",
     };
   }
   if (looksAsleep(hidden, lookback.eyesHiddenMinutes)) {
     return {
-      alasan: reasons("Mata tidak terlihat (wajah tersembunyi atau kepala tertunduk)", hidden, lookback.eyesHiddenMinutes),
+      alasan: reasons("Eyes not seen (face hidden or head down)", hidden, lookback.eyesHiddenMinutes),
       tanda: "tertidur_mata_tak_terlihat",
     };
   }
@@ -161,11 +162,11 @@ export function hiddenFaceNote(f: WindowFeatures, sleepMinutes: number = SLEEP.e
   const open = f.pct_mata_terbuka ?? 0;
   const next =
     open > SLEEP.maxEyesOpen
-      ? `Mata masih sempat terlihat terbuka ${pct(open)} (batas ${pct(SLEEP.maxEyesOpen)}), jadi belum dianggap tertidur.`
-      : `Kalau tubuh tetap diam dan mata tidak terlihat terbuka selama ${sleepMinutes} menit, statusnya menjadi "tertidur".`;
+      ? `Eyes still seen open ${pct(open)} (limit ${pct(SLEEP.maxEyesOpen)}), so this does not count as asleep.`
+      : `If you stay still and your eyes are not seen open for ${sleepMinutes} min, the state becomes "Asleep".`;
   return (
-    `Mata tidak terlihat ${pct(unseen)} dari ${spanOf(f)} (wajah tersembunyi atau menunduk), tapi tubuhmu masih ` +
-    "terdeteksi, mungkin sedang melihat HP atau dokumen. Mata tidak bisa dinilai, jadi label terakhir dipertahankan. " +
+    `Eyes not seen ${pct(unseen)} of ${spanOf(f)} (face hidden or head down), but you are still ` +
+    "in view, perhaps looking at a phone or a document. The eyes cannot be judged, so the last state is kept. " +
     next
   );
 }
@@ -175,8 +176,8 @@ export function lowFpsNote(f: WindowFeatures): string | null {
   const fps = f.n_frame / f.durasi_jendela_detik;
   if (fps >= RULES.minWindowFps) return null;
   return (
-    `Kamera hanya terbaca ±${number.format(fps)} fps dari ${spanOf(f)} (minimal ${RULES.minWindowFps} fps), ` +
-    "biasanya karena tab Equilibre tidak terlihat. Pemantauan dijeda, jadi label terakhir dipertahankan."
+    `The camera read only ±${number.format(fps)} fps over ${spanOf(f)} (minimum ${RULES.minWindowFps} fps), ` +
+    "usually because the Equilibre tab is not visible. Monitoring paused, so the last state is kept."
   );
 }
 
@@ -195,7 +196,7 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
       label: "tidak di depan layar",
       skor: 0,
       poin: 0,
-      alasan: [`Wajah tidak terdeteksi ${pct(f.pct_wajah_hilang)} dari ${span} (batas ${pct(RULES.awayFaceMissing)}).`],
+      alasan: [`Face not detected ${pct(f.pct_wajah_hilang)} of ${span} (limit ${pct(RULES.awayFaceMissing)}).`],
       tanda: [],
       catatan: [],
     };
@@ -212,7 +213,7 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
 
   if (f.perclos !== null && f.perclos >= RULES.perclosMild) {
     const limit = perclosTired ? RULES.perclosTired : RULES.perclosMild;
-    point("mata_sering_tertutup", `Mata tertutup ${pct(f.perclos)} dari ${span} (batas ${pct(limit)}).`);
+    point("mata_sering_tertutup", `Eyes closed ${pct(f.perclos)} of ${span} (limit ${pct(limit)}).`);
   }
   if (
     f.durasi_kedip_ms !== null &&
@@ -221,31 +222,31 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
   ) {
     point(
       "kedipan_lambat",
-      `Kedipan rata-rata ${ms(f.durasi_kedip_ms)}, lebih lambat dari biasanya ` +
-        `(${ms(baseline.blinkDurationMs)}; batas ${ms(RULES.slowBlinkFactor * baseline.blinkDurationMs)}).`,
+      `Blinks average ${ms(f.durasi_kedip_ms)}, slower than usual ` +
+        `(${ms(baseline.blinkDurationMs)}; limit ${ms(RULES.slowBlinkFactor * baseline.blinkDurationMs)}).`,
     );
   }
   if (f.menguap >= RULES.yawns) {
-    point("menguap", `Menguap ${f.menguap}× dalam ${span}.`);
+    point("menguap", `Yawned ${f.menguap}× in ${span}.`);
   }
   if (f.mata_tertutup_lama >= RULES.longClosures) {
-    point("mata_terpejam_lama", `Mata terpejam 1 detik atau lebih sebanyak ${f.mata_tertutup_lama}× dalam ${span}.`);
+    point("mata_terpejam_lama", `Eyes closed for 1 s or longer ${f.mata_tertutup_lama}× in ${span}.`);
   }
   const fastBlinkLimit = RULES.fastBlinkFactor * baseline.blinkPerMin;
   if (f.kedip_per_menit !== null && baseline.blinkPerMin > 0 && f.kedip_per_menit >= fastBlinkLimit) {
     const blinks =
-      `Berkedip ${number.format(f.kedip_per_menit)}×/menit, lebih sering dari biasanya ` +
-      `(${number.format(baseline.blinkPerMin)}; batas ${number.format(fastBlinkLimit)})`;
+      `Blinking ${number.format(f.kedip_per_menit)}×/min, more often than usual ` +
+      `(${number.format(baseline.blinkPerMin)}; limit ${number.format(fastBlinkLimit)})`;
     if (tanda.length > 0) {
       point("kedipan_sering", `${blinks}.`);
     } else {
-      catatan.push(`${blinks}, tapi tidak dihitung karena tidak ada tanda lelah lain.`);
+      catatan.push(`${blinks}, but not counted because there is no other sign of fatigue.`);
     }
   }
   if (f.pct_kepala_menunduk !== null && f.pct_kepala_menunduk >= RULES.headDownNote) {
     catatan.push(
-      `Kepala menunduk ${pct(f.pct_kepala_menunduk)} dari ${span}, mungkin sedang melihat HP atau dokumen. ` +
-        "Menunduk saja tidak dihitung sebagai tanda lelah, dan mata tidak dinilai selama menunduk.",
+      `Head down ${pct(f.pct_kepala_menunduk)} of ${span}, perhaps looking at a phone or a document. ` +
+        "Head down alone is not a sign of fatigue, and the eyes are not judged while the head is down.",
     );
   }
 
@@ -272,8 +273,8 @@ export function withBlinkPattern(e: Evaluation | null, pattern: BlinkPattern | n
     skor: 0.25, // one point, as in classify()
     poin: 1,
     alasan: [
-      `Pola ${pattern.n} kedipan terakhir mirip pola orang mengantuk: skor ${pct(pattern.chance)} ` +
-        `(batas ${pct(BLINK_PATTERN_THRESHOLD)}).`,
+      `Your last ${pattern.n} blinks look like a drowsy blink pattern: score ${pct(pattern.chance)} ` +
+        `(limit ${pct(BLINK_PATTERN_THRESHOLD)}).`,
     ],
     tanda: ["pola_kedip"],
   };

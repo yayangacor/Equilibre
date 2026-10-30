@@ -3,7 +3,7 @@ import type { DaySummary } from "./history.ts";
 import type { Label } from "./rules.ts";
 import { PERTANYAAN_MAX, PERTANYAAN_MIN, toTanyaBody, toTanyaView, type TanyaResponse } from "./tanya.ts";
 
-// "Tanya Equilibre" page (plan P07, laid out as a conversation in plan P14): a question → POST
+// "Ask Equilibre" page (plan P07, laid out as a conversation in plan P14): a question → POST
 // /api/tanya → IBM Bob answers through the Langflow flows over MCP. Each question is still answered
 // on its own (no multi-turn, NOTES D-08); the thread only keeps this page load's questions in view.
 // Every text from the answer goes in via textContent.
@@ -19,10 +19,10 @@ function el(tag: string, text: string, className?: string): HTMLElement {
 
 // One per flow Bob can pick (ringkasan_harian, cari_panduan), so a first try shows both.
 export const SUGGESTIONS = [
-  "Gimana kondisiku hari ini?",
-  "Kenapa aku disarankan istirahat?",
-  "Kenapa mata terasa lelah setelah lama di depan layar?",
-  "Apa itu aturan 20-20-20?",
+  "How am I doing today?",
+  "Why was I advised to take a break?",
+  "Why do my eyes feel tired after a long time at the screen?",
+  "What is the 20-20-20 rule?",
 ] as const;
 
 export type TanyaDeps = {
@@ -62,7 +62,7 @@ export class TanyaPanel {
     if (DEMO) {
       this.setBusy(true); // nothing to answer with: the demo build has no backend
       this.input.disabled = true;
-      this.input.placeholder = "Tidak aktif di demo online";
+      this.input.placeholder = "Not available in the online demo";
       this.thread.before(demoCallout(DEMO_NOTE.tanya));
     }
   }
@@ -77,7 +77,7 @@ export class TanyaPanel {
     const pertanyaan = this.input.value.trim();
     if (this.asking) return;
     if (pertanyaan.length < PERTANYAAN_MIN) {
-      this.status.textContent = `Tulis pertanyaan minimal ${PERTANYAAN_MIN} karakter.`;
+      this.status.textContent = `Type at least ${PERTANYAAN_MIN} characters.`;
       return;
     }
     const { label, menitLelah60 } = this.deps.context();
@@ -86,7 +86,7 @@ export class TanyaPanel {
     this.status.textContent = "";
     this.input.value = "";
     this.thread.append(this.bubble("me", [el("p", pertanyaan)]));
-    const pending = this.bubble("bob pending", [el("p", "Bob sedang mencari jawaban lewat flow Langflow")]);
+    const pending = this.bubble("bob pending", [el("p", "Bob is finding an answer through the Langflow flows")]);
     const dots = el("span", "", "typing");
     dots.append(el("span", ""), el("span", ""), el("span", ""));
     pending.querySelector("p")!.append(dots);
@@ -99,10 +99,10 @@ export class TanyaPanel {
         body: JSON.stringify(body),
       });
       const reply = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(reply.error ?? `Backend tidak menjawab (HTTP ${res.status}). Pastikan server sudah jalan.`);
+      if (!res.ok) throw new Error(reply.error ?? `The backend did not answer (HTTP ${res.status}). Check that the server is running.`);
       pending.replaceWith(this.answer(reply as TanyaResponse));
     } catch (err) {
-      const message = err instanceof TypeError ? "Tidak bisa menghubungi backend." : (err as Error).message;
+      const message = err instanceof TypeError ? "Cannot reach the backend." : (err as Error).message;
       pending.replaceWith(this.bubble("bob failed", [el("p", message)]));
       this.input.value = pertanyaan; // nothing lost: the question can be sent again
     } finally {

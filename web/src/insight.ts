@@ -1,3 +1,4 @@
+import { LOCALE } from "./format.ts";
 import type { DaySummary, EvaluationRecord } from "./history.ts";
 import type { Label } from "./rules.ts";
 
@@ -97,20 +98,20 @@ export function peakFatigueHour(s: DaySummary): { jam: number; menit: number } |
   return best;
 }
 
-// "45 mnt", "1 jam 5 mnt", "3 jam". What would round to 0 but is not 0 reads "< 1 mnt".
+// "45 min", "1 h 05 min", "3 h". What would round to 0 but is not 0 reads "< 1 min".
 export function formatDuration(minutes: number): string {
-  if (minutes > 0 && minutes < 0.5) return "< 1 mnt";
+  if (minutes > 0 && minutes < 0.5) return "< 1 min";
   const total = Math.round(minutes);
   const hours = Math.floor(total / 60);
   const rest = total % 60;
-  if (hours === 0) return `${rest} mnt`;
-  return rest === 0 ? `${hours} jam` : `${hours} jam ${rest} mnt`;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${two(rest)} min`;
 }
 
 const two = (n: number) => String(n).padStart(2, "0");
-export const hourSpan = (jam: number) => `${two(jam)}.00–${two((jam + 1) % 24)}.00`;
+export const hourSpan = (jam: number) => `${two(jam)}:00–${two((jam + 1) % 24)}:00`;
 const percent = (x: number) => `${Math.round(x * 100)}%`;
-const decimal = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+const decimal = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 
 // Up to three plain sentences that lead the Insight page: the day in words before the charts.
 export function insightSentences(s: DaySummary): string[] {
@@ -118,21 +119,21 @@ export function insightSentences(s: DaySummary): string[] {
   const atScreen = atScreenMinutes(s);
   const share = normalShare(s);
   if (share === null) {
-    sentences.push("Belum ada waktu di depan layar yang dinilai.");
+    sentences.push("No time at the screen has been assessed yet.");
   } else {
-    sentences.push(`Dari ${formatDuration(atScreen)} di depan layar, kamu dalam kondisi normal ${percent(share)} dari waktu itu.`);
+    sentences.push(`Of ${formatDuration(atScreen)} at the screen, you were Normal ${percent(share)} of the time.`);
     const fatigue = fatigueMinutes(s);
     const peak = peakFatigueHour(s);
     sentences.push(
       fatigue === 0 || peak === null
-        ? "Tidak ada tanda lelah yang tercatat."
-        : `Tanda lelah tampil ${formatDuration(fatigue)}, paling banyak pukul ${hourSpan(peak.jam)}.`,
+        ? "No signs of tiredness were recorded."
+        : `Signs of tiredness showed for ${formatDuration(fatigue)}, most between ${hourSpan(peak.jam)}.`,
     );
   }
   sentences.push(
     s.jeda.jumlah === 0
-      ? "Belum ada jeda 2 menit atau lebih yang tercatat."
-      : `Kamu jeda ${s.jeda.jumlah}× dengan total ${formatDuration(s.jeda.menit)}.`,
+      ? "No breaks of 2 min or longer recorded yet."
+      : `You took ${s.jeda.jumlah} ${s.jeda.jumlah === 1 ? "break" : "breaks"}, ${formatDuration(s.jeda.menit)} in total.`,
   );
   return sentences;
 }
@@ -144,20 +145,20 @@ export function dayTiles(s: DaySummary): Tile[] {
   const notJudged = notJudgedMinutes(s);
   return [
     {
-      label: "Dipantau",
+      label: "Monitored",
       value: formatDuration(monitoredMinutes(s)),
-      sub: `${s.sesi} sesi${notJudged > 0 ? ` · ${formatDuration(notJudged)} tidak dinilai` : ""}`,
+      sub: `${s.sesi} ${s.sesi === 1 ? "session" : "sessions"}${notJudged > 0 ? ` · ${formatDuration(notJudged)} not assessed` : ""}`,
     },
-    { label: "Kondisi normal", value: share === null ? "–" : percent(share), sub: "dari waktu di depan layar" },
+    { label: "Normal", value: share === null ? "–" : percent(share), sub: "of the time at the screen" },
     {
-      label: "Jeda",
+      label: "Breaks",
       value: `${s.jeda.jumlah}×`,
-      sub: s.jeda.jumlah === 0 ? "belum ada" : `total ${formatDuration(s.jeda.menit)}`,
+      sub: s.jeda.jumlah === 0 ? "none yet" : `${formatDuration(s.jeda.menit)} in total`,
     },
     {
-      label: "Cek kantuk (KSS)",
+      label: "Sleepiness check (KSS)",
       value: s.kss.rataRata === null ? "–" : decimal.format(s.kss.rataRata),
-      sub: s.kss.jumlah === 0 ? "belum diisi" : `${s.kss.jumlah} isian · skala 1–9`,
+      sub: s.kss.jumlah === 0 ? "not filled in yet" : `${s.kss.jumlah} ${s.kss.jumlah === 1 ? "rating" : "ratings"} · scale 1–9`,
     },
   ];
 }

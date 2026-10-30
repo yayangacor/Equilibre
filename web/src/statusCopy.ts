@@ -1,4 +1,5 @@
 import type { Label } from "./rules.ts";
+import { stateName } from "./stateCopy.ts";
 
 // The words of the dashboard hero (plan P14): the label in plain, kind language, in the tone of
 // Gentler Streak and LookAway (no blame, no alarm, a next step), one short line each (D-64). The
@@ -17,24 +18,24 @@ export type HeroCopy = { chip: string; title: string; text: string };
 
 const LABEL_COPY: Record<Label, { title: string; text: string }> = {
   normal: {
-    title: "Kamu tampak segar",
-    text: "Tidak ada tanda lelah di menit terakhir.",
+    title: "You look fresh",
+    text: "No signs of fatigue in the last minute.",
   },
   "lelah ringan": {
-    title: "Mulai ada tanda lelah",
-    text: "Istirahatkan mata sebentar.",
+    title: "Early signs of fatigue",
+    text: "Rest your eyes for a moment.",
   },
   lelah: {
-    title: "Kamu tampak lelah",
-    text: "Saatnya jeda sebentar.",
+    title: "You look tired",
+    text: "Time for a short break.",
   },
   tertidur: {
-    title: "Sepertinya kamu tertidur",
-    text: "Kalau sudah terbangun, bergerak sebentar, dan pertimbangkan istirahat yang cukup sebelum lanjut.",
+    title: "You seem to have fallen asleep",
+    text: "Once you are awake, move around a little and consider proper rest before you continue.",
   },
   "tidak di depan layar": {
-    title: "Kamu sedang tidak di depan layar",
-    text: "Waktu jauh dari layar 2 menit atau lebih terhitung sebagai jeda.",
+    title: "You are away from the screen",
+    text: "Time away from the screen of 2 min or more counts as a break.",
   },
 };
 
@@ -42,30 +43,30 @@ export function heroCopy(state: HeroState): HeroCopy {
   switch (state.kind) {
     case "off":
       return {
-        chip: "Kamera mati",
-        title: "Kamera belum menyala",
-        text: "Video tidak pernah keluar dari laptop ini. Nyalakan kamera untuk mulai.",
+        chip: "Camera off",
+        title: "The camera is off",
+        text: "Video never leaves this laptop. Turn on the camera to start.",
       };
     case "loading":
       return {
-        chip: "Memuat…",
-        title: "Menyiapkan Equilibre…",
-        text: "Kamera dan model deteksi sedang dimuat. Semuanya diproses di perangkat ini.",
+        chip: "Loading…",
+        title: "Getting Equilibre ready…",
+        text: "Loading the camera and the detection model. Everything runs on this device.",
       };
     case "error":
-      return { chip: "Kamera mati", title: "Kamera belum bisa dipakai", text: state.message };
+      return { chip: "Camera off", title: "The camera cannot be used yet", text: state.message };
     case "uncalibrated":
       return {
-        chip: "Belum dikalibrasi",
-        title: "Kenalan dulu, yuk",
-        text: "Kalibrasi ±5 menit supaya Equilibre kenal kondisi normalmu.",
+        chip: "Not calibrated",
+        title: "Start with a calibration",
+        text: "About 5 min, so Equilibre learns what normal looks like for you.",
       };
     case "calibrating":
-      return { chip: "Kalibrasi…", title: "Kalibrasi berjalan", text: "Ikuti aba-aba di kamera." };
+      return { chip: "Calibrating…", title: "Calibration in progress", text: "Follow the prompts on the camera view." };
     case "analyzing":
-      return { chip: "Menganalisis…", title: "Sedang membaca kondisimu", text: "Label pertama muncul sekitar 10 detik lagi." };
+      return { chip: "Analyzing…", title: "Reading your state", text: "The first reading appears in about 10 s." };
     case "label":
-      return { chip: capitalize(state.label), ...LABEL_COPY[state.label] };
+      return { chip: stateName(state.label), ...LABEL_COPY[state.label] };
   }
 }
 

@@ -38,31 +38,31 @@ type Choice<V extends string | number> = { nilai: V; teks: string };
 type Question<K extends string, V extends string | number> = { key: K; teks: string; pilihan: readonly Choice<V>[] };
 
 const yesNo = [
-  { nilai: "ya", teks: "Ya" },
-  { nilai: "tidak", teks: "Tidak" },
+  { nilai: "ya", teks: "Yes" },
+  { nilai: "tidak", teks: "No" },
 ] as const;
 
 // Asked before the test, all optional: what can change how the camera reads the eyes.
 export const INTAKE_QUESTIONS = [
-  { key: "kacamata", teks: "Memakai kacamata selama uji?", pilihan: yesNo },
+  { key: "kacamata", teks: "Wearing glasses during the test?", pilihan: yesNo },
   {
     key: "kamera",
-    teks: "Kamera yang dipakai",
+    teks: "Camera used",
     pilihan: [
-      { nilai: "bawaan", teks: "Bawaan laptop" },
-      { nilai: "eksternal", teks: "Webcam eksternal" },
+      { nilai: "bawaan", teks: "Built into the laptop" },
+      { nilai: "eksternal", teks: "External webcam" },
     ],
   },
   {
     key: "cahaya",
-    teks: "Cahaya di wajah",
+    teks: "Light on your face",
     pilihan: [
-      { nilai: "terang", teks: "Terang" },
-      { nilai: "sedang", teks: "Sedang" },
-      { nilai: "redup", teks: "Redup" },
+      { nilai: "terang", teks: "Bright" },
+      { nilai: "sedang", teks: "Medium" },
+      { nilai: "redup", teks: "Dim" },
     ],
   },
-  { key: "dahi_tertutup", teks: "Ada yang menutupi alis atau dahi (poni, penutup kepala)?", pilihan: yesNo },
+  { key: "dahi_tertutup", teks: "Anything covering your eyebrows or forehead (hair, head covering)?", pilihan: yesNo },
 ] as const satisfies readonly Question<string, string>[];
 
 export type IntakeKey = (typeof INTAKE_QUESTIONS)[number]["key"];
@@ -73,43 +73,43 @@ const scale5 = (low: string, high: string): readonly Choice<number>[] =>
   [1, 2, 3, 4, 5].map((n) => ({ nilai: n, teks: n === 1 ? `1 ${low}` : n === 5 ? `5 ${high}` : String(n) }));
 
 const often = [
-  { nilai: "tidak pernah", teks: "Tidak pernah" },
-  { nilai: "1-2 kali", teks: "1–2 kali" },
-  { nilai: "sering", teks: "Sering" },
+  { nilai: "tidak pernah", teks: "Never" },
+  { nilai: "1-2 kali", teks: "1–2 times" },
+  { nilai: "sering", teks: "Often" },
 ] as const;
 
 // Asked after the test. The comment is separate (free text, COMMENT_MAX).
 export const FEEDBACK_QUESTIONS = [
   {
     key: "label_sesuai",
-    teks: "Seberapa sering label Equilibre sesuai dengan yang kamu rasakan?",
-    pilihan: scale5("hampir tidak pernah", "hampir selalu"),
+    teks: "How often did the Equilibre label match how you felt?",
+    pilihan: scale5("almost never", "almost always"),
   },
   {
     key: "alarm_palsu",
-    teks: "Pernahkah Equilibre bilang kamu lelah padahal kamu merasa segar?",
+    teks: "Did Equilibre ever say you were tired when you felt alert?",
     pilihan: often,
   },
   {
     key: "kantuk_terlewat",
-    teks: "Pernahkah kamu merasa mengantuk tapi Equilibre tetap bilang normal?",
-    pilihan: [...often, { nilai: "tidak mengantuk", teks: "Aku tidak mengantuk sama sekali" }],
+    teks: "Did you ever feel sleepy while Equilibre still said Normal?",
+    pilihan: [...often, { nilai: "tidak mengantuk", teks: "I did not feel sleepy at all" }],
   },
   {
     key: "mengganggu",
-    teks: "Seberapa mengganggu Equilibre selama kamu bekerja?",
-    pilihan: scale5("tidak mengganggu", "sangat mengganggu"),
+    teks: "How much did Equilibre get in the way of your work?",
+    pilihan: scale5("not at all", "very much"),
   },
   // The semifinal asks for feedback on use and benefit (28 Oct); the comment field asks what helped most.
   {
     key: "manfaat",
-    teks: "Seberapa bermanfaat Equilibre buatmu selama uji ini?",
-    pilihan: scale5("tidak bermanfaat", "sangat bermanfaat"),
+    teks: "How useful was Equilibre to you during this test?",
+    pilihan: scale5("not useful", "very useful"),
   },
   {
     key: "mau_pakai",
-    teks: "Seberapa mungkin kamu memakai Equilibre saat bekerja?",
-    pilihan: scale5("tidak mungkin", "sangat mungkin"),
+    teks: "How likely are you to use Equilibre at work?",
+    pilihan: scale5("not likely", "very likely"),
   },
 ] as const;
 
@@ -376,8 +376,8 @@ export function toSubmission(
   records: TestRecords,
   context: { perangkat: Device; baseline: Baseline | null; now: number },
 ) {
-  if (s.mulai === null || s.selesai === null) throw new Error("Uji belum selesai.");
-  if (s.id_kiriman === null) throw new Error("Kiriman belum punya id.");
+  if (s.mulai === null || s.selesai === null) throw new Error("The test has not finished yet.");
+  if (s.id_kiriman === null) throw new Error("The submission has no id yet.");
   const from = s.mulai;
   const to = s.selesai;
   const inside = (t: number) => t >= from && t <= to;
@@ -418,13 +418,13 @@ export async function postSubmission(url: string, sub: Submission, fetchFn: type
       body: JSON.stringify(sub),
     });
   } catch {
-    return { ok: false, error: "Tidak bisa terhubung. Cek internet, lalu coba lagi." };
+    return { ok: false, error: "Could not connect. Check your internet connection, then try again." };
   }
   const body: unknown = await res.json().catch(() => null);
-  if (!res.ok || body === null || typeof body !== "object") return { ok: false, error: `Penerima menjawab HTTP ${res.status}.` };
+  if (!res.ok || body === null || typeof body !== "object") return { ok: false, error: `The receiver answered HTTP ${res.status}.` };
   const b = body as Record<string, unknown>;
   if (b.ok === true && typeof b.id === "string") return { ok: true, id: b.id, duplikat: b.duplikat === true };
-  return { ok: false, error: typeof b.error === "string" ? b.error : "Jawaban penerima tidak dikenal." };
+  return { ok: false, error: typeof b.error === "string" ? b.error : "The receiver gave an unknown answer." };
 }
 
 // Apps Script answers through a redirect to googleusercontent.com, and that hop is flaky: in 9 browser
@@ -444,7 +444,7 @@ export async function sendWithRetry(
   } = {},
 ): Promise<SendResult> {
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  let result: SendResult = { ok: false, error: "Belum dikirim." };
+  let result: SendResult = { ok: false, error: "Not sent yet." };
   for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
     options.onAttempt?.(attempt);
     result = await postSubmission(url, sub, options.fetchFn);

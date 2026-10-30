@@ -1,7 +1,8 @@
+import { LOCALE } from "./format.ts";
 import type { BreakRecord, DaySummary } from "./history.ts";
 import { AT_SCREEN, formatDuration, LEVEL_LABELS, type LevelPoint } from "./insight.ts";
 import { LABELS, type Label } from "./rules.ts";
-import { capitalize } from "./statusCopy.ts";
+import { stateName } from "./stateCopy.ts";
 
 // Charts of the Insight page and the dashboard (plan P14), after the UTA-RLDD demo the user pointed
 // at: time per label as bars, and the fatigue level over the day as a line. Colors come from the
@@ -23,10 +24,10 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
   return node;
 }
 
-const clockOf = (t: number) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+const clockOf = (t: number) => new Date(t).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 
 // A shape + name pair, the label's identity wherever it appears (legend, bars, tooltip).
-export function labelKey(label: Label, text: string = capitalize(label), className = "lb-name"): HTMLElement {
+export function labelKey(label: Label, text: string = stateName(label), className = "lb-name"): HTMLElement {
   const node = html("span", "", className);
   node.dataset.label = label;
   node.append(html("span", "", "shape"), html("span", text));
@@ -51,7 +52,7 @@ export function renderLabelBars(container: HTMLElement, note: HTMLElement, s: Da
       // Minutes only: the share of the time at the screen is in the tiles, against its own total.
       track.append(bar, html("span", formatDuration(minutes), "lb-value"));
       row.append(labelKey(label), track);
-      row.title = `${capitalize(label)}: ${formatDuration(minutes)}`;
+      row.title = `${stateName(label)}: ${formatDuration(minutes)}`;
       return row;
     }),
   );
@@ -59,8 +60,8 @@ export function renderLabelBars(container: HTMLElement, note: HTMLElement, s: Da
   note.textContent =
     notJudged === 0
       ? ""
-      : `Tidak dinilai ${formatDuration(notJudged)}: tab tidak terlihat ${formatDuration(s.ditahan.fps)}, ` +
-        `mata tidak terlihat ${formatDuration(s.ditahan.mata)}. Label terakhir ditahan selama itu.`;
+      : `Not assessed for ${formatDuration(notJudged)}: tab hidden ${formatDuration(s.ditahan.fps)}, ` +
+        `eyes not visible ${formatDuration(s.ditahan.mata)}. The last state was kept during that time.`;
 }
 
 // ── Today strip (dashboard): the day so far as one stacked bar ──────────────────
@@ -79,29 +80,29 @@ export function renderTodayStrip(strip: HTMLElement, legend: HTMLElement, s: Day
     ...parts.map(({ label, minutes }) => {
       const item = html("li");
       item.dataset.label = label;
-      item.append(html("span", "", "shape"), html("span", `${capitalize(label)} ${formatDuration(minutes)}`));
+      item.append(html("span", "", "shape"), html("span", `${stateName(label)} ${formatDuration(minutes)}`));
       return item;
     }),
   );
   strip.setAttribute(
     "aria-label",
     parts.length === 0
-      ? "Belum ada waktu di depan layar yang dinilai hari ini."
-      : `Hari ini di depan layar: ${parts.map((p) => `${p.label} ${formatDuration(p.minutes)}`).join(", ")}.`,
+      ? "No time at the screen has been assessed today yet."
+      : `Today at the screen: ${parts.map((p) => `${stateName(p.label)} ${formatDuration(p.minutes)}`).join(", ")}.`,
   );
 }
 
 // ── Fatigue level over the day: a line with breaks marked ──────────────────────
 
 const PLOT_H = 168;
-const MARGIN = { top: 12, right: 16, bottom: 26, left: 96 }; // left: room for "Lelah ringan"
+const MARGIN = { top: 12, right: 16, bottom: 26, left: 96 }; // left: room for "Mildly tired"
 
 export type TrendData = { points: readonly LevelPoint[]; bucket: number; breaks: readonly BreakRecord[] };
 
 // The subtitle names the bucket the line is averaged over (insight.ts bucketFor).
 export const trendSubtitle = (bucket: number) =>
-  `Rata-rata tingkat label per ${bucket === 60_000 ? "menit" : `${bucket / 60_000} menit`}. ` +
-  "Garis terputus saat kamu tidak dipantau atau tidak di depan layar.";
+  `Average fatigue level per ${bucket === 60_000 ? "minute" : `${bucket / 60_000} min`}. ` +
+  "The line breaks while you are not monitored or away from the screen.";
 
 export class TrendChart {
   private data: TrendData = { points: [], bucket: 60_000, breaks: [] };
@@ -123,7 +124,7 @@ export class TrendChart {
       li.append(html("span", "", key), html("span", text));
       return li;
     };
-    this.legend.replaceChildren(item("line-key", "Tingkat kelelahan"), ...(data.breaks.length > 0 ? [item("break-key", "Jeda")] : []));
+    this.legend.replaceChildren(item("line-key", "Fatigue level"), ...(data.breaks.length > 0 ? [item("break-key", "Break")] : []));
     this.draw();
   }
 
@@ -156,7 +157,7 @@ export class TrendChart {
     LEVEL_LABELS.forEach((label, level) => {
       root.append(svg("line", { x1: MARGIN.left, x2: width - MARGIN.right, y1: y(level), y2: y(level), class: level === 0 ? "axis" : "grid" }));
       const tick = svg("text", { x: MARGIN.left - 10, y: y(level) + 4, "text-anchor": "end", class: "tick" });
-      tick.textContent = capitalize(label);
+      tick.textContent = stateName(label);
       root.append(tick);
     });
 
@@ -236,10 +237,10 @@ export class TrendChart {
     const row = html("div", "", "tip-row");
     const key = html("span", "", "tip-key");
     if (p.label) key.dataset.label = p.label;
-    row.append(key, html("strong", p.label ? capitalize(p.label) : "Tidak dipantau"));
+    row.append(key, html("strong", p.label ? stateName(p.label) : "Not monitored"));
     const lines: HTMLElement[] = [head, row];
     if (p.level !== null && p.n > 1) {
-      lines.push(html("p", `rata-rata tingkat ${p.level.toLocaleString("id-ID", { maximumFractionDigits: 1 })} dari 3`, "tip-head"));
+      lines.push(html("p", `average level ${p.level.toLocaleString(LOCALE, { maximumFractionDigits: 1 })} of 3`, "tip-head"));
     }
     tip.replaceChildren(...lines);
     tip.hidden = false;
@@ -262,10 +263,10 @@ function timeTicks(t0: number, t1: number): number[] {
 // The chart in words, for screen readers (Apple HIG: summarize the main message).
 function describe(points: readonly LevelPoint[], bucket: number): string {
   const judged = points.filter((p) => p.level !== null);
-  if (judged.length === 0) return "Tingkat kelelahan: belum ada data.";
+  if (judged.length === 0) return "Fatigue level: no data yet.";
   const peak = judged.reduce((a, b) => ((b.level as number) > (a.level as number) ? b : a));
   return (
-    `Tingkat kelelahan dari ${clockOf(points[0].t)} sampai ${clockOf(points[points.length - 1].t + bucket)}, ` +
-    `tertinggi ${peak.label ?? ""} sekitar pukul ${clockOf(peak.t)}. Gunakan panah kiri dan kanan untuk membaca tiap titik.`
+    `Fatigue level from ${clockOf(points[0].t)} to ${clockOf(points[points.length - 1].t + bucket)}, ` +
+    `peak ${peak.label ? stateName(peak.label) : ""} around ${clockOf(peak.t)}. Use the left and right arrow keys to read each point.`
   );
 }

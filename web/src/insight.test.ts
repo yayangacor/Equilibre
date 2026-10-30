@@ -89,11 +89,12 @@ describe("bucketFor", () => {
 
 describe("formatDuration", () => {
   it("reads in hours and minutes", () => {
-    expect(formatDuration(0)).toBe("0 mnt");
-    expect(formatDuration(0.2)).toBe("< 1 mnt");
-    expect(formatDuration(44.6)).toBe("45 mnt");
-    expect(formatDuration(65)).toBe("1 jam 5 mnt");
-    expect(formatDuration(180)).toBe("3 jam");
+    expect(formatDuration(0)).toBe("0 min");
+    expect(formatDuration(0.2)).toBe("< 1 min");
+    expect(formatDuration(44.6)).toBe("45 min");
+    expect(formatDuration(65)).toBe("1 h 05 min");
+    expect(formatDuration(130)).toBe("2 h 10 min");
+    expect(formatDuration(180)).toBe("3 h");
   });
 });
 
@@ -112,19 +113,19 @@ describe("day sentences and tiles", () => {
     expect(normalShare(s)).toBeCloseTo(30 / 42);
     expect(peakFatigueHour(s)).toEqual({ jam: 14, menit: expect.closeTo(10) });
     expect(insightSentences(s)).toEqual([
-      "Dari 42 mnt di depan layar, kamu dalam kondisi normal 71% dari waktu itu.",
-      "Tanda lelah tampil 12 mnt, paling banyak pukul 14.00–15.00.",
-      "Kamu jeda 2× dengan total 28 mnt.",
+      "Of 42 min at the screen, you were Normal 71% of the time.",
+      "Signs of tiredness showed for 12 min, most between 14:00–15:00.",
+      "You took 2 breaks, 28 min in total.",
     ]);
   });
 
   it("says so when there is nothing to judge or no fatigue", () => {
     expect(insightSentences(summary({}))).toEqual([
-      "Belum ada waktu di depan layar yang dinilai.",
-      "Belum ada jeda 2 menit atau lebih yang tercatat.",
+      "No time at the screen has been assessed yet.",
+      "No breaks of 2 min or longer recorded yet.",
     ]);
     const calm = summary({ evaluasi: run(at(9, 0), "normal", 12) });
-    expect(insightSentences(calm)[1]).toBe("Tidak ada tanda lelah yang tercatat.");
+    expect(insightSentences(calm)[1]).toBe("No signs of tiredness were recorded.");
     expect(peakFatigueHour(calm)).toBeNull();
   });
 
@@ -134,8 +135,8 @@ describe("day sentences and tiles", () => {
         evaluasi: [...run(at(9, 0), "normal", 6 * 10), ...run(at(9, 10), "normal", 6, { dinilai: false, sebab_ditahan: "fps", label_mentah: null })],
       }),
     );
-    expect(tiles.map((t) => t.value)).toEqual(["11 mnt", "100%", "0×", "–"]);
-    expect(tiles[0].sub).toBe("1 sesi · 1 mnt tidak dinilai");
-    expect(tiles[3].sub).toBe("belum diisi");
+    expect(tiles.map((t) => t.value)).toEqual(["11 min", "100%", "0×", "–"]);
+    expect(tiles[0].sub).toBe("1 session · 1 min not assessed");
+    expect(tiles[3].sub).toBe("not filled in yet");
   });
 });

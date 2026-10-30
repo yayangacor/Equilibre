@@ -7,10 +7,10 @@ export const REPO_URL = "https://github.com/yayangacor/Equilibre";
 
 export const DEMO_NOTE = {
   saran:
-    "Di demo online, saran tidak diminta: saran disusun flow Langflow dengan LLM lewat backend yang berjalan " +
-    "di laptop pengembang.",
-  autoSend: "Tidak tersedia di demo online: saran butuh backend dan Langflow yang berjalan lokal.",
-  tanya: "Di demo online, Tanya Equilibre tidak aktif: IBM Bob dan flow Langflow berjalan di laptop pengembang.",
+    "The online demo does not request advice: advice is written by a Langflow flow with an LLM, through a backend " +
+    "that runs on the developer's laptop.",
+  autoSend: "Not available in the online demo: advice needs the backend and Langflow running locally.",
+  tanya: "Ask Equilibre is off in the online demo: IBM Bob and the Langflow flow run on the developer's laptop.",
 } as const;
 
 // The note as a callout, with a link to the README that explains the feature and how to run it. A
@@ -22,7 +22,7 @@ export function demoCallout(text: string): HTMLElement {
   link.href = REPO_URL;
   link.target = "_blank";
   link.rel = "noopener";
-  link.textContent = "README repo";
-  note.append(`${text} Cara kerja dan cara menjalankannya ada di `, link, ".");
+  link.textContent = "repository README";
+  note.append(`${text} How it works and how to run it: see the `, link, ".");
   return note;
 }

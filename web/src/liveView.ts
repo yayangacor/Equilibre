@@ -86,7 +86,7 @@ export class LiveView {
       }
       tile.value.textContent = t.value;
       tile.sub.textContent = t.sub;
-      if (t.key === "mata") tile.value.dataset.eye = t.value.toLowerCase();
+      if (t.eye) tile.value.dataset.eye = t.eye; // the eye state key the CSS matches, not the shown text
     }
   }
 }

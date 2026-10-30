@@ -89,7 +89,7 @@ describe("classify", () => {
     const result = classify({ ...calm, pct_kepala_menunduk: 0.6 }, BASELINE);
     expect(result?.alasan).toEqual([]);
     expect(result?.catatan).toHaveLength(1);
-    expect(result?.catatan[0]).toMatch(/^Kepala menunduk 60% dari 60 detik terakhir, mungkin sedang melihat HP/);
+    expect(result?.catatan[0]).toMatch(/^Head down 60% of the last 60 s, perhaps looking at a phone/);
   });
 
   it("gives no label before calibration or without frames", () => {
@@ -97,11 +97,11 @@ describe("classify", () => {
     expect(classify({ ...calm, n_frame: 0 }, BASELINE)).toBeNull();
   });
 
-  it("explains each triggered rule in Indonesian", () => {
+  it("explains each triggered rule in a sentence", () => {
     const result = classify({ ...calm, perclos: 0.18, menguap: 2 }, BASELINE);
     expect(result?.alasan).toEqual([
-      "Mata tertutup 18% dari 60 detik terakhir (batas 15%).",
-      "Menguap 2× dalam 60 detik terakhir.",
+      "Eyes closed 18% of the last 60 s (limit 15%).",
+      "Yawned 2× in the last 60 s.",
     ]);
   });
 
@@ -113,12 +113,12 @@ describe("classify", () => {
   it("explains fast blinks as a note when nothing else points to fatigue", () => {
     const alone = classify({ ...calm, kedip_per_menit: 31 }, BASELINE);
     expect(alone?.catatan).toEqual([
-      "Berkedip 31×/menit, lebih sering dari biasanya (15; batas 30), tapi tidak dihitung karena tidak ada tanda lelah lain.",
+      "Blinking 31×/min, more often than usual (15; limit 30), but not counted because there is no other sign of fatigue.",
     ]);
     const withYawn = classify({ ...calm, kedip_per_menit: 31, menguap: 1 }, BASELINE);
     expect(withYawn?.alasan).toEqual([
-      "Menguap 1× dalam 60 detik terakhir.",
-      "Berkedip 31×/menit, lebih sering dari biasanya (15; batas 30).",
+      "Yawned 1× in the last 60 s.",
+      "Blinking 31×/min, more often than usual (15; limit 30).",
     ]);
   });
 
@@ -166,8 +166,8 @@ describe("tertidur and hidden eyes", () => {
     expect(result?.skor).toBe(1);
     expect(result?.tanda).toEqual(["tertidur_mata_tak_terlihat"]);
     expect(result?.alasan).toEqual([
-      "Mata tidak terlihat (wajah tersembunyi atau kepala tertunduk) selama 10 menit terakhir, dan hanya terlihat terbuka 0% (batas 10%).",
-      "Tubuh tetap di depan kamera dan diam 97% dari waktu itu (batas 90%).",
+      "Eyes not seen (face hidden or head down) over the last 10 min, and seen open only 0% (limit 10%).",
+      "Body stayed in front of the camera and still 97% of that time (limit 90%).",
     ]);
   });
 
@@ -176,7 +176,7 @@ describe("tertidur and hidden eyes", () => {
     const result = classify(slumped, BASELINE, lookback(over(5, slumped), over(5, slumped)));
     expect(result?.label).toBe("tertidur");
     expect(result?.alasan[0]).toBe(
-      "Mata terlihat terpejam 100% selama 5 menit terakhir, dan hanya terlihat terbuka 0% (batas 10%).",
+      "Eyes closed 100% over the last 5 min, and seen open only 0% (limit 10%).",
     );
     expect(result?.tanda).toEqual(["tertidur_mata_terpejam"]);
     // Before that, closed eyes are "lelah" (PERCLOS), not yet "tertidur".
@@ -194,18 +194,18 @@ describe("tertidur and hidden eyes", () => {
     const { state, latest, hold } = evaluate(asleep, BASELINE, prev, lookback(over(5, asleep), over(5, asleep)));
     expect(latest).toBeNull();
     expect(state).toBe(prev);
-    expect(hold).toMatch(/^Mata tidak terlihat 100% dari 60 detik terakhir \(wajah tersembunyi atau menunduk\)/);
-    expect(hold).toMatch(/Kalau tubuh tetap diam dan mata tidak terlihat terbuka selama 10 menit, statusnya menjadi "tertidur"\.$/);
+    expect(hold).toMatch(/^Eyes not seen 100% of the last 60 s \(face hidden or head down\)/);
+    expect(hold).toMatch(/If you stay still and your eyes are not seen open for 10 min, the state becomes "Asleep"\.$/);
   });
 
   it("says open eyes are what keeps it from tertidur, instead of promising it (26 Sep)", () => {
     // The 26 Sep recording: head resting, face seen in a quarter of the frames, eyes open in all of them.
     const resting = { ...asleep, pct_wajah_hilang: 0.74, pct_mata_terbuka: 0.26, pct_mata_tertutup: 0 };
     const note = hiddenFaceNote(resting, 2);
-    expect(note).toMatch(/Mata masih sempat terlihat terbuka 26% \(batas 10%\), jadi belum dianggap tertidur\.$/);
-    expect(note).not.toMatch(/statusnya menjadi "tertidur"/);
+    expect(note).toMatch(/Eyes still seen open 26% \(limit 10%\), so this does not count as asleep\.$/);
+    expect(note).not.toMatch(/the state becomes "Asleep"/);
     // Negative control: at the limit the note still explains how tertidur can follow.
-    expect(hiddenFaceNote({ ...resting, pct_mata_terbuka: 0.1 }, 2)).toMatch(/statusnya menjadi "tertidur"\.$/);
+    expect(hiddenFaceNote({ ...resting, pct_mata_terbuka: 0.1 }, 2)).toMatch(/the state becomes "Asleep"\.$/);
   });
 
   it.each<[string, Partial<WindowFeatures>, Partial<WindowFeatures>]>([
@@ -233,7 +233,7 @@ describe("tertidur and hidden eyes", () => {
   it("holds when a bowed head hides the eyes, not only a hidden face", () => {
     const bowed = { ...calm, pct_kepala_menunduk: 0.8, pct_mata_terbuka: 0.15, pct_mata_tertutup: 0.05 };
     expect(classify(bowed, BASELINE)).toBeNull();
-    expect(hiddenFaceNote(bowed)).toMatch(/^Mata tidak terlihat 80% dari 60 detik terakhir/);
+    expect(hiddenFaceNote(bowed)).toMatch(/^Eyes not seen 80% of the last 60 s/);
   });
 
   it("does not hold while looking down at a phone with the eyes seen open", () => {
@@ -252,8 +252,8 @@ describe("long rest advice", () => {
   it("appears from 15 minutes of lelah/tertidur in the last hour", () => {
     expect(longRestAdvice(14.9)).toBeNull();
     expect(longRestAdvice(15.5)).toBe(
-      'Dalam 60 menit terakhir kamu 15 menit dalam kondisi "lelah" atau "tertidur" (batas 15 menit). ' +
-        "Sebaiknya berhenti dulu dan istirahat yang cukup. Kalau badan terasa kurang fit, pertimbangkan untuk minta izin.",
+      'In the last 60 min you spent 15 min "Tired" or "Asleep" (limit 15 min). ' +
+        "Stop for now and get proper rest. If you feel unwell, consider taking time off.",
     );
   });
 });
@@ -325,7 +325,7 @@ describe("hysteresis", () => {
     const { state, latest, hold } = evaluate(hidden, BASELINE, prev);
     expect(latest).toBeNull();
     expect(state).toBe(prev);
-    expect(hold).toContain("Pemantauan dijeda");
+    expect(hold).toContain("Monitoring paused");
     // Negative control: power saving (±5 fps) is still judged.
     const saving = evaluate({ ...hidden, n_frame: 100 }, BASELINE, prev);
     expect(saving.latest?.label).toBe("lelah ringan");
@@ -348,7 +348,7 @@ describe("rules + blink pattern (?label=gabungan, D-72)", () => {
     expect(withBlinkPattern(normal, { chance: 0.7, n: 30 })).toBe(normal);
     const raised = withBlinkPattern(normal, { chance: BLINK_PATTERN_THRESHOLD, n: 30 });
     expect(raised).toMatchObject({ label: "lelah ringan", skor: 0.25, poin: 1, tanda: ["pola_kedip"] });
-    expect(raised?.alasan).toEqual(["Pola 30 kedipan terakhir mirip pola orang mengantuk: skor 71% (batas 71%)."]);
+    expect(raised?.alasan).toEqual(["Your last 30 blinks look like a drowsy blink pattern: score 71% (limit 71%)."]);
     expect(BLINK_PATTERN_THRESHOLD).toBe(0.71);
   });
 
