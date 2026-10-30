@@ -20,10 +20,373 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Equilibre reads the early signs of tiredness from your webcam and shows you the pattern before the crash. It tells a pattern, not a diagnosis."
+    />
     <title>Equilibre</title>
   </head>
   <body>
-    <main id="landing"></main>
+    <a class="skip" href="#landing">Skip to content</a>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="wordmark" href="./">Equilibre</a>
+        <nav aria-label="Main">
+          <ul class="nav-links">
+            <li class="nav-anchor"><a href="#how">How it works</a></li>
+            <li class="nav-anchor"><a href="#privacy">Privacy</a></li>
+            <li data-signed-out><a href="auth.html#signin">Sign in</a></li>
+            <li>
+              <a class="btn btn-sm" href="auth.html#signup" data-cta><span data-cta-label>Get started</span></a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="landing" tabindex="-1">
+      <!-- Hero -->
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-text">
+          <p class="eyebrow intro" style="--i: 0">Wellness and productivity</p>
+          <h1 id="hero-title" class="hero-title intro" style="--i: 1">
+            You can’t see what your body <em class="serif-accent">feels</em>.
+          </h1>
+          <p class="lede intro" style="--i: 2">
+            Equilibre reads the early signs of tiredness from your webcam — eye closure, slow blinks, yawns, head
+            position — and shows you the pattern before the crash. It tells a pattern, not a diagnosis.
+          </p>
+          <div class="actions intro" style="--i: 3">
+            <a class="btn" href="auth.html#signup" data-cta
+              ><span data-cta-label>Get started</span><span class="arr" aria-hidden="true">→</span></a
+            >
+            <a class="btn btn-ghost" href="#how">See how it works</a>
+          </div>
+        </div>
+
+        <div
+          class="hero-visual intro"
+          style="--i: 2"
+          role="img"
+          aria-label="Illustration: a face drawn as tracking points, with readouts for eye openness (EAR 0.29), blinks (15 per minute) and jaw opening (0.06), and the state Normal. When the eyes blink, the EAR readout dips."
+        >
+          <div class="panel-head"><span>Readout</span><span>Illustration</span></div>
+          <div class="hero-stage dotgrid">
+            <canvas class="hero-canvas"></canvas>
+            <div class="hero-state">
+              <p class="chip" data-state="normal"><span class="chip-dot"></span><span class="chip-text">Normal</span></p>
+              <span class="cycle" aria-hidden="true"><span></span></span>
+            </div>
+            <p class="ro ro-ear" data-ro="ear"><span class="ro-k">EAR</span><span class="ro-v">0.29</span></p>
+            <p class="ro ro-blinks" data-ro="blinks"><span class="ro-k">Blinks</span><span class="ro-v">15/min</span></p>
+            <p class="ro ro-jaw" data-ro="jaw"><span class="ro-k">Jaw open</span><span class="ro-v">0.06</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- The problem -->
+      <section class="signal wrap section" aria-labelledby="signal-title">
+        <div class="sec-head">
+          <span class="sec-rule" aria-hidden="true"></span>
+          <p class="eyebrow">The problem</p>
+        </div>
+        <div class="signal-grid">
+          <h2 id="signal-title" class="h2" data-reveal>Tired isn’t a mood. It’s a <em class="serif-accent">signal</em>.</h2>
+          <p class="body" data-reveal>
+            Tiredness builds from short sleep and long, unbroken stretches at the screen, and you rarely notice it while it
+            builds. A timer can’t see it: Pomodoro rings every 25 minutes whether you’re sharp or fading. It doesn’t adapt
+            to how your body feels.
+          </p>
+        </div>
+
+        <div class="strip" aria-hidden="true">
+          <div class="strip-row">
+            <span class="strip-k">A timer</span>
+            <div class="strip-plot">
+              <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
+                <line class="strip-base" x1="0" y1="30" x2="1000" y2="30" />
+                <line class="strip-tick" x1="200" y1="10" x2="200" y2="50" />
+                <line class="strip-tick" x1="400" y1="10" x2="400" y2="50" />
+                <line class="strip-tick" x1="600" y1="10" x2="600" y2="50" />
+                <line class="strip-tick" x1="800" y1="10" x2="800" y2="50" />
+              </svg>
+              <span class="strip-ring" style="left: 20%">ring</span>
+              <span class="strip-ring" style="left: 40%">ring</span>
+              <span class="strip-ring" style="left: 60%">ring</span>
+              <span class="strip-ring" style="left: 80%">ring</span>
+            </div>
+          </div>
+          <div class="strip-row">
+            <span class="strip-k">Equilibre</span>
+            <div class="strip-plot">
+              <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
+                <rect class="strip-band" x="0" y="18" width="1000" height="20" />
+                <path class="strip-trace" d="" />
+              </svg>
+              <span class="strip-mark" data-mark="mild"></span>
+              <span class="strip-mark" data-mark="tired"></span>
+              <span class="strip-note">speaks up</span>
+            </div>
+          </div>
+        </div>
+
+        <table class="compare" data-rows>
+          <caption class="visually-hidden">A timer compared with Equilibre</caption>
+          <thead>
+            <tr>
+              <th scope="col">A timer</th>
+              <th scope="col">Equilibre</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-row>
+              <td>Rings on a schedule</td>
+              <td>Speaks up when your eyes do</td>
+            </tr>
+            <tr data-row>
+              <td>The same for everyone</td>
+              <td>Calibrated to your normal</td>
+            </tr>
+            <tr data-row>
+              <td>Gives no reason</td>
+              <td>Shows the reason, e.g. eyes closed 18% of the last minute</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 01 How it works -->
+      <section id="how" class="how wrap section" aria-labelledby="how-title">
+        <div class="sec-head">
+          <span class="sec-rule" aria-hidden="true"></span>
+          <p class="eyebrow">01 — How it works</p>
+          <h2 id="how-title" class="h2">From your normal to a <em class="serif-accent">nudge</em>.</h2>
+        </div>
+        <ol class="steps" data-rows>
+          <li class="step" data-row>
+            <div class="step-vis dotgrid" data-vis="calibrate" aria-hidden="true">
+              <svg viewBox="0 0 240 160">
+                <line class="cal-axis" x1="10" y1="140" x2="230" y2="140" />
+                <rect class="cal-band" x="70" y="50" width="160" height="26" />
+                <path class="cal-trace" pathLength="1" d="" />
+                <text class="svg-mono" x="10" y="134">eyes closed</text>
+                <text class="svg-mono" x="230" y="42" text-anchor="end">your normal</text>
+              </svg>
+            </div>
+            <div class="step-text">
+              <p class="step-n">Step 1</p>
+              <h3>Calibrate</h3>
+              <p>Close your eyes for 3 seconds, then work as usual for 5 minutes while Equilibre learns your normal.</p>
+            </div>
+          </li>
+          <li class="step" data-row>
+            <div class="step-vis dotgrid" data-vis="watch" aria-hidden="true">
+              <canvas></canvas>
+              <span class="vis-tag"><span data-points>478</span> points</span>
+            </div>
+            <div class="step-text">
+              <p class="step-n">Step 2</p>
+              <h3>Watch, on your laptop</h3>
+              <p>MediaPipe reads 478 face points about 10 times a second, inside your browser.</p>
+            </div>
+          </li>
+          <li class="step" data-row>
+            <div class="step-vis dotgrid" data-vis="pattern" aria-hidden="true">
+              <div class="vis-state">
+                <p class="chip" data-state="tired"><span class="chip-dot"></span><span class="chip-text">Tired</span></p>
+                <ol class="scale">
+                  <li data-s="normal"></li>
+                  <li data-s="mild"></li>
+                  <li data-s="tired" class="is-on"></li>
+                  <li data-s="asleep"></li>
+                  <li data-s="away"></li>
+                </ol>
+                <p class="reason">Eyes closed 18% of the last minute</p>
+                <span class="tick-bar"><span></span></span>
+              </div>
+            </div>
+            <div class="step-text">
+              <p class="step-n">Step 3</p>
+              <h3>See the pattern</h3>
+              <p>
+                Every 10 seconds you get a state: Normal, Mildly tired, Tired, Asleep or Away, with the reason behind it.
+              </p>
+            </div>
+          </li>
+          <li class="step" data-row>
+            <div class="step-vis dotgrid" data-vis="nudge" aria-hidden="true">
+              <div class="nudge">
+                <p class="nudge-k">Nudge</p>
+                <p class="nudge-text">Take a short walk.</p>
+                <span class="nudge-ask">Ask for advice →</span>
+              </div>
+            </div>
+            <div class="step-text">
+              <p class="step-n">Step 4</p>
+              <h3>Act on it</h3>
+              <p>
+                Sit upright, take a short walk, get some daylight. Ask for advice and an AI flow on IBM Langflow answers
+                with sources (WHO, NIOSH and Indonesian occupational-health guidance).
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- 02 What you see vs. what we see -->
+      <section id="see" class="see section" aria-labelledby="see-title">
+        <div class="see-scene">
+          <div class="wrap">
+            <div class="sec-head">
+              <span class="sec-rule" aria-hidden="true"></span>
+              <p class="eyebrow">02 — What you see vs. what we see</p>
+              <h2 id="see-title" class="h2">Your face becomes a few <em class="serif-accent">numbers</em>.</h2>
+            </div>
+            <div class="see-grid">
+              <figure class="see-panel">
+                <figcaption><strong>What you see</strong> — just your camera.</figcaption>
+                <div class="frame cam">
+                  <svg
+                    class="figure-svg"
+                    viewBox="0 0 400 225"
+                    role="img"
+                    aria-label="Line drawing of a person at a laptop, as the webcam sees them"
+                  >
+                    <path data-sample d="M40,36 H100 V112 H40 Z" />
+                    <path data-sample d="M70,36 V112 M40,74 H100" />
+                    <path data-sample d="M282,62 H372" />
+                    <path data-sample d="M292,62 V42 M300,62 V46 M308,62 V40 M318,62 L328,44" />
+                    <ellipse data-sample cx="200" cy="88" rx="33" ry="42" />
+                    <path data-sample d="M167,84 C163,52 180,36 202,36 C226,36 241,53 234,86" />
+                    <path data-sample d="M171,70 C186,58 214,56 232,68" />
+                    <path data-sample d="M167,84 c-7,-2 -9,11 -1,14 M233,84 c7,-2 9,11 1,14" />
+                    <path data-sample d="M180,78 q8,-4 15,-1 M205,77 q8,-3 15,1" />
+                    <path data-sample d="M181,89 q7,-4 13,0 M206,89 q7,-4 13,0" />
+                    <path data-sample d="M200,93 l-4,15 l7,1" />
+                    <path data-sample d="M190,117 q10,5 20,0" />
+                    <path data-sample d="M188,128 V146 M212,128 V146" />
+                    <path data-sample d="M188,146 L200,162 L212,146" />
+                    <path data-sample d="M188,146 C160,150 132,160 122,182 L118,206" />
+                    <path data-sample d="M212,146 C240,150 268,160 278,182 L282,206" />
+                    <path data-sample d="M24,206 H376" />
+                    <path data-sample d="M318,206 V178 H342 V206 M342,184 c10,0 10,16 0,16" />
+                  </svg>
+                  <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span
+                  ><span class="corner br"></span>
+                  <span class="frame-tag">Camera</span>
+                </div>
+              </figure>
+              <figure class="see-panel">
+                <figcaption><strong>What we see</strong> — numbers, never pictures.</figcaption>
+                <div class="frame mesh">
+                  <div class="mesh-stage">
+                    <div class="track track-l" data-track="eyeL">
+                      <span class="track-label">EAR L <span data-count="0.28" data-decimals="2">0.28</span></span>
+                    </div>
+                    <div class="track track-r" data-track="eyeR">
+                      <span class="track-label">EAR R <span data-count="0.27" data-decimals="2">0.27</span></span>
+                    </div>
+                    <div class="track track-m" data-track="mouth">
+                      <span class="track-label">Jaw open <span data-count="0.05" data-decimals="2">0.05</span></span>
+                    </div>
+                  </div>
+                  <dl class="kept">
+                    <div>
+                      <dt>PERCLOS</dt>
+                      <dd><span data-count="4" data-suffix="%">4%</span></dd>
+                    </div>
+                    <div>
+                      <dt>Blinks</dt>
+                      <dd><span data-count="15" data-suffix="/min">15/min</span></dd>
+                    </div>
+                    <div>
+                      <dt>Head pitch</dt>
+                      <dd><span data-count="-3" data-suffix="°">−3°</span></dd>
+                    </div>
+                  </dl>
+                  <span class="frame-tag">Equilibre</span>
+                </div>
+              </figure>
+              <canvas class="see-canvas" aria-hidden="true"></canvas>
+            </div>
+            <p class="see-caption">The video stays in your browser tab. Only these numbers are kept, on this device.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 Privacy -->
+      <section id="privacy" class="privacy wrap section" aria-labelledby="privacy-title">
+        <div class="sec-head">
+          <span class="sec-rule" aria-hidden="true"></span>
+          <p class="eyebrow">03 — Privacy</p>
+          <h2 id="privacy-title" class="h2">Chill out. Your face never <em class="serif-accent">leaves</em> your laptop.</h2>
+        </div>
+        <dl class="ledger" data-rows>
+          <div class="ledger-row" data-row>
+            <dt>
+              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="1.5" y="3.5" width="13" height="9" rx="1" /><path d="M2 14 14 2" />
+              </svg>
+              Never sent
+            </dt>
+            <dd>Video and images of your face.</dd>
+          </div>
+          <div class="ledger-row" data-row>
+            <dt>
+              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="2.5" y="3" width="11" height="7.5" rx="1" /><path d="M1 13h14" />
+              </svg>
+              Only on this device
+            </dt>
+            <dd>Your fatigue history and calibration (30 days).</dd>
+          </div>
+          <div class="ledger-row" data-row>
+            <dt>
+              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <ellipse cx="8" cy="4" rx="5.5" ry="2" /><path d="M2.5 4v8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2V4M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2" />
+              </svg>
+              Stored by us
+            </dt>
+            <dd>Your name and email, to sign you in (Supabase). Supabase also logs sign-in times, IP address and browser.</dd>
+          </div>
+        </dl>
+        <div class="privacy-notes">
+          <p class="privacy-note" data-reveal>
+            When you ask for advice, only your state and a few numbers are sent — never your face.
+          </p>
+          <aside class="medical" aria-label="Medical note" data-reveal>
+            <p>
+              <strong>Not a medical device.</strong> Equilibre shows a pattern, not a diagnosis. If tiredness keeps coming
+              back, talk to a health professional.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Final call to action -->
+      <section class="cta wrap section" aria-labelledby="cta-title">
+        <span class="sec-rule cta-rule" aria-hidden="true"></span>
+        <h2 id="cta-title" class="cta-title" data-reveal>
+          Know your pattern before the 3&nbsp;p.m. <em class="serif-accent">crash</em>.
+        </h2>
+        <div class="cta-row" data-reveal>
+          <a class="btn btn-lg" href="auth.html#signup" data-cta
+            ><span data-cta-label>Get started</span><span class="arr" aria-hidden="true">→</span></a
+          >
+          <p class="cta-note">Free for individuals. Calibration takes about 5 minutes.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap foot-inner">
+        <p>
+          Equilibre · IBM × Hacktiv8 National Hackathon 2026 ·
+          <a href="https://github.com/yayangacor/Equilibre">Open source (BSD-3-Clause)</a>
+        </p>
+      </div>
+    </footer>
+
     <script type="module" src="/src/landing/landing.ts"></script>
   </body>
 </html>
