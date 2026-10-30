@@ -1,37 +1,17 @@
 import type { Label } from "./rules.ts";
 
-// The companion in the Picture-in-Picture window (plan P13, NOTES D-24): which face the character
-// shows for the shown label, and when it speaks up. Pure, like the pipeline modules, so the
-// rules below are tested without a browser.
-
-export type Mood = "normal" | "lelah-ringan" | "lelah" | "tertidur" | "pergi" | "menunggu";
-
-export function moodFor(label: Label | null): Mood {
-  switch (label) {
-    case "normal":
-      return "normal";
-    case "lelah ringan":
-      return "lelah-ringan";
-    case "lelah":
-      return "lelah";
-    case "tertidur":
-      return "tertidur";
-    case "tidak di depan layar":
-      return "pergi";
-    default:
-      return "menunggu"; // no label yet: loading, calibrating, not calibrated
-  }
-}
+// The nudges in the Picture-in-Picture window (NOTES D-78: no character any more): when Equilibre speaks up
+// for the shown label. Pure, like the pipeline modules, so the rules below are tested without a browser.
 
 export const GREETING = {
-  snoozeMs: 30 * 60_000, // "Tunda sapaan 30 menit" (plan P13 scope 4)
+  snoozeMs: 30 * 60_000, // "Snooze nudges for 30 min"
   showMs: 20_000, // how long a greeting stays before it hides by itself
 } as const;
 
 export const GREETING_TEXT = {
-  lelah: "Kamu tampak lelah. Coba jeda sebentar, ya.",
-  tertidur: "Sepertinya kamu tertidur. Bangun dan bergerak sebentar, yuk.",
-  istirahat: "Kamu sudah cukup lama lelah. Sebaiknya berhenti dulu dan istirahat yang cukup.",
+  lelah: "You look tired. Sit upright, take a short walk, or get some daylight.",
+  tertidur: "You seem to have dozed off. Stand up and move for a few minutes.",
+  istirahat: "You have looked tired for a while. Stop for a proper break before you carry on.",
 } as const;
 
 export type GreetingState = {

@@ -1,0 +1,914 @@
+/* The app in the Readout (NOTES D-78): the dashboard stage, Ask, Settings, the calibration screen with its scan, the
+   floating camera dock, and the P14-era components re-cut to paper, ink, 4px corners and mono numbers. Loaded after
+   style.css, so it wins where both speak. */
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body[data-gate="checking"] .topbar,
+body[data-gate="checking"] .shell {
+  visibility: hidden;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+.page-head h1 {
+  font-size: var(--t-h1);
+  font-weight: 600;
+  letter-spacing: var(--track-display);
+  line-height: 1.05;
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+/* Buttons: ink, outlined, text. No pills. */
+.btn,
+button {
+  border-radius: var(--r);
+  min-height: 40px;
+}
+
+.btn.primary {
+  background: var(--ink);
+  color: var(--on-ink);
+  border-color: var(--ink);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #000;
+  box-shadow: none;
+}
+
+.btn.outline {
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+}
+
+.btn.outline:hover:not(:disabled) {
+  background: var(--paper-sunk);
+}
+
+.btn.tonal {
+  color: var(--ink);
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+}
+
+.btn.text {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn[aria-pressed="true"]::before {
+  content: none;
+}
+
+.btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.pill {
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+}
+
+.pill[data-on="1"] {
+  color: var(--s-normal-ink);
+  border-color: var(--s-normal);
+  background: var(--s-normal-tint);
+}
+
+/* Cards: ruled panels on raised paper */
+.card {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: none;
+}
+
+.card-head h2,
+.card-head h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Tiles: mono numbers with their label */
+.tile {
+  border-radius: var(--r);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.tile-label {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.tile-value {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.label-chip {
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+}
+
+.callout {
+  border-radius: var(--r);
+}
+
+.switch-track {
+  border-radius: 999px;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+
+.topbar {
+  gap: 28px;
+  padding: 12px var(--gutter);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  border-bottom: 1px solid var(--rule);
+}
+
+.brand {
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.brand-mark {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--s-normal);
+}
+
+.tabs {
+  gap: 4px;
+}
+
+.tabs a {
+  padding: 8px 12px;
+  border-radius: var(--r);
+  color: var(--ink-2);
+  font-weight: 500;
+  background: none;
+}
+
+.tabs a:hover {
+  color: var(--ink);
+  background: var(--paper-sunk);
+}
+
+.tabs a[aria-current="page"] {
+  color: var(--ink);
+  background: none;
+  box-shadow: inset 0 -2px 0 var(--ink);
+  border-radius: 0;
+}
+
+.status-chip {
+  margin-left: auto;
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+}
+
+.account {
+  position: relative;
+}
+
+.account-button {
+  gap: 8px;
+  min-height: 36px;
+  padding: 2px 10px 2px 2px;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.account-initial {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r);
+  background: var(--ink);
+  color: var(--on-ink);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.account-name {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--paper-raised);
+  border: 1px solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+
+.account-menu > * {
+  justify-content: flex-start;
+  min-height: 36px;
+  padding: 8px 10px;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--r);
+  font-weight: 500;
+}
+
+.account-menu > a:hover,
+.account-menu > button:hover {
+  background: var(--paper-sunk);
+}
+
+.account-email {
+  margin: 0 0 4px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+/* ── Shell: one column; the camera floats as a small dock when not on stage ── */
+
+.shell {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1240px;
+  padding: 28px var(--gutter) 64px;
+}
+
+.page {
+  gap: 20px;
+}
+
+.dock {
+  position: fixed;
+  top: auto;
+  right: 20px;
+  bottom: 20px;
+  z-index: 15;
+  width: 220px;
+  gap: 6px;
+  padding: 6px;
+  background: var(--paper-raised);
+  border: 1px solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+
+.dock:not(:has(.camera)) {
+  display: none;
+}
+
+.dock .camera video,
+.dock .camera canvas {
+  border-radius: var(--r);
+}
+
+.dock-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 4px 2px;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.cam-badge {
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── Dashboard ────────────────────────────────────────────────────────────── */
+
+.greeting {
+  display: grid;
+  gap: 6px;
+}
+
+.readout-head .eyebrow {
+  font-size: var(--t-micro);
+}
+
+.greeting-title {
+  margin: 0;
+  font-size: var(--t-h1);
+  font-weight: 600;
+  letter-spacing: var(--track-display);
+  line-height: 1.05;
+}
+
+.stage {
+  scroll-margin-top: 88px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--paper-raised);
+}
+
+.stage-frame {
+  position: relative;
+  background: #0d0f11;
+}
+
+/* The camera fills the stage: one screen wide, at most ~2/3 of the screen tall. */
+.stage-video .camera video,
+.stage-video .camera canvas {
+  aspect-ratio: auto;
+  width: 100%;
+  height: min(66vh, 680px);
+  min-height: 300px;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.stage-video .cam-badge {
+  top: auto;
+  bottom: 14px;
+  left: auto;
+  right: 14px;
+}
+
+.stage[data-view="you"] .stage-video canvas {
+  opacity: 0;
+}
+
+.stage-video canvas {
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.stage-hud {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.stage-hud .label-chip {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  border: 1px solid var(--st, var(--rule-strong));
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  color: var(--ink);
+}
+
+.stage-hud .label-chip::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--st, var(--s-away));
+  vertical-align: 1px;
+}
+
+.hud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r);
+  background: rgb(13 15 17 / 0.6);
+  color: var(--on-ink);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--s-normal);
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.stage-view {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--r);
+  background: rgb(13 15 17 / 0.6);
+}
+
+.stage-view button {
+  min-height: 30px;
+  padding: 4px 12px;
+  color: rgb(246 245 241 / 0.75);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  border: 0;
+}
+
+.stage-view button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.paused-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background: var(--paper-sunk);
+  background-image: repeating-linear-gradient(135deg, transparent 0 10px, rgb(18 21 24 / 0.04) 10px 11px);
+}
+
+.paused-veil p:last-child {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.stage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding: 18px 20px;
+  border-top: 1px solid var(--ink);
+}
+
+.stage-status {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.stage .hero-title {
+  margin: 0;
+  font-size: var(--t-h2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.stage .hero-text {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+
+.stage .meta {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bar.progress {
+  border-radius: 0;
+  height: 4px;
+}
+
+.bar.progress span {
+  background: var(--ink);
+  border-radius: 0;
+}
+
+/* What we see, right now: a ruled readout strip under the stage */
+.readout {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.readout-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.readout .live-tiles {
+  margin: 0;
+}
+
+.live-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.live-chart-title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Ask Equilibre */
+.ask {
+  display: grid;
+  gap: 14px;
+}
+
+.ask-title {
+  margin: 4px 0 0;
+  font-size: var(--t-h2);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  max-width: 28ch;
+}
+
+.ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ask .why {
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--paper);
+  padding: 12px 14px;
+}
+
+.ask .chat {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.ask .composer textarea {
+  border-radius: var(--r);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  font: inherit;
+}
+
+.chips button,
+.chip {
+  border-radius: var(--r);
+}
+
+.fine {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+/* ── Insights: the day detail under the new charts ─────────────────────────── */
+
+.day-detail {
+  display: grid;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--ink);
+}
+
+.day-detail .page-head h2 {
+  margin: 4px 0 0;
+  font-size: var(--t-h2);
+  font-weight: 600;
+}
+
+#insight-body {
+  display: grid;
+  gap: 16px;
+}
+
+/* ── Settings ─────────────────────────────────────────────────────────────── */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 6px 12px;
+  margin: 0 0 10px;
+}
+
+.kv dt {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  align-self: center;
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Calibration screen: the camera with its scan on the left, the step on the right ── */
+
+dialog.calib-screen {
+  padding: 0;
+  background: var(--paper);
+}
+
+dialog.calib-screen::backdrop {
+  background: var(--paper);
+}
+
+.cs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+  min-height: 100%;
+}
+
+.cs-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: #0d0f11;
+}
+
+.cs-video {
+  width: 100%;
+}
+
+.cs-video .camera video,
+.cs-video .camera canvas {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100vh;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.cs-video .cam-badge,
+.cs-video .camera-prompt {
+  display: none;
+}
+
+.cs-face {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  background: rgb(246 245 241 / 0.92);
+}
+
+.cs-panel {
+  display: grid;
+  align-content: center;
+  padding: 48px clamp(24px, 4vw, 64px);
+  border-left: 1px solid var(--ink);
+  overflow-y: auto;
+}
+
+dialog.calib-screen .cs {
+  justify-items: start;
+  width: 100%;
+  max-width: 460px;
+  margin: 0;
+  text-align: left;
+  gap: 18px;
+}
+
+dialog.calib-screen .cs-title {
+  font-size: clamp(2.25rem, 4.2vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: var(--track-display);
+}
+
+dialog.calib-screen .cs-lead {
+  max-width: 40ch;
+  font-size: 1.0625rem;
+  color: var(--ink-2);
+}
+
+.cs-steps {
+  list-style: none;
+  padding: 0;
+  gap: 0;
+  width: 100%;
+  border-top: 1px solid var(--rule);
+}
+
+.cs-steps li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 1rem;
+}
+
+.cs-steps .mono {
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+  padding-top: 2px;
+}
+
+.cs-actions {
+  justify-content: flex-start;
+}
+
+.cs .btn.cs-go {
+  min-width: 180px;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.cs-count {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(7rem, 22vh, 12rem);
+  letter-spacing: -0.06em;
+}
+
+.cs-bar {
+  height: 6px;
+  border-radius: 0;
+  background: var(--paper-sunk);
+}
+
+.cs-bar span {
+  background: var(--ink);
+  border-radius: 0;
+}
+
+.cs-left {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.cs-pip {
+  justify-items: start;
+}
+
+.cs-note {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+#calib-stale {
+  padding: 10px 12px;
+  border-left: 3px solid var(--s-mild);
+  background: var(--s-mild-tint);
+  color: var(--s-mild-ink);
+}
+
+/* Welcome: one centred card */
+dialog.welcome {
+  display: none;
+}
+
+dialog.welcome[open] {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.welcome-card {
+  max-width: 560px;
+  padding: 32px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-lg);
+  background: var(--paper-raised);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .cs-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-video .camera video,
+  .cs-video .camera canvas {
+    height: 46vh;
+  }
+
+  .cs-panel {
+    border-left: 0;
+    border-top: 1px solid var(--ink);
+    padding: 24px 16px;
+  }
+
+  .dock {
+    width: 132px;
+    right: 12px;
+    bottom: 76px;
+  }
+
+  .account-name {
+    display: none;
+  }
+
+  .stage-video .camera video,
+  .stage-video .camera canvas {
+    height: 52vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}

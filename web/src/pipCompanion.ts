@@ -1,11 +1,12 @@
-import { ART, createBear, type Bear } from "./bear.ts";
-import { GREETING, type Mood } from "./companion.ts";
+import { GREETING } from "./companion.ts";
+import type { Label } from "./rules.ts";
+import { STATE_TOKEN } from "./stateCopy.ts";
 
-// Picture-in-Picture companion (plan P13, NOTES D-24): a small always-on-top window with the
-// character, so Equilibre stays visible while the user works in another window. While it is open
-// its timers also drive the detection loop (pipWindow), since a hidden tab is throttled to ±1 fps
-// (G-03). Document Picture-in-Picture is Chromium only; elsewhere the button is off.
-// Texts go in via textContent; the window gets its own small stylesheet, not the app's.
+// Picture-in-Picture window (NOTES D-78): a small always-on-top readout with the state, its reason, and
+// Pause / Recalibrate, so Equilibre stays visible while the user works in another window. While it is open its
+// timers also drive the detection loop (pipWindow), since a hidden tab is throttled to ±1 fps (G-03, G-56).
+// Document Picture-in-Picture is Chromium only; elsewhere the button is off. Texts go in via textContent; the
+// window gets its own small stylesheet in the Readout's paper and ink.
 
 type DocumentPiP = {
   requestWindow(options: { width: number; height: number; preferInitialWindowPlacement?: boolean }): Promise<Window>;
@@ -14,15 +15,15 @@ const documentPiP = (): DocumentPiP | null =>
   (window as Window & { documentPictureInPicture?: DocumentPiP }).documentPictureInPicture ?? null;
 
 // The requested inner size; Chrome raises the width to its minimum.
-const SIZE = { width: 220, height: 300 };
+const SIZE = { width: 300, height: 220 };
 
 export type CompanionView = {
-  mood: Mood;
-  label: string; // the badge text: the shown label, or "Kalibrasi…", "Belum dikalibrasi", …
-  note: string; // one short line under the badge
+  state: Label | null; // colors the dot; null = no state yet (loading, calibrating, paused)
+  label: string; // "Normal", "Calibrating · 3:12", "Paused", …
+  note: string; // one short line: the reason, or what to do
+  paused: boolean;
 };
 
-// The PiP window is its own document: the Plex faces are declared again with absolute URLs.
 const fontFaces = () =>
   [
     [400, "Regular"],
@@ -37,56 +38,47 @@ const fontFaces = () =>
 
 const styleSheet = () => `
 ${fontFaces()}
-:root { --bg: #f7f5f0; --text: #1b1f24; --muted: #545b66; --ok: #0b7f6e; --warn: #b26b00; --error: #b3402e;
-  --sleep: #5b4bb7; --idle: #687587; --on-status: #fff; --bubble: #ffffff; --border: #e2ded5;
-  font-family: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
-@media (prefers-color-scheme: dark) { :root { --bg: #111418; --text: #e6e9ed; --muted: #a3abb6; --ok: #4fc1a9;
-  --warn: #e5a646; --error: #f08b79; --sleep: #a99bf2; --idle: #94a0b0; --on-status: #111418; --bubble: #181c21;
-  --border: #2c333b; } }
+:root { --paper: #f3f2ed; --raised: #faf9f6; --ink: #121518; --ink-2: #474d54; --ink-3: #6b7178; --rule: #d8d6ce;
+  --normal: #1f9d8a; --mild: #e0a526; --tired: #e5483b; --asleep: #6b5bd2; --away: #9aa1a9;
+  font-family: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper);
+  color-scheme: light; }
 * { box-sizing: border-box; }
-body { margin: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  gap: 6px; padding: 8px; overflow: hidden; user-select: none; }
-.stage { position: relative; flex: 1 1 auto; min-height: 0; width: 100%; display: flex; justify-content: center;
-  align-items: flex-end; cursor: pointer; }
-.bear { position: relative; height: 100%; max-height: 240px; aspect-ratio: ${ART.width} / ${ART.height};
-  animation: bob 4s ease-in-out infinite; transform-origin: 50% 100%; transition: opacity .6s, transform .6s; }
-.bear img, .bear svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.bear svg { overflow: visible; }
-[data-mood="lelah-ringan"] .bear { transform: rotate(-2deg); }
-[data-mood="lelah"] .bear { transform: rotate(-4deg); animation-duration: 6s; }
-[data-mood="tertidur"] .bear { transform: rotate(-6deg); animation: breathe 5s ease-in-out infinite; }
-[data-mood="pergi"] .bear { opacity: .35; animation: none; }
-@keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
-@keyframes breathe { 0%, 100% { scale: 1; } 50% { scale: 1.015 1.03; } }
-.zzz { display: none; font-weight: 700; fill: var(--sleep); }
-[data-mood="tertidur"] .zzz { display: inline; animation: float 3s ease-in-out infinite; }
-[data-mood="tertidur"] .zzz:nth-of-type(2) { animation-delay: 1s; }
-[data-mood="tertidur"] .zzz:nth-of-type(3) { animation-delay: 2s; }
-@keyframes float { 0% { opacity: 0; translate: 0 40px; } 30% { opacity: 1; } 100% { opacity: 0; translate: 80px -160px; } }
-@media (prefers-reduced-motion: reduce) { .bear, .zzz { animation: none !important; } }
-.badge { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--on-status);
-  background: var(--idle); }
-.badge::first-letter { text-transform: uppercase; }
-[data-mood="normal"] .badge { background: var(--ok); }
-[data-mood="lelah-ringan"] .badge { background: var(--warn); }
-[data-mood="lelah"] .badge { background: var(--error); }
-[data-mood="tertidur"] .badge { background: var(--sleep); }
-.note { margin: 0; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.3; }
-.bubble { flex: none; width: 100%; padding: 8px 10px; border-radius: 12px;
-  background: var(--bubble); border: 1px solid var(--border); font-size: 12px; line-height: 1.35;
-  box-shadow: 0 2px 8px rgb(0 0 0 / .12); }
-.bubble[hidden] { display: none; }
-.bubble p { margin: 0 0 6px; }
-.bubble-actions { display: flex; gap: 8px; justify-content: flex-end; }
-button { font: inherit; font-size: 11px; border: none; background: none; color: var(--muted); padding: 0;
-  text-decoration: underline; cursor: pointer; }
-.fps { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+body { margin: 0; height: 100vh; display: flex; flex-direction: column; padding: 12px 14px; gap: 8px;
+  overflow: hidden; user-select: none; }
+.head { display: flex; justify-content: space-between; align-items: center; }
+.brand { font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.state { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule); }
+.dot { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--away); transition: background .4s; }
+[data-state="normal"] .dot { background: var(--normal); }
+[data-state="mild"] .dot { background: var(--mild); }
+[data-state="tired"] .dot { background: var(--tired); }
+[data-state="asleep"] .dot { background: var(--asleep); }
+[data-state="none"] .dot { background: transparent; border: 1.5px solid var(--ink-3); }
+[data-paused="1"] .dot { background: transparent; border: 1.5px dashed var(--ink-3); }
+.label { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.note { margin: 0; font-size: 12px; color: var(--ink-2); line-height: 1.35; min-height: 2.7em; }
+.nudge { margin: 0; padding: 8px 10px; border-left: 3px solid var(--ink); background: var(--raised); font-size: 12px;
+  line-height: 1.35; }
+.nudge[hidden] { display: none; }
+.nudge button { margin-left: 6px; }
+.actions { display: flex; gap: 8px; margin-top: auto; }
+button { font: inherit; font-size: 12px; font-weight: 600; height: 32px; padding: 0 12px; border-radius: 4px;
+  border: 1px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--ink); color: var(--paper); }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+button.link { height: auto; padding: 0; border: 0; background: none; font-weight: 400; color: var(--ink-2);
+  text-decoration: underline; }
 `;
 
 export type PipCompanionDeps = {
   debug: boolean;
   onChange: (open: boolean) => void; // the PiP window opened or closed
-  onSnooze: () => void; // "Tunda sapaan 30 menit"
+  onSnooze: () => void; // "Snooze 30 min"
+  onPause: () => void; // pause or resume monitoring
+  onRecalibrate: () => void; // bring the app forward with the calibration screen
 };
 
 export class PipCompanion {
@@ -94,15 +86,15 @@ export class PipCompanion {
   private win: Window | null = null;
   private parts: {
     body: HTMLElement;
-    badge: HTMLElement;
+    label: HTMLElement;
     note: HTMLElement;
-    bubble: HTMLElement;
-    bubbleText: HTMLElement;
-    fps: HTMLElement | null;
-    bear: Bear;
+    nudge: HTMLElement;
+    nudgeText: HTMLElement;
+    pause: HTMLButtonElement;
+    fps: HTMLElement;
   } | null = null;
-  private bubbleTimer = 0;
-  private view: CompanionView = { mood: "menunggu", label: "Memuat…", note: "" };
+  private nudgeTimer = 0;
+  private view: CompanionView = { state: null, label: "Loading…", note: "", paused: false };
   // outerWidth of a window that opened too wide (G-71), until it is narrowed or resized by the user
   private oversized: number | null = null;
 
@@ -138,17 +130,15 @@ export class PipCompanion {
   }
 
   // Must run inside a click handler: requestWindow needs a user gesture.
-  // Chrome raises the width to its minimum (±253 px inside). Without preferInitialWindowPlacement it
-  // reopens at the size the window had when it was closed, so one drag made every later window wide.
+  // Without preferInitialWindowPlacement Chrome reopens at the size the window had when it was closed.
   async open(): Promise<void> {
     const api = documentPiP();
     if (!api || this.win) return;
     const win = await api.requestWindow({ ...SIZE, preferInitialWindowPlacement: true });
     this.win = win;
     // On a 100% monitor next to a 200% primary display, Chrome opens the window at twice its minimum
-    // width but places it as if it were narrow, so part of it is off-screen (G-71). resizeTo needs a
-    // user activation and requestWindow has just used this one up: the next click or key press in
-    // either window narrows it.
+    // width but places it as if it were narrow (G-71). resizeTo needs a user activation and requestWindow
+    // has just used this one up: the next click or key press in either window narrows it.
     this.oversized = win.innerWidth > SIZE.width * 1.5 ? win.outerWidth : null;
     for (const type of ["pointerdown", "keydown"]) win.addEventListener(type, this.fit, true);
     this.build(win.document);
@@ -181,24 +171,26 @@ export class PipCompanion {
     this.view = view;
     const p = this.parts;
     if (!p) return;
-    p.body.dataset.mood = view.mood;
-    p.badge.textContent = view.label;
+    p.body.dataset.state = view.state ? STATE_TOKEN[view.state] : "none";
+    p.body.dataset.paused = view.paused ? "1" : "0";
+    p.label.textContent = view.label;
     p.note.textContent = view.note;
-    p.bear.setMood(view.mood);
+    p.pause.textContent = view.paused ? "Resume" : "Pause";
+    p.pause.classList.toggle("primary", view.paused);
   }
 
-  // A greeting in the bubble; it hides by itself after GREETING.showMs.
+  // A nudge under the state; it hides by itself after GREETING.showMs.
   say(text: string): void {
     const p = this.parts;
     if (!p || !this.win) return;
-    p.bubbleText.textContent = text;
-    p.bubble.hidden = false;
-    this.win.clearTimeout(this.bubbleTimer);
-    this.bubbleTimer = this.win.setTimeout(() => (p.bubble.hidden = true), GREETING.showMs);
+    p.nudgeText.textContent = text;
+    p.nudge.hidden = false;
+    this.win.clearTimeout(this.nudgeTimer);
+    this.nudgeTimer = this.win.setTimeout(() => (p.nudge.hidden = true), GREETING.showMs);
   }
 
   setFps(text: string): void {
-    if (this.parts?.fps) this.parts.fps.textContent = `deteksi ${text} fps`;
+    if (this.parts) this.parts.fps.textContent = this.deps.debug ? `${text} fps` : "On-device";
   }
 
   private closed() {
@@ -219,39 +211,43 @@ export class PipCompanion {
       if (text !== undefined) node.textContent = text;
       return node;
     };
+    const button = (text: string, className: string | undefined, onClick: () => void) => {
+      const b = make("button", className, text);
+      b.type = "button";
+      b.addEventListener("click", onClick);
+      return b;
+    };
 
-    const bubble = make("div", "bubble");
-    bubble.hidden = true;
-    bubble.setAttribute("role", "status");
-    const bubbleText = make("p");
-    const later = make("button", undefined, "Tunda sapaan 30 menit");
-    later.type = "button";
-    later.addEventListener("click", () => {
-      bubble.hidden = true;
-      this.deps.onSnooze();
-    });
-    const dismiss = make("button", undefined, "Tutup");
-    dismiss.type = "button";
-    dismiss.addEventListener("click", () => (bubble.hidden = true));
-    const actions = make("div", "bubble-actions");
-    actions.append(later, dismiss);
-    bubble.append(bubbleText, actions);
+    const head = make("div", "head");
+    const fps = make("span", "mono", "On-device");
+    head.append(make("span", "brand", "Equilibre"), fps);
 
-    const stage = make("div", "stage");
-    stage.title = "Kembali ke tab Equilibre";
-    // A click on the character asks for the Equilibre tab; the browser may ignore it, and the
-    // window's own "back to tab" button stays available either way.
-    stage.addEventListener("click", () => window.focus());
-    const bear = createBear(doc, "Beruang pendamping Equilibre");
-    stage.append(bear.root);
+    const state = make("div", "state");
+    const dot = make("span", "dot");
+    dot.setAttribute("aria-hidden", "true");
+    const label = make("p", "label");
+    label.setAttribute("aria-live", "polite");
+    state.append(dot, label);
 
-    // The bubble sits above the character (not over it), so the face stays visible while it talks.
-    const badge = make("div", "badge");
     const note = make("p", "note");
-    doc.body.append(bubble, stage, badge, note);
-    const fps = this.deps.debug ? make("p", "fps", "deteksi – fps") : null;
-    if (fps) doc.body.append(fps);
 
-    this.parts = { body: doc.body, badge, note, bubble, bubbleText, fps, bear };
+    const nudge = make("p", "nudge");
+    nudge.hidden = true;
+    nudge.setAttribute("role", "status");
+    const nudgeText = make("span");
+    nudge.append(
+      nudgeText,
+      button("Snooze 30 min", "link", () => {
+        nudge.hidden = true;
+        this.deps.onSnooze();
+      }),
+    );
+
+    const pause = button("Pause", undefined, () => this.deps.onPause());
+    const actions = make("div", "actions");
+    actions.append(pause, button("Recalibrate", undefined, () => this.deps.onRecalibrate()));
+
+    doc.body.append(head, state, note, nudge, actions);
+    this.parts = { body: doc.body, label, note, nudge, nudgeText, pause, fps };
   }
 }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <!-- The page may only connect to its own origin, the user-test Sheet (plans/P08) and Supabase Auth (D-78). MediaPipe
@@ -11,618 +11,626 @@
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <title>Equilibre</title>
   </head>
-  <body data-page="dashboard">
-    <a class="skip-link" href="#main">Lewati ke konten</a>
+  <body data-page="dashboard" data-gate="checking">
+    <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="topbar">
-      <a class="brand" href="#dashboard" aria-label="Equilibre, ke Dashboard">
-        <img src="/favicon.svg" alt="" width="28" height="28" />
-        <span>Equilibre</span>
+      <a class="brand" href="#dashboard" aria-label="Equilibre, go to Dashboard">
+        <span class="brand-mark" aria-hidden="true"></span><span>Equilibre</span>
       </a>
-      <nav class="tabs" aria-label="Halaman">
-        <a href="#dashboard" data-page-link="dashboard">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 12 7 12 10 5 14 19 17 12 21 12" /></svg>
-          <span>Dashboard</span>
-        </a>
-        <a href="#insight" data-page-link="insight">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="20" x2="5" y2="13" /><line x1="12" y1="20" x2="12" y2="5" /><line x1="19" y1="20" x2="19" y2="10" /></svg>
-          <span>Insight</span>
-        </a>
-        <a href="#tanya" data-page-link="tanya">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
-          <span>Tanya</span>
-        </a>
-        <a href="#privasi" data-page-link="privasi">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /><polyline points="9 12 11 14 15 10" /></svg>
-          <span>Privasi</span>
-        </a>
-        <a id="nav-debug" href="#debug" data-page-link="debug" hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="8 7 3 12 8 17" /><polyline points="16 7 21 12 16 17" /></svg>
-          <span>Debug</span>
-        </a>
+      <nav class="tabs" aria-label="Pages">
+        <a href="#dashboard" data-page-link="dashboard">Dashboard</a>
+        <a href="#insights" data-page-link="insights">Insights</a>
+        <a href="#settings" data-page-link="settings">Settings</a>
+        <a id="nav-debug" href="#debug" data-page-link="debug" hidden>Debug</a>
       </nav>
       <p id="top-status" class="status-chip" data-label="none" aria-live="polite">
-        <span class="shape" aria-hidden="true"></span><span class="status-text">Memuat…</span>
+        <span class="shape" aria-hidden="true"></span><span class="status-text">Loading…</span>
       </p>
+      <div class="account" id="account" hidden>
+        <button id="account-button" class="account-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+          <span id="account-initial" class="account-initial" aria-hidden="true"></span>
+          <span id="account-name" class="account-name"></span>
+        </button>
+        <div id="account-menu" class="account-menu" role="menu" hidden>
+          <p id="account-email" class="account-email"></p>
+          <a role="menuitem" href="#settings">Settings</a>
+          <button id="sign-out" role="menuitem" type="button">Sign out</button>
+        </div>
+      </div>
     </header>
 
     <div class="shell">
       <main id="main" class="pages" tabindex="-1">
-        <!-- ── Dashboard: the state now, the live camera, today, advice, KSS (NOTES D-65) ── -->
+        <!-- ── Dashboard: the camera, the state and why, ask, today ─────────── -->
         <section class="page" data-page="dashboard" aria-labelledby="h-dashboard">
           <h1 id="h-dashboard" class="visually-hidden" tabindex="-1">Dashboard</h1>
 
           <!-- Remote user test (?kode=), plans/P08 -->
           <section id="uji-card" class="card uji" aria-labelledby="h-uji" hidden>
             <div class="card-head">
-              <h2 id="h-uji">Uji coba Equilibre</h2>
+              <h2 id="h-uji">Equilibre user test</h2>
               <span id="uji-code" class="pill"></span>
             </div>
             <div id="uji-body"></div>
           </section>
 
-          <article id="hero" class="hero" data-label="none">
-            <div id="hero-bear" class="hero-art" aria-hidden="true"></div>
-            <div class="hero-body">
-              <p id="label" class="label-chip" data-label="none">Memuat…</p>
-              <h2 id="hero-title" class="hero-title">Menyiapkan Equilibre…</h2>
-              <p id="hero-text" class="hero-text">Kamera dan model deteksi sedang dimuat. Semuanya diproses di perangkat ini.</p>
-              <div id="hero-progress" class="bar progress" hidden><span></span></div>
-              <div class="hero-actions">
-                <button id="hero-camera" type="button" class="btn primary" hidden>Nyalakan kamera</button>
-                <button id="hero-calib" type="button" class="btn primary" hidden>Mulai kalibrasi</button>
-                <a id="hero-saran" class="btn tonal" href="#saran" hidden>Lihat saran</a>
+          <div class="greeting">
+            <p id="greeting-date" class="eyebrow"></p>
+            <p id="greeting" class="greeting-title">Good to see you.</p>
+          </div>
+
+          <article id="hero" class="stage" data-label="none" data-view="we">
+            <div class="stage-frame">
+              <!-- The camera box (video + overlay) moves in here on this page. -->
+              <div id="live-slot" class="stage-video"></div>
+              <video id="live-raw" class="visually-hidden" autoplay playsinline muted aria-hidden="true"></video>
+              <div class="stage-hud">
+                <p id="label" class="label-chip" data-label="none">Loading…</p>
+                <span class="hud-pill"><span class="live-dot" aria-hidden="true"></span>Live · on-device</span>
               </div>
-              <p id="label-meta" class="meta"></p>
-              <details id="why" class="why">
-                <summary>
-                  <span class="summary-title">Kenapa label ini?</span>
-                  <span class="summary-hint">Tanda yang terbaca kamera di jendela terakhir</span>
-                </summary>
-                <ul id="reasons" class="reasons"></ul>
-                <p id="pending" class="callout info" hidden></p>
-                <div id="correction" class="inline-action" hidden>
-                  <button id="correct-label" type="button" class="btn text">Label ini tidak sesuai?</button>
-                  <div id="correction-choices" class="choices" hidden>
-                    <span class="choices-label">Menurutku sebenarnya:</span>
-                    <span id="correction-options" class="choice-row"></span>
-                    <button id="correction-cancel" type="button" class="btn text">Batal</button>
-                  </div>
-                  <p id="correction-note" class="helper" aria-live="polite"></p>
-                </div>
-              </details>
+              <div class="stage-view" role="group" aria-label="Camera view">
+                <button type="button" data-view="we" aria-pressed="true">What we see</button>
+                <button type="button" data-view="you" aria-pressed="false">What you see</button>
+              </div>
+              <div id="paused-veil" class="paused-veil" hidden>
+                <p class="eyebrow">Monitoring paused</p>
+                <p>The camera is off. Nothing is read or stored until you resume.</p>
+              </div>
+            </div>
+            <div class="stage-bar">
+              <div class="stage-status">
+                <h2 id="hero-title" class="hero-title">Getting Equilibre ready…</h2>
+                <p id="hero-text" class="hero-text">Loading the camera and the face model. Everything runs on this laptop.</p>
+                <div id="hero-progress" class="bar progress" hidden><span></span></div>
+                <p id="label-meta" class="meta"></p>
+              </div>
+              <div class="stage-actions">
+                <button id="hero-camera" type="button" class="btn primary" hidden>Turn on camera</button>
+                <button id="hero-calib" type="button" class="btn primary" hidden>Start calibration</button>
+                <button id="pause-button" type="button" class="btn outline" disabled>Pause</button>
+                <button id="recalib-button" type="button" class="btn outline" disabled>Recalibrate</button>
+                <button id="pip-open" type="button" class="btn outline">Picture-in-Picture</button>
+                <a id="hero-saran" class="btn tonal" href="#ask" hidden>See advice</a>
+              </div>
             </div>
           </article>
 
           <p id="long-rest" class="callout danger" role="status" hidden></p>
 
-          <!-- Live view (D-63): the dock's camera moves into #live-slot on this page, with the face mesh drawn over it. -->
-          <section id="live" class="card live" aria-labelledby="h-live">
-            <div class="card-head">
-              <h2 id="h-live">Live view</h2>
-              <span class="pill live-pill"><span class="live-dot" aria-hidden="true"></span>Live · on-device</span>
-            </div>
-            <p class="muted">478 titik wajah MediaPipe, ±10×/detik, di browser ini. Video tidak pernah dikirim.</p>
-            <div class="live-views">
-              <figure class="live-view">
-                <div class="live-frame"><video id="live-raw" autoplay playsinline muted></video></div>
-                <figcaption>Kamera biasa</figcaption>
-              </figure>
-              <figure class="live-view">
-                <div id="live-slot" class="live-frame"></div>
-                <figcaption>
-                  Yang dibaca Equilibre ·
-                  <span class="eye-key" data-eye="terbuka">garis mata hijau = terbuka</span>,
-                  <span class="eye-key" data-eye="tertutup">merah = tertutup</span>,
-                  <span class="eye-key" data-eye="mulut">mulut kuning = menguap</span>
-                </figcaption>
-              </figure>
+          <section class="readout" aria-labelledby="h-readout">
+            <div class="readout-head">
+              <h2 id="h-readout" class="eyebrow">What we see, right now</h2>
+              <p class="eyebrow muted">478 face points · ±10×/s · in this browser</p>
             </div>
             <div id="live-tiles" class="tiles live-tiles"></div>
             <div class="live-chart">
-              <h3 class="live-chart-title">Eye Aspect Ratio, 20 detik terakhir</h3>
-              <p class="muted small">Tinggi ÷ lebar bukaan mata. Turun saat berkedip; garis putus-putus = batas kalibrasimu.</p>
-              <ul id="live-ear-legend" class="legend"></ul>
-              <canvas id="live-ear-chart" class="ear-chart" role="img" aria-label="Grafik EAR 20 detik terakhir"></canvas>
+              <div class="live-chart-head">
+                <h3 class="live-chart-title">Eye openness (EAR), last 20 s</h3>
+                <ul id="live-ear-legend" class="legend"></ul>
+              </div>
+              <canvas id="live-ear-chart" class="ear-chart" role="img" aria-label="Eye openness over the last 20 seconds"></canvas>
+            </div>
+          </section>
+
+          <section id="ask" class="card ask" aria-labelledby="h-ask">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">Ask Equilibre</p>
+                <h2 id="h-ask" class="ask-title">Why do I feel like this, and what should I do?</h2>
+              </div>
+              <a id="auto-pill" class="pill" href="#settings">Auto advice off</a>
+            </div>
+            <div class="ask-actions">
+              <button id="ask-why" type="button" class="btn outline">Why this state?</button>
+              <button id="send-status" type="button" class="btn outline" disabled>What should I do?</button>
+            </div>
+
+            <details id="why" class="why">
+              <summary>
+                <span class="summary-title">Why this state?</span>
+                <span class="summary-hint">Signs the camera read in the last window</span>
+              </summary>
+              <ul id="reasons" class="reasons"></ul>
+              <p id="pending" class="callout info" hidden></p>
+              <div id="correction" class="inline-action" hidden>
+                <button id="correct-label" type="button" class="btn text">This state is wrong?</button>
+                <div id="correction-choices" class="choices" hidden>
+                  <span class="choices-label">It was actually:</span>
+                  <span id="correction-options" class="choice-row"></span>
+                  <button id="correction-cancel" type="button" class="btn text">Cancel</button>
+                </div>
+                <p id="correction-note" class="helper" aria-live="polite"></p>
+              </div>
+            </details>
+
+            <p id="send-note" class="helper" hidden>No advice while you're away from the screen: there is nothing to assess.</p>
+            <div id="answer" class="answer" aria-live="polite"></div>
+            <div id="feedback" class="feedback" hidden>
+              <span class="choices-label">This advice:</span>
+            </div>
+
+            <div id="tanya-panel" class="chat">
+              <div id="tanya-chips" class="chips" aria-label="Example questions"></div>
+              <ol id="tanya-thread" class="thread" aria-live="polite"></ol>
+              <p id="tanya-status" class="helper" aria-live="polite"></p>
+              <div class="composer">
+                <label class="visually-hidden" for="tanya-input">Your question</label>
+                <textarea id="tanya-input" rows="2" placeholder="Ask why you feel this way, or what to do about it…"></textarea>
+                <button id="tanya-send" type="button" class="btn primary">Ask</button>
+              </div>
+              <p class="fine">
+                "Why this state?" is answered on this laptop. Advice and questions send only your state, a few numbers and your
+                question text (emails and long numbers masked). Never your video or face.
+              </p>
             </div>
           </section>
 
           <div class="pair">
             <section class="card today" aria-labelledby="h-today">
               <div class="card-head">
-                <h2 id="h-today">Hari ini</h2>
-                <a class="link" href="#insight">Lihat insight</a>
+                <h2 id="h-today">Today</h2>
+                <a class="link" href="#insights">See insights</a>
               </div>
               <div class="tiles three">
                 <div class="tile">
-                  <p class="tile-label">Sejak jeda terakhir</p>
+                  <p class="tile-label">Since last break</p>
                   <p id="since-break" class="tile-value">–</p>
                 </div>
                 <div class="tile">
-                  <p class="tile-label">Dipantau hari ini</p>
+                  <p class="tile-label">Watched today</p>
                   <p id="today-monitored" class="tile-value">–</p>
                 </div>
                 <div class="tile">
-                  <p class="tile-label">Jeda hari ini</p>
+                  <p class="tile-label">Breaks today</p>
                   <p id="today-breaks" class="tile-value">–</p>
                 </div>
               </div>
-              <div id="today-strip" class="strip" role="img" aria-label="Belum ada riwayat hari ini."></div>
+              <div id="today-strip" class="strip" role="img" aria-label="No time at the screen has been assessed today yet."></div>
               <ul id="today-legend" class="legend compact"></ul>
               <div class="inline-action">
-                <button id="break-done" type="button" class="btn outline">Saya sudah jeda</button>
+                <button id="break-done" type="button" class="btn outline">I took a break</button>
                 <div id="break-choices" class="choices" hidden>
-                  <span class="choices-label">Kira-kira berapa lama?</span>
+                  <span class="choices-label">About how long?</span>
                   <span id="break-options" class="choice-row"></span>
-                  <button id="break-cancel" type="button" class="btn text">Batal</button>
+                  <button id="break-cancel" type="button" class="btn text">Cancel</button>
                 </div>
-                <p id="break-note" class="helper" aria-live="polite">Jeda ≥ 2 menit terhitung otomatis.</p>
+                <p id="break-note" class="helper" aria-live="polite">Breaks of 2 minutes or more are counted by themselves.</p>
               </div>
             </section>
 
-            <section id="saran" class="card saran" aria-labelledby="h-saran">
+            <section id="kss-panel" class="card kss" aria-labelledby="h-kss">
               <div class="card-head">
-                <h2 id="h-saran">Saran untukmu</h2>
-                <a id="auto-pill" class="pill" href="#privasi">Saran otomatis mati</a>
+                <h2 id="h-kss">Sleepiness check</h2>
+                <span class="eyebrow">KSS · 1–9</span>
               </div>
-              <p class="muted">Disusun Langflow dari panduan WHO, jurnal, dan K3. Tanpa video.</p>
+              <p id="kss-prompt" class="kss-prompt">How sleepy have you felt in the last 5 minutes? Pick one.</p>
+              <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
+              <p id="kss-note" class="helper" aria-live="polite"></p>
+              <p class="fine">Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990; labels: Miley et al., 2016).</p>
+            </section>
+          </div>
+        </section>
+
+        <!-- ── Insights: the pattern over days, then one day in detail ──────── -->
+        <section class="page" data-page="insights" aria-labelledby="h-insights" hidden>
+          <h1 id="h-insights" class="visually-hidden" tabindex="-1">Insights</h1>
+          <div id="insights-root" class="insights-root"></div>
+
+          <section class="day-detail" aria-labelledby="h-insight">
+            <div class="page-head">
+              <div>
+                <p class="eyebrow">Day detail</p>
+                <h2 id="h-insight">One day, hour by hour</h2>
+              </div>
+              <label class="day-pick">Day <select id="day-select"></select></label>
+            </div>
+            <p id="history-note" class="callout info" hidden></p>
+
+            <div id="insight-body" hidden>
+              <p id="insight-lead" class="lead"></p>
+              <div id="insight-tiles" class="tiles four"></div>
+
+              <section class="card" aria-labelledby="h-labels">
+                <div class="card-head">
+                  <h3 id="h-labels">Time per state</h3>
+                </div>
+                <p class="muted">How long each state showed while you were watched.</p>
+                <div id="label-bars" class="label-bars"></div>
+                <p id="label-bars-note" class="helper"></p>
+              </section>
+
+              <section class="card" aria-labelledby="h-trend">
+                <div class="card-head">
+                  <h3 id="h-trend">Tiredness through the day</h3>
+                </div>
+                <p id="trend-sub" class="muted">Average fatigue level per minute. The line breaks while you are not monitored or away from the screen.</p>
+                <ul id="trend-legend" class="legend"></ul>
+                <div id="trend-wrap" class="chart-wrap">
+                  <div id="trend-tip" class="chart-tip" aria-hidden="true" hidden></div>
+                </div>
+              </section>
+
+              <section class="card" aria-labelledby="h-hours">
+                <div class="card-head">
+                  <h3 id="h-hours">Per hour</h3>
+                </div>
+                <figure id="day-chart" class="chart">
+                  <figcaption class="muted">Minutes per hour at the screen, by state. Hover or Tab to an hour to see its numbers.</figcaption>
+                  <ul id="chart-legend" class="legend"></ul>
+                  <div id="chart-wrap" class="chart-wrap">
+                    <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden></div>
+                  </div>
+                  <details class="chart-table">
+                    <summary>Show as a table</summary>
+                    <div class="table-scroll"><table id="chart-table"></table></div>
+                  </details>
+                </figure>
+              </section>
+
+              <section id="day-recs-block" class="card" aria-labelledby="h-recs" hidden>
+                <div class="card-head">
+                  <h3 id="h-recs">Advice that day</h3>
+                </div>
+                <ol id="day-recs" class="recs"></ol>
+              </section>
+
+              <details class="card">
+                <summary>
+                  <span class="summary-title">All numbers</span>
+                  <span class="summary-hint">Every number of that day in one list</span>
+                </summary>
+                <dl id="day-stats" class="stat-list"></dl>
+              </details>
+            </div>
+          </section>
+        </section>
+
+        <!-- ── Settings: account, calibration, monitoring, data, developer ──── -->
+        <section class="page" data-page="settings" aria-labelledby="h-settings" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Settings</p>
+              <h1 id="h-settings" tabindex="-1">System &amp; privacy</h1>
+            </div>
+          </div>
+
+          <div class="settings-grid">
+            <section id="account-card" class="card" aria-labelledby="h-account" hidden>
+              <div class="card-head"><h2 id="h-account">Account</h2></div>
+              <dl class="kv">
+                <dt>Name</dt><dd id="settings-name">–</dd>
+                <dt>Email</dt><dd id="settings-email">–</dd>
+              </dl>
+              <p class="helper">Stored by Supabase to sign you in, with sign-in times and logs. Your states and history are not.</p>
+              <div class="row"><button id="sign-out-2" type="button" class="btn outline">Sign out</button></div>
+            </section>
+
+            <section id="calib-card" class="card" aria-labelledby="h-calib">
+              <div class="card-head">
+                <h2 id="h-calib">Calibration</h2>
+                <span id="baseline-age" class="eyebrow"></span>
+              </div>
+              <ol class="steps">
+                <li>When the countdown ends, close your eyes fully (don't squint) for about 3 seconds, until the long beep.</li>
+                <li>Open your eyes and work as usual for about 5 minutes, in front of the camera.</li>
+              </ol>
+              <p id="calib-status" class="calib-status" aria-live="polite"></p>
+              <div id="calib-progress" class="bar progress" hidden><span></span></div>
+              <button id="calib-button" type="button" class="btn primary" disabled>Start calibration</button>
+            </section>
+
+            <section class="card" aria-labelledby="h-pantau">
+              <div class="card-head"><h2 id="h-pantau">Monitoring</h2></div>
+              <div class="setting">
+                <label class="switch">
+                  <input id="auto-send" type="checkbox" role="switch" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="setting-title">Ask for advice automatically</span>
+                </label>
+                <p id="auto-send-note" class="helper" aria-live="polite"></p>
+              </div>
+              <div class="setting">
+                <label class="switch">
+                  <input id="kss-reminder" type="checkbox" role="switch" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="setting-title">Sleepiness check reminder</span>
+                </label>
+                <p id="kss-reminder-note" class="helper" aria-live="polite"></p>
+              </div>
+              <div class="setting">
+                <label class="switch">
+                  <input id="power-saving" type="checkbox" role="switch" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="setting-title">Power saving (±5 fps)</span>
+                </label>
+                <p id="power-note" class="helper" aria-live="polite"></p>
+              </div>
+              <div class="setting">
+                <p class="setting-title">Picture-in-Picture window</p>
+                <p id="pip-note" class="helper" aria-live="polite"></p>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="h-keluar">
+              <div class="card-head"><h2 id="h-keluar">What leaves this laptop</h2></div>
+              <ul class="data-flow">
+                <li>
+                  <span class="flow-icon never" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">Video and face images: never</p>
+                    <p class="muted">MediaPipe reads the camera in this browser. Only numbers remain, like how long your eyes were closed.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">When you ask for advice → IBM Langflow</p>
+                    <p class="muted">Your state, a few numbers from the last minute, and the names of the signs read (e.g. "yawn").</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">When you ask a question → IBM Bob and Langflow</p>
+                    <p class="muted">Your question (emails and long numbers masked), your last state and today's summary numbers.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">Your account → Supabase</p>
+                    <p class="muted">Name, email, a password hash, and sign-in times and logs.</p>
+                  </div>
+                </li>
+                <li id="flow-uji" hidden>
+                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">User test, after you press Send → the developer's Google Sheet</p>
+                    <p class="muted">The history during the test (state and numbers every 10 s, sleepiness checks, corrections, breaks), calibration numbers, browser type, your starting answers and feedback. No video, no name.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="flow-icon local" aria-hidden="true"></span>
+                  <div>
+                    <p class="flow-title">History, calibration and sleepiness checks: this device only</p>
+                    <p class="muted">Kept in this browser for 30 days, separately for each account.</p>
+                  </div>
+                </li>
+              </ul>
               <div class="row">
-                <button id="send-status" type="button" class="btn primary" disabled>Minta saran sekarang</button>
+                <button id="export-history" type="button" class="btn outline">Download history (JSON)</button>
+                <button id="clear-history" type="button" class="btn outline danger">Delete all history</button>
               </div>
-              <p id="send-note" class="helper" hidden>Saran tidak diminta saat kamu tidak di depan layar: tidak ada kondisi kerja yang perlu dinilai.</p>
-              <div id="answer" class="answer" aria-live="polite"></div>
-              <div id="feedback" class="feedback" hidden>
-                <span class="choices-label">Saran ini:</span>
-              </div>
-            </section>
-          </div>
-
-          <section id="kss-panel" class="card kss" aria-labelledby="h-kss">
-            <div class="card-head">
-              <h2 id="h-kss">Cek kantuk</h2>
-              <span class="muted small">Karolinska Sleepiness Scale · 1–9</span>
-            </div>
-            <p id="kss-prompt" class="kss-prompt">Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.</p>
-            <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
-            <p id="kss-note" class="helper" aria-live="polite"></p>
-            <p class="fine">KSS (Åkerstedt &amp; Gillberg, 1990; label: Miley dkk., 2016). Terjemahan belum divalidasi.</p>
-          </section>
-        </section>
-
-        <!-- ── Insight: one day of history ──────────────────────────────────── -->
-        <section class="page" data-page="insight" aria-labelledby="h-insight" hidden>
-          <div class="page-head">
-            <h1 id="h-insight" tabindex="-1">Insight</h1>
-            <label class="day-pick">Hari <select id="day-select"></select></label>
-          </div>
-          <p id="history-note" class="callout info" hidden></p>
-
-          <div id="insight-body" hidden>
-            <p id="insight-lead" class="lead"></p>
-            <div id="insight-tiles" class="tiles four"></div>
-
-            <section class="card" aria-labelledby="h-labels">
-              <div class="card-head">
-                <h2 id="h-labels">Waktu per label</h2>
-              </div>
-              <p class="muted">Berapa lama tiap label tampil saat kamu dipantau.</p>
-              <div id="label-bars" class="label-bars"></div>
-              <p id="label-bars-note" class="helper"></p>
+              <p id="history-action-note" class="helper" aria-live="polite"></p>
             </section>
 
-            <section class="card" aria-labelledby="h-trend">
-              <div class="card-head">
-                <h2 id="h-trend">Tingkat kelelahan sepanjang hari</h2>
-              </div>
-              <p id="trend-sub" class="muted">Rata-rata tingkat label per menit. Garis terputus saat kamu tidak dipantau atau tidak di depan layar.</p>
-              <ul id="trend-legend" class="legend"></ul>
-              <div id="trend-wrap" class="chart-wrap">
-                <div id="trend-tip" class="chart-tip" aria-hidden="true" hidden></div>
+            <section class="card" aria-labelledby="h-dev">
+              <div class="card-head"><h2 id="h-dev">Developer</h2></div>
+              <div class="setting">
+                <label class="switch">
+                  <input id="dev-mode" type="checkbox" role="switch" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="setting-title">Debug mode</span>
+                </label>
+                <p class="helper">Adds the Debug page to the menu: raw signals, features, the baseline and the data that is sent.</p>
               </div>
             </section>
 
-            <section class="card" aria-labelledby="h-hours">
-              <div class="card-head">
-                <h2 id="h-hours">Per jam</h2>
-              </div>
-              <figure id="day-chart" class="chart">
-                <figcaption class="muted">
-                  Menit per jam saat kamu di depan layar dan dinilai. Arahkan kursor atau Tab ke sebuah jam untuk melihat angkanya.
-                </figcaption>
-                <ul id="chart-legend" class="legend"></ul>
-                <div id="chart-wrap" class="chart-wrap">
-                  <div id="chart-tip" class="chart-tip" aria-hidden="true" hidden></div>
-                </div>
-                <details class="chart-table">
-                  <summary>Lihat sebagai tabel</summary>
-                  <div class="table-scroll"><table id="chart-table"></table></div>
-                </details>
-              </figure>
+            <section class="card about" aria-labelledby="h-batas">
+              <div class="card-head"><h2 id="h-batas">Limits</h2></div>
+              <ul class="plain-list">
+                <li><strong>Not a medical device.</strong> A state is an estimate from your face and posture, a pattern, not a diagnosis. If tiredness keeps coming back, talk to a health professional.</li>
+                <li>Glasses, lighting or a new seating position make readings less accurate. Recalibrate above.</li>
+                <li>Holding a phone at chest height can sometimes read as "Mildly tired". Hold it at chin height or in your lap.</li>
+                <li>Equilibre only reads tiredness. It does not guess emotions.</li>
+              </ul>
             </section>
-
-            <section id="day-recs-block" class="card" aria-labelledby="h-recs" hidden>
-              <div class="card-head">
-                <h2 id="h-recs">Saran hari itu</h2>
-              </div>
-              <ol id="day-recs" class="recs"></ol>
-            </section>
-
-            <details class="card">
-              <summary>
-                <span class="summary-title">Rincian angka</span>
-                <span class="summary-hint">Semua angka hari itu dalam satu daftar</span>
-              </summary>
-              <dl id="day-stats" class="stat-list"></dl>
-            </details>
           </div>
         </section>
 
-        <!-- ── Tanya ────────────────────────────────────────────────────────── -->
-        <section class="page" data-page="tanya" aria-labelledby="h-tanya" hidden>
-          <div class="page-head">
-            <h1 id="h-tanya" tabindex="-1">Tanya Equilibre</h1>
-          </div>
-          <section id="tanya-panel" class="card chat">
-            <div class="chat-intro">
-              <img src="/karakter/beruang.png" alt="" class="avatar" width="40" height="54" />
-              <p>Tanya kondisimu hari ini, atau soal jeda dan kelelahan. Dijawab IBM Bob dari knowledge base, dengan sumber.</p>
-            </div>
-            <div id="tanya-chips" class="chips" aria-label="Contoh pertanyaan"></div>
-            <ol id="tanya-thread" class="thread" aria-live="polite"></ol>
-            <p id="tanya-status" class="helper" aria-live="polite"></p>
-            <div class="composer">
-              <label class="visually-hidden" for="tanya-input">Pertanyaan</label>
-              <textarea id="tanya-input" rows="2" placeholder="Misalnya: gimana kondisiku hari ini?"></textarea>
-              <button id="tanya-send" type="button" class="btn primary">Tanya</button>
-            </div>
-            <p class="fine">
-              Yang dikirim ke server: teks pertanyaan (email dan nomor panjang disamarkan), label terakhir, dan angka ringkasan
-              hari ini (menit per label, jumlah jeda, rata-rata cek kantuk). Video dan wajah tidak pernah dikirim. Jawaban biasanya
-              15–40 detik.
-            </p>
-          </section>
-        </section>
-
-        <!-- ── Privasi & pengaturan ─────────────────────────────────────────── -->
-        <section class="page" data-page="privasi" aria-labelledby="h-privasi" hidden>
-          <div class="page-head">
-            <h1 id="h-privasi" tabindex="-1">Privasi &amp; pengaturan</h1>
-          </div>
-
-          <section class="card" aria-labelledby="h-keluar">
-            <div class="card-head">
-              <h2 id="h-keluar">Apa yang keluar dari perangkat ini</h2>
-            </div>
-            <ul class="data-flow">
-              <li>
-                <span class="flow-icon never" aria-hidden="true"></span>
-                <div>
-                  <p class="flow-title">Video dan gambar wajah: tidak pernah</p>
-                  <p class="muted">Kamera dibaca MediaPipe di browser ini. Yang tersisa hanya angka seperti seberapa lama mata tertutup.</p>
-                </div>
-              </li>
-              <li>
-                <span class="flow-icon sent" aria-hidden="true"></span>
-                <div>
-                  <p class="flow-title">Saat kamu meminta saran → Langflow</p>
-                  <p class="muted">Label, angka ringkasan 60 detik terakhir, dan nama tanda yang terbaca (misalnya "menguap").</p>
-                </div>
-              </li>
-              <li>
-                <span class="flow-icon sent" aria-hidden="true"></span>
-                <div>
-                  <p class="flow-title">Saat kamu bertanya → IBM Bob dan Langflow</p>
-                  <p class="muted">Teks pertanyaan (email dan nomor panjang disamarkan), label terakhir, dan angka ringkasan hari ini.</p>
-                </div>
-              </li>
-              <li id="flow-uji" hidden>
-                <span class="flow-icon sent" aria-hidden="true"></span>
-                <div>
-                  <p class="flow-title">Uji coba, setelah kamu menekan Kirim → Google Sheet pengembang</p>
-                  <p class="muted">Riwayat selama uji (label dan angka tiap 10 detik, cek kantuk, koreksi, jeda), angka kalibrasi, jenis browser, isian awal, dan feedback. Tanpa video dan tanpa nama.</p>
-                </div>
-              </li>
-              <li>
-                <span class="flow-icon local" aria-hidden="true"></span>
-                <div>
-                  <p class="flow-title">Riwayat, kalibrasi, dan cek kantuk: hanya di perangkat ini</p>
-                  <p class="muted">Disimpan di browser selama 30 hari.</p>
-                </div>
-              </li>
-            </ul>
-          </section>
-
-          <section id="calib-card" class="card" aria-labelledby="h-calib">
-            <div class="card-head">
-              <h2 id="h-calib">Kalibrasi</h2>
-            </div>
-            <ol class="steps">
-              <li>Saat hitungan habis, pejamkan mata rapat (jangan menyipit) ±3 detik sampai terdengar bunyi panjang.</li>
-              <li>Buka mata dan bekerja seperti biasa ±5 menit. Tab ini harus tetap terlihat.</li>
-            </ol>
-            <p id="calib-status" class="calib-status" aria-live="polite"></p>
-            <div id="calib-progress" class="bar progress" hidden><span></span></div>
-            <button id="calib-button" type="button" class="btn primary" disabled>Mulai kalibrasi</button>
-          </section>
-
-          <section class="card" aria-labelledby="h-pantau">
-            <div class="card-head">
-              <h2 id="h-pantau">Pemantauan</h2>
-            </div>
-            <div class="setting">
-              <label class="switch">
-                <input id="auto-send" type="checkbox" role="switch" />
-                <span class="switch-track" aria-hidden="true"></span>
-                <span class="setting-title">Minta saran otomatis</span>
-              </label>
-              <p id="auto-send-note" class="helper" aria-live="polite"></p>
-            </div>
-            <div class="setting">
-              <label class="switch">
-                <input id="kss-reminder" type="checkbox" role="switch" />
-                <span class="switch-track" aria-hidden="true"></span>
-                <span class="setting-title">Pengingat cek kantuk</span>
-              </label>
-              <p id="kss-reminder-note" class="helper" aria-live="polite"></p>
-            </div>
-            <div class="setting">
-              <label class="switch">
-                <input id="power-saving" type="checkbox" role="switch" />
-                <span class="switch-track" aria-hidden="true"></span>
-                <span class="setting-title">Hemat daya (±5 fps)</span>
-              </label>
-              <p id="power-note" class="helper" aria-live="polite"></p>
-            </div>
-            <div class="setting">
-              <p class="setting-title">Pendamping beruang</p>
-              <p id="pip-note" class="helper" aria-live="polite"></p>
-            </div>
-          </section>
-
-          <section class="card" aria-labelledby="h-data">
-            <div class="card-head">
-              <h2 id="h-data">Data kamu</h2>
-            </div>
-            <p class="muted">Riwayat disimpan di perangkat ini selama 30 hari dan tidak dikirim ke server. Kamu bisa mengunduh atau menghapusnya kapan saja.</p>
-            <div class="row">
-              <button id="export-history" type="button" class="btn outline">Unduh riwayat (JSON)</button>
-              <button id="clear-history" type="button" class="btn outline danger">Hapus semua riwayat</button>
-            </div>
-            <p id="history-action-note" class="helper" aria-live="polite"></p>
-          </section>
-
-          <section class="card" aria-labelledby="h-dev">
-            <div class="card-head">
-              <h2 id="h-dev">Pengembang</h2>
-            </div>
-            <div class="setting">
-              <label class="switch">
-                <input id="dev-mode" type="checkbox" role="switch" />
-                <span class="switch-track" aria-hidden="true"></span>
-                <span class="setting-title">Mode pengembang</span>
-              </label>
-              <p class="helper">Menampilkan halaman Debug di menu: sinyal mentah, fitur, baseline, dan data yang dikirim.</p>
-            </div>
-          </section>
-
-          <section class="card about" aria-labelledby="h-batas">
-            <div class="card-head">
-              <h2 id="h-batas">Batasan Equilibre</h2>
-            </div>
-            <ul class="plain-list">
-              <li><strong>Bukan alat medis.</strong> Label adalah perkiraan dari wajah dan posisi duduk, bukan diagnosis. Kalau kelelahan terus berlanjut, bicarakan dengan tenaga kesehatan.</li>
-              <li>Kacamata, pencahayaan, atau posisi duduk yang berubah membuat penilaian kurang tepat. Kalibrasi ulang di atas.</li>
-              <li>Memegang HP setinggi dada bisa sesekali terbaca "lelah ringan". Pegang HP setinggi dagu atau di pangkuan.</li>
-              <li>Equilibre hanya menilai kelelahan, tidak menebak emosi.</li>
-            </ul>
-          </section>
-        </section>
-
-        <!-- ── Debug: raw signals, laid out like the live view (NOTES D-65) ───── -->
+        <!-- ── Debug: raw signals (developer mode, D-74) ────────────────────── -->
         <section class="page" data-page="debug" aria-labelledby="h-debug" hidden>
           <div class="page-head">
-            <h1 id="h-debug" tabindex="-1">Debug</h1>
+            <div>
+              <p class="eyebrow">Debug</p>
+              <h1 id="h-debug" tabindex="-1">Behind the state</h1>
+            </div>
           </div>
-          <p class="muted page-intro">Sinyal mentah MediaPipe, fitur, baseline, dan JSON yang dikirim.</p>
+          <p class="muted page-intro">Raw MediaPipe signals, window features, your baseline and the JSON that is sent.</p>
 
-          <!-- The dock's camera moves into #debug-slot on this page, with the eye points and body mask drawn over it. -->
           <section class="card live" aria-labelledby="h-debug-cam">
             <div class="card-head">
-              <h2 id="h-debug-cam">Kamera</h2>
-              <span class="pill"><output id="fps">–</output> fps · <output id="delegate">–</output></span>
+              <h2 id="h-debug-cam">Camera</h2>
+              <span class="pill mono"><output id="fps">–</output> fps · <output id="delegate">–</output></span>
             </div>
             <div class="live-views">
               <figure class="live-view">
                 <div id="debug-slot" class="live-frame"></div>
                 <figcaption>
-                  6 titik EAR per mata ·
-                  <span class="eye-key" data-eye="kanan">mata kanan</span>,
-                  <span class="eye-key" data-eye="kiri">mata kiri</span>,
-                  <span class="eye-key" data-eye="tubuh">ungu = mask tubuh</span>
+                  6 EAR points per eye ·
+                  <span class="eye-key" data-eye="kanan">right eye</span>,
+                  <span class="eye-key" data-eye="kiri">left eye</span>,
+                  <span class="eye-key" data-eye="tubuh">body mask</span>
                 </figcaption>
               </figure>
               <div class="live-chart">
-                <h3 class="live-chart-title">Eye Aspect Ratio, 20 detik terakhir</h3>
-                <p class="muted small">Garis putus-putus = batas dari kalibrasi.</p>
+                <h3 class="live-chart-title">Eye Aspect Ratio, last 20 s</h3>
+                <p class="muted small">Dashed line = your calibrated threshold.</p>
                 <ul id="ear-legend" class="legend"></ul>
-                <canvas id="ear-chart" class="ear-chart tall" role="img" aria-label="Grafik EAR 20 detik terakhir"></canvas>
+                <canvas id="ear-chart" class="ear-chart tall" role="img" aria-label="Eye Aspect Ratio over the last 20 seconds"></canvas>
               </div>
             </div>
           </section>
 
           <section class="card" aria-labelledby="h-signals">
-            <div class="card-head">
-              <h2 id="h-signals">Sinyal per frame</h2>
-            </div>
+            <div class="card-head"><h2 id="h-signals">Signals per frame</h2></div>
             <div id="signals" class="tiles debug-tiles"></div>
             <div id="debug" hidden>
               <h3>facialTransformationMatrixes[0].data</h3>
-              <p class="helper">Layout terdeteksi: <output id="matrix-layout">–</output></p>
+              <p class="helper">Detected layout: <output id="matrix-layout">–</output></p>
               <pre id="matrix">–</pre>
             </div>
           </section>
 
           <section class="card" aria-labelledby="window-title">
-            <div class="card-head">
-              <h2 id="window-title">60 detik terakhir</h2>
-            </div>
+            <div class="card-head"><h2 id="window-title">Last 60 seconds</h2></div>
             <div id="features" class="tiles debug-tiles"></div>
             <div class="row">
-              <button id="download-log" type="button" class="btn outline">Unduh log sesi (CSV)</button>
+              <button id="download-log" type="button" class="btn outline">Download session log (CSV)</button>
             </div>
-            <p class="helper">Angka per frame saja, tanpa gambar.</p>
+            <p class="helper">Numbers per frame only, no images.</p>
           </section>
 
           <section class="card" aria-labelledby="h-baseline">
-            <div class="card-head">
-              <h2 id="h-baseline">Baseline kalibrasi</h2>
-            </div>
-            <p id="baseline-empty" class="muted">Belum ada baseline. Kalibrasi di halaman <a href="#privasi">Privasi &amp; pengaturan</a>.</p>
+            <div class="card-head"><h2 id="h-baseline">Calibration baseline</h2></div>
+            <p id="baseline-empty" class="muted">No baseline yet. Calibrate in <a href="#settings">Settings</a>.</p>
             <div id="baseline" class="tiles debug-tiles" hidden></div>
           </section>
 
           <div class="grid-2">
             <section class="card" aria-labelledby="h-blink">
-              <div class="card-head">
-                <h2 id="h-blink">Skor pola kedip (UTA-RLDD)</h2>
-              </div>
-              <p id="blink-score" class="blink-score">Muncul setelah kalibrasi dan label pertama.</p>
-              <p class="helper">Regresi logistik dari fitur kedipan UTA-RLDD. Tidak dikirim. Ikut menentukan label hanya dengan ?label=gabungan.</p>
+              <div class="card-head"><h2 id="h-blink">Blink pattern score (UTA-RLDD)</h2></div>
+              <p id="blink-score" class="blink-score">Shows after calibration and the first state.</p>
+              <p class="helper">Logistic regression on UTA-RLDD blink features. Never sent. Changes the state only with ?label=gabungan.</p>
             </section>
-
             <section class="card" aria-labelledby="h-payload">
-              <div class="card-head">
-                <h2 id="h-payload">Payload ke Langflow</h2>
-              </div>
-              <p class="muted">Saat meminta saran, hanya JSON ini yang dikirim:</p>
-              <pre id="payload">Belum ada status.</pre>
+              <div class="card-head"><h2 id="h-payload">Payload to Langflow</h2></div>
+              <p class="muted">When you ask for advice, only this JSON is sent:</p>
+              <pre id="payload">No state yet.</pre>
             </section>
           </div>
         </section>
       </main>
 
-      <!-- Camera dock: always rendered (the detection loop reads this video on every page). -->
-      <aside class="dock" aria-label="Kamera">
+      <!-- The camera box: always rendered (the detector reads this video on every page). On the dashboard it sits in
+           the stage, on Debug next to the chart, during calibration in the calibration screen, elsewhere in this dock. -->
+      <aside class="dock" aria-label="Camera">
         <div class="camera">
           <video id="video" autoplay playsinline muted></video>
           <canvas id="overlay" hidden></canvas>
-          <p id="face-status" class="cam-badge" data-state="loading">Memuat kamera dan model…</p>
+          <p id="face-status" class="cam-badge" data-state="loading">Loading camera and model…</p>
           <p id="camera-prompt" class="camera-prompt" hidden></p>
         </div>
-        <p class="dock-note">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-          Video diproses di perangkat ini dan tidak pernah dikirim.
-        </p>
-        <button id="pip-open" type="button" class="btn tonal block">Buka pendamping</button>
+        <p class="dock-note"><span class="live-dot" aria-hidden="true"></span>Video stays on this laptop</p>
       </aside>
     </div>
 
-    <!-- Calibration, full screen (NOTES D-63): instructions, countdown, eyes shut until the beep, stage B progress,
-         failed / done. One section per phase; main.ts shows the one that matches. A narrowed eye recorded as "closed"
-         raises the personal thresholds (G-73). -->
-    <dialog id="calib-screen" class="calib-screen" aria-label="Kalibrasi" data-phase="intro">
-      <section class="cs" data-for="intro">
-        <h2 class="cs-title">Cara Kalibrasi</h2>
-        <div class="cs-card cs-card-head">
-          <p id="calib-face" class="cs-face" data-state="loading">Memuat kamera…</p>
-          <div id="calib-bear-head" class="cs-bear cs-bear-head"></div>
+    <!-- Calibration, full screen: the camera with the scan (scanEffect.ts) on the left, the step on the right. -->
+    <dialog id="calib-screen" class="calib-screen" aria-label="Calibration" data-phase="intro">
+      <div class="cs-layout">
+        <div class="cs-stage">
+          <div id="calib-slot" class="cs-video"></div>
+          <p id="calib-face" class="cs-face" data-state="loading">Loading camera…</p>
         </div>
-        <ol class="cs-steps">
-          <li>Duduk seperti biasa, wajah terlihat kamera.</li>
-          <li>Saat hitungan habis, <strong>pejamkan mata rapat</strong>. Jangan mengintip atau menyipit.</li>
-          <li>Tahan sampai terdengar <strong>beep</strong>.</li>
-          <li>Buka mata.</li>
-        </ol>
-        <div class="cs-actions">
-          <button id="calib-go" type="button" class="btn primary cs-go">Mulai</button>
-          <button type="button" class="btn text" data-calib-close>Batal</button>
-        </div>
-      </section>
+        <div class="cs-panel">
+          <section class="cs" data-for="intro">
+            <p class="eyebrow">Calibration</p>
+            <h2 class="cs-title">Let's learn your normal.</h2>
+            <p id="calib-stale" class="cs-note" hidden></p>
+            <ol class="cs-steps">
+              <li><span class="mono">01</span>Sit as you usually do, face in view.</li>
+              <li><span class="mono">02</span>When the countdown ends, <strong>close your eyes fully</strong>. Don't peek or squint.</li>
+              <li><span class="mono">03</span>Keep them closed until the <strong>beep</strong>.</li>
+              <li><span class="mono">04</span>Open your eyes and work as usual for about 5 minutes.</li>
+            </ol>
+            <div class="cs-actions">
+              <button id="calib-go" type="button" class="btn primary cs-go">Start</button>
+              <button type="button" class="btn text" data-calib-close>Cancel</button>
+            </div>
+          </section>
 
-      <section class="cs" data-for="countdown" hidden>
-        <p id="calib-count" class="cs-count" aria-live="assertive"></p>
-        <button type="button" class="btn text cs-cancel" data-calib-close>Batalkan</button>
-      </section>
+          <section class="cs" data-for="countdown" hidden>
+            <p class="eyebrow">Step 1 of 2</p>
+            <p id="calib-count" class="cs-count" aria-live="assertive"></p>
+            <p class="cs-lead">Close your eyes when it reaches zero.</p>
+            <button type="button" class="btn text cs-cancel" data-calib-close>Cancel</button>
+          </section>
 
-      <section class="cs" data-for="closing" hidden>
-        <h2 class="cs-title">Pejamkan mata!</h2>
-        <div class="cs-card cs-card-face"><div id="calib-bear-face" class="cs-bear cs-bear-face"></div></div>
-        <p class="cs-sub">sampai terdengar beep</p>
-        <button type="button" class="btn text cs-cancel" data-calib-close>Batalkan</button>
-      </section>
+          <section class="cs" data-for="closing" hidden>
+            <p class="eyebrow">Step 1 of 2</p>
+            <h2 class="cs-title">Close your eyes.</h2>
+            <p class="cs-lead">Keep them shut until you hear the beep.</p>
+            <button type="button" class="btn text cs-cancel" data-calib-close>Cancel</button>
+          </section>
 
-      <section class="cs" data-for="progress" hidden>
-        <h2 class="cs-title">Buka mata, lanjut bekerja</h2>
-        <p class="cs-lead">Bekerja seperti biasa, tapi tetap di depan kamera sampai kalibrasi selesai.</p>
-        <div class="cs-progress">
-          <div id="calib-bar" class="cs-bar"><span></span></div>
-          <p id="calib-left" class="cs-left"></p>
-        </div>
-        <div class="cs-pip">
-          <button id="calib-pip-open" type="button" class="btn primary cs-go">Buka pendamping</button>
-          <p id="calib-pip-note" class="cs-note"></p>
-        </div>
-        <div class="cs-actions">
-          <button id="calib-hide" type="button" class="btn text">Sembunyikan layar ini</button>
-          <button type="button" class="btn text" data-calib-close>Batalkan kalibrasi</button>
-        </div>
-      </section>
+          <section class="cs" data-for="progress" hidden>
+            <p class="eyebrow">Step 2 of 2</p>
+            <h2 class="cs-title">Open your eyes and keep working.</h2>
+            <p class="cs-lead">Work as usual, but stay in front of the camera until calibration is done.</p>
+            <div class="cs-progress">
+              <div id="calib-bar" class="cs-bar"><span></span></div>
+              <p id="calib-left" class="cs-left mono"></p>
+            </div>
+            <div class="cs-pip">
+              <button id="calib-pip-open" type="button" class="btn primary cs-go">Open Picture-in-Picture</button>
+              <p id="calib-pip-note" class="cs-note"></p>
+            </div>
+            <div class="cs-actions">
+              <button id="calib-hide" type="button" class="btn text">Hide this screen</button>
+              <button type="button" class="btn text" data-calib-close>Cancel calibration</button>
+            </div>
+          </section>
 
-      <section class="cs" data-for="error" hidden>
-        <h2 class="cs-title">Kalibrasi gagal</h2>
-        <p id="calib-error" class="cs-lead"></p>
-        <div class="cs-actions">
-          <button id="calib-retry" type="button" class="btn primary cs-go">Coba lagi</button>
-          <button type="button" class="btn text" data-calib-close>Tutup</button>
-        </div>
-      </section>
+          <section class="cs" data-for="error" hidden>
+            <p class="eyebrow">Calibration</p>
+            <h2 class="cs-title">That didn't work.</h2>
+            <p id="calib-error" class="cs-lead"></p>
+            <div class="cs-actions">
+              <button id="calib-retry" type="button" class="btn primary cs-go">Try again</button>
+              <button type="button" class="btn text" data-calib-close>Close</button>
+            </div>
+          </section>
 
-      <section class="cs" data-for="done" hidden>
-        <h2 class="cs-title">Kalibrasi selesai</h2>
-        <p id="calib-done" class="cs-lead"></p>
-        <div class="cs-actions">
-          <button type="button" class="btn primary cs-go" data-calib-close>Selesai</button>
+          <section class="cs" data-for="done" hidden>
+            <p class="eyebrow">Calibration</p>
+            <h2 class="cs-title">You're calibrated.</h2>
+            <p id="calib-done" class="cs-lead"></p>
+            <div class="cs-actions">
+              <button type="button" class="btn primary cs-go" data-calib-close>Go to dashboard</button>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </dialog>
 
-    <!-- Welcome before the camera (plans/P17 C5), first visit only: what stays on this laptop, then the browser's
-         camera prompt after "Nyalakan kamera" (welcome.ts). The calibration screen's look. -->
+    <!-- Before the camera, first visit only: what stays on this laptop, then the browser's camera prompt after the
+         click (welcome.ts). -->
     <dialog id="welcome" class="calib-screen welcome" aria-labelledby="welcome-title">
-      <section class="cs">
-        <div class="cs-card"><div id="welcome-bear" class="cs-bear cs-bear-head"></div></div>
-        <h2 id="welcome-title" class="cs-title">Sebelum kamera menyala</h2>
-        <p class="cs-lead">Equilibre membaca tanda lelah dari wajahmu, lalu mengingatkanmu untuk jeda.</p>
+      <section class="cs welcome-card">
+        <p class="eyebrow">Before the camera turns on</p>
+        <h2 id="welcome-title" class="cs-title">Your face stays on this laptop.</h2>
+        <p class="cs-lead">Equilibre reads signs of tiredness from your face, then tells you when to take a break.</p>
         <ul class="data-flow welcome-flow">
           <li>
             <span class="flow-icon never" aria-hidden="true"></span>
             <div>
-              <p class="flow-title">Video tidak pernah keluar dari laptop ini</p>
-              <p class="muted">Wajahmu dibaca di browser ini. Yang tersisa hanya angka.</p>
+              <p class="flow-title">Video never leaves this laptop</p>
+              <p class="muted">Your face is read in this browser. Only numbers remain.</p>
             </div>
           </li>
           <li>
             <span class="flow-icon sent" aria-hidden="true"></span>
             <div>
-              <p class="flow-title">Data dikirim hanya atas permintaanmu</p>
-              <p class="muted">Saran: label dan angka. Tanya: juga teks pertanyaanmu.</p>
+              <p class="flow-title">Data is sent only when you ask</p>
+              <p class="muted">Advice: your state and a few numbers. Questions: your question text too.</p>
             </div>
           </li>
           <li>
             <span class="flow-icon local" aria-hidden="true"></span>
             <div>
-              <p class="flow-title">Riwayat hanya di perangkat ini</p>
-              <p class="muted">Tersimpan di browser ini selama 30 hari.</p>
+              <p class="flow-title">History stays on this device</p>
+              <p class="muted">Kept in this browser for 30 days.</p>
             </div>
           </li>
         </ul>
         <p id="welcome-next" class="cs-note"></p>
         <div class="cs-actions">
-          <button id="welcome-go" type="button" class="btn primary cs-go">Nyalakan kamera</button>
-          <a id="welcome-privacy" class="btn text" href="#privasi">Detail privasi</a>
+          <button id="welcome-go" type="button" class="btn primary cs-go">Turn on camera</button>
+          <a id="welcome-privacy" class="btn text" href="#settings">Privacy details</a>
         </div>
       </section>
     </dialog>

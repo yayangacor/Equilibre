@@ -11,6 +11,7 @@ export type HeroState =
   | { kind: "error"; message: string }
   | { kind: "uncalibrated" }
   | { kind: "calibrating" }
+  | { kind: "paused" }
   | { kind: "analyzing" }
   | { kind: "label"; label: Label };
 
@@ -63,6 +64,8 @@ export function heroCopy(state: HeroState): HeroCopy {
       };
     case "calibrating":
       return { chip: "Calibrating…", title: "Calibration in progress", text: "Follow the prompts on the camera view." };
+    case "paused":
+      return { chip: "Paused", title: "Monitoring is paused", text: "The camera is off. Resume when you're back at work." };
     case "analyzing":
       return { chip: "Analyzing…", title: "Reading your state", text: "The first reading appears in about 10 s." };
     case "label":

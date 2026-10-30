@@ -1,4 +1,5 @@
 import "./style.css";
+import "./app.css";
 import type { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
 import { toAnswerView, type AnalyzeResponse } from "./answer.ts";
 import {
@@ -14,6 +15,7 @@ import {
 import { BLINK_SEQUENCE, calibrateBlinks, MIN_SCORE_BLINKS } from "./blinkScore.ts";
 import { bodyPresent, toBodySample, type BodyGrid, type BodySample } from "./body.ts";
 import {
+  BASELINE_KEY,
   computeBaseline,
   loadBaseline,
   looksClosed,
@@ -22,6 +24,7 @@ import {
   type Baseline,
   type KeyValueStore,
 } from "./calibration.ts";
+import { ACCOUNTS, currentAccount, scopeKey, signOut, type Account } from "./auth.ts";
 import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
 import { loadDevMode, saveDevMode, showDebugLink } from "./devMode.ts";
 import { downloadFile, fileStamp } from "./download.ts";
@@ -39,11 +42,12 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { createBear } from "./bear.ts";
-import { initialGreetingState, moodFor, snoozeGreeting, stepGreeting } from "./companion.ts";
+import { initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
+import { LOCALE } from "./format.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME } from "./historyDb.ts";
 import { HistoryPanel } from "./historyPanel.ts";
+import { mountInsights } from "./insights/insightsPage.ts";
 import { formatDuration, monitoredMinutes } from "./insight.ts";
 import { loadKssReminder, saveKssReminder } from "./kss.ts";
 import { renderTodayStrip } from "./insightCharts.ts";
@@ -70,7 +74,9 @@ import {
 import { Router } from "./router.ts";
 import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
-import { capitalize, heroCopy, type HeroState } from "./statusCopy.ts";
+import { ScanEffect, SCAN } from "./scanEffect.ts";
+import { stateName } from "./stateCopy.ts";
+import { heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
@@ -104,17 +110,24 @@ const DEBUG = params.get("debug") === "1";
 const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
 // ?kode=EQ-XXXX: remote user test (plans/P08, NOTES D-57) with its own history database and the test card.
 const TEST_CODE = parseCode(params.get("kode"));
-const HISTORY_DB = TEST_CODE
-  ? `${DB_NAME}-${testDbSuffix(TEST_CODE)}`
-  : HISTORY_SUFFIX
-    ? `${DB_NAME}-${HISTORY_SUFFIX}`
-    : DB_NAME;
+// With an account (D-78) the history and the baseline belong to that account on this laptop; ?riwayat= and test
+// codes keep their own databases.
+const historyDbName = (owner: Account | null) =>
+  TEST_CODE
+    ? `${DB_NAME}-${testDbSuffix(TEST_CODE)}`
+    : HISTORY_SUFFIX
+      ? `${DB_NAME}-${HISTORY_SUFFIX}`
+      : scopeKey(DB_NAME, owner);
 // ?uji=1 (or a ?kode= test): user test mode, the KSS reminder every 15 minutes is always on.
 const TEST_MODE = params.get("uji") === "1" || TEST_CODE !== null;
 // ?kamera=0: the page without camera and models (automated checks, screenshots of the history).
 const NO_CAMERA = params.get("kamera") === "0";
 // ?label=gabungan: rules + blink pattern (NOTES D-72), behind this flag until tested on people (P17 H3).
 const COMBINED = params.get("label") === "gabungan";
+// Accounts (D-78): user-test links and the no-camera check page (R-08) open without one.
+const NEEDS_ACCOUNT = ACCOUNTS && TEST_CODE === null && !NO_CAMERA;
+// ⚠️ A baseline older than a working day asks for a new calibration: light and seating change (D-78).
+const BASELINE_STALE_MS = 12 * 60 * 60_000;
 const DASHBOARD_REFRESH_MS = 30_000;
 const KSS_CHECK_MS = 15_000;
 const MAX_LOG_FRAMES = 3 * 60 * 60 * 10; // 3 h at 10 fps, then the oldest frames are dropped
@@ -167,8 +180,10 @@ const why = byId<HTMLDetailsElement>("why");
 const whyHint = why.querySelector<HTMLElement>(".summary-hint")!;
 const sinceBreakValue = byId("since-break");
 const autoPill = byId("auto-pill");
-const heroBear = createBear(document, "", "hero-eye");
-byId("hero-bear").append(heroBear.root);
+const pauseButton = byId<HTMLButtonElement>("pause-button");
+const recalibButton = byId<HTMLButtonElement>("recalib-button");
+const pausedVeil = byId("paused-veil");
+const askWhy = byId<HTMLButtonElement>("ask-why");
 const earChart = new EarChart(byId<HTMLCanvasElement>("ear-chart"), byId("ear-legend"));
 const router = new Router();
 // Live view (D-63, D-65): the dock's camera box (video, overlay, badge) moves into #live-slot on the
@@ -196,21 +211,12 @@ const calibBar = byId("calib-bar");
 const calibLeft = byId("calib-left");
 const calibPipOpen = byId<HTMLButtonElement>("calib-pip-open");
 const calibPipNote = byId("calib-pip-note");
-// The bear with its eyes shut, as the user should be: the head on the instructions, the face up close
-// while the eyes are closed. No data-mood on their boxes, so no "Z" letters and no tilt.
-for (const [box, prefix] of [
-  ["calib-bear-head", "calib-head-eye"],
-  ["calib-bear-face", "calib-face-eye"],
-] as const) {
-  const bear = createBear(document, "", prefix);
-  bear.setMood("tertidur");
-  byId(box).append(bear.root);
-}
+const calibSlot = byId("calib-slot");
+const calibStale = byId("calib-stale");
 // Welcome before the camera (P17 C5), first visit only; the hero offers the same button after Esc.
 const welcomeScreen = byId<HTMLDialogElement>("welcome");
 const welcomeGo = byId<HTMLButtonElement>("welcome-go");
 const heroCamera = byId<HTMLButtonElement>("hero-camera");
-byId("welcome-bear").append(createBear(document, "", "welcome-eye").root);
 
 function el(tag: string, text: string, className?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -241,56 +247,56 @@ function metricTile(box: HTMLElement, name: string, sub = "", withBar = false) {
   };
 }
 
-const fmt = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
-const fmt2 = new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmt3 = new Intl.NumberFormat("id-ID", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const fmt = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const fmt2 = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt3 = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const show = (x: number | null | undefined, format: (v: number) => string) =>
   x === null || x === undefined || !Number.isFinite(x) ? "–" : format(x);
 const asPct = (x: number) => `${fmt.format(x * 100)}%`;
 const asDeg = (x: number) => `${fmt.format(x)}°`;
-const clock = (d: Date) => d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const clock = (d: Date) => d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 const signalsList = byId("signals");
 const signalRows = {
-  earLeft: metricTile(signalsList, "EAR kiri", "Bukaan mata kiri.", true),
-  earRight: metricTile(signalsList, "EAR kanan", "Bukaan mata kanan.", true),
-  ear: metricTile(signalsList, "EAR rata-rata", "Yang dibaca aturan; turun saat berkedip.", true),
-  pitch: metricTile(signalsList, "Pitch absolut", "Sudut kepala naik-turun."),
-  pitchRel: metricTile(signalsList, "Pitch relatif", `Terhadap kalibrasi; ${fmt.format(HEAD_DOWN_DEG)}° atau kurang = menunduk.`),
+  earLeft: metricTile(signalsList, "EAR left", "Left eye openness.", true),
+  earRight: metricTile(signalsList, "EAR right", "Right eye openness.", true),
+  ear: metricTile(signalsList, "EAR average", "What the rules read; drops when you blink.", true),
+  pitch: metricTile(signalsList, "Pitch (absolute)", "Head angle, up and down."),
+  pitchRel: metricTile(signalsList, "Pitch (relative)", `Against calibration; ${fmt.format(HEAD_DOWN_DEG)}° or less = head down.`),
   jawOpen: metricTile(
     signalsList,
     "jawOpen",
-    `≥ ${fmt.format(YAWN_JAW_OPEN)} selama ${fmt.format(YAWN_MIN_MS / 1000)} detik = menguap.`,
+    `≥ ${fmt.format(YAWN_JAW_OPEN)} for ${fmt.format(YAWN_MIN_MS / 1000)} s = yawn.`,
     true,
   ),
-  blinkLeft: metricTile(signalsList, "eyeBlinkLeft", "Blendshape kedip, 0–1.", true),
-  blinkRight: metricTile(signalsList, "eyeBlinkRight", "Blendshape kedip, 0–1.", true),
-  lookDown: metricTile(signalsList, "eyeLookDown", "Blendshape lirikan ke bawah, 0–1.", true),
-  eyes: metricTile(signalsList, "Mata dinilai?", "Tidak saat wajah hilang atau menunduk."),
-  bodyArea: metricTile(signalsList, "Tubuh (luas mask)", "Porsi frame berisi tubuh.", true),
-  bodyMotion: metricTile(signalsList, "Gerak tubuh", "Perubahan mask antar sampel."),
+  blinkLeft: metricTile(signalsList, "eyeBlinkLeft", "Blink blendshape, 0–1.", true),
+  blinkRight: metricTile(signalsList, "eyeBlinkRight", "Blink blendshape, 0–1.", true),
+  lookDown: metricTile(signalsList, "eyeLookDown", "Look-down blendshape, 0–1.", true),
+  eyes: metricTile(signalsList, "Eyes assessed?", "Not while the face is missing or the head is down."),
+  bodyArea: metricTile(signalsList, "Body (mask area)", "Share of the frame that is body.", true),
+  bodyMotion: metricTile(signalsList, "Body motion", "Mask change between samples."),
 };
 
 const featuresList = byId("features");
 const featureRows = {
-  perclos: metricTile(featuresList, "Mata tertutup (PERCLOS)", "Porsi waktu mata terpejam."),
-  kedip: metricTile(featuresList, "Kedip per menit", "Bandingkan dengan baseline."),
-  durasi: metricTile(featuresList, "Durasi kedip rata-rata", "Kedip lambat = tanda kantuk."),
-  lama: metricTile(featuresList, "Mata terpejam ≥1 detik", "Jumlah pejaman panjang."),
-  menguap: metricTile(featuresList, "Menguap", `Mulut terbuka lebar ≥ ${fmt.format(YAWN_MIN_MS / 1000)} detik.`),
-  menunduk: metricTile(featuresList, "Kepala menunduk", "Porsi waktu menunduk."),
-  hilang: metricTile(featuresList, "Wajah tidak terdeteksi", "Porsi frame tanpa wajah."),
-  terbuka: metricTile(featuresList, "Mata terlihat terbuka", "Porsi frame, menunduk ikut dihitung."),
-  terpejam: metricTile(featuresList, "Mata terlihat terpejam", "Porsi frame, kepala tegak saja."),
-  tubuh: metricTile(featuresList, "Tubuh terdeteksi", "Porsi sampel ada orang."),
-  diam: metricTile(featuresList, "Tubuh diam", "Porsi sampel tanpa gerak."),
-  gerak: metricTile(featuresList, "Gerak tubuh (median)", "Median perubahan mask."),
+  perclos: metricTile(featuresList, "Eyes closed (PERCLOS)", "Share of time with the eyes closed."),
+  kedip: metricTile(featuresList, "Blinks per minute", "Compare with your baseline."),
+  durasi: metricTile(featuresList, "Average blink length", "Slow blinks are a sign of sleepiness."),
+  lama: metricTile(featuresList, "Eyes closed ≥ 1 s", "Count of long closures."),
+  menguap: metricTile(featuresList, "Yawns", `Mouth wide open ≥ ${fmt.format(YAWN_MIN_MS / 1000)} s.`),
+  menunduk: metricTile(featuresList, "Head down", "Share of time with the head down."),
+  hilang: metricTile(featuresList, "Face not found", "Share of frames without a face."),
+  terbuka: metricTile(featuresList, "Eyes seen open", "Share of frames, head down included."),
+  terpejam: metricTile(featuresList, "Eyes seen closed", "Share of frames, head up only."),
+  tubuh: metricTile(featuresList, "Body found", "Share of samples with a person."),
+  diam: metricTile(featuresList, "Body still", "Share of samples without motion."),
+  gerak: metricTile(featuresList, "Body motion (median)", "Median mask change."),
   menitLelah: metricTile(
     featuresList,
-    `Menit "lelah"/"tertidur" (${ADVICE.historyMinutes} menit)`,
-    `≥ ${ADVICE.longRestMinutes} menit = saran istirahat panjang.`,
+    `Minutes Tired or Asleep (last ${ADVICE.historyMinutes} min)`,
+    `≥ ${ADVICE.longRestMinutes} min = long-rest advice.`,
   ),
-  frame: metricTile(featuresList, "Jumlah frame", "Frame di jendela ini."),
+  frame: metricTile(featuresList, "Frames", "Frames in this window."),
 };
 
 // ── State ───────────────────────────────────────────────────────────────────────
@@ -318,12 +324,25 @@ type CalibrationRun = {
   cancelled: boolean;
 };
 
-let baseline: Baseline | null = store ? loadBaseline(store) : null;
+// The baseline is personal (D-78): with an account its key carries the account id; other settings stay per laptop.
+function accountStore(base: KeyValueStore, owner: Account): KeyValueStore {
+  const key = (k: string) => (k === BASELINE_KEY ? scopeKey(k, owner) : k);
+  return {
+    getItem: (k) => base.getItem(key(k)),
+    setItem: (k, v) => base.setItem(key(k), v),
+    removeItem: (k) => base.removeItem(key(k)),
+  };
+}
+
+let account: Account | null = null;
+let baselineStore: KeyValueStore | null = store;
+let baseline: Baseline | null = null; // loaded in main() once the account is known
 let calibration: CalibrationRun | null = null;
 let detecting = false;
 let bodyDetection = false; // the segmenter loaded
 let cameraProblem: string | null = null; // why the camera or the model is not running
-let cameraOff = false; // waiting for "Nyalakan kamera" on a first visit (P17 C5)
+let cameraOff = false; // waiting for "Turn on camera" on a first visit (P17 C5)
+let paused = false; // the user paused monitoring: camera off, nothing read or stored (D-78)
 
 // Rolling window + label (only while calibrated and not calibrating).
 let monitor: Monitor | null = null;
@@ -506,7 +525,7 @@ function renderSinceBreak() {
     return;
   }
   const since = formatDuration(minutesSinceBreak(breakState, performance.now()));
-  sinceBreakValue.textContent = lastCameraBreak === null && !breakMarked ? `${since} (sejak mulai)` : since;
+  sinceBreakValue.textContent = lastCameraBreak === null && !breakMarked ? `${since} (since start)` : since;
 }
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
@@ -518,7 +537,7 @@ new TanyaPanel({
   todaySummary: () => panel.todaySummary(),
 });
 
-// ── Picture-in-Picture companion (plan P13, D-24) ───────────────────────────────
+// ── Picture-in-Picture window (D-78): the state, its reason, Pause and Recalibrate ─────────
 
 let greeting = initialGreetingState();
 
@@ -533,21 +552,28 @@ const companion = new PipCompanion({
     greeting = snoozeGreeting(greeting, Date.now());
     renderPipButton();
   },
+  onPause: () => void setPaused(!paused),
+  // A click in the PiP window cannot start the calibration's sound here, so it opens the instructions in the app.
+  onRecalibrate: () => {
+    window.focus();
+    if (detecting && !paused && !calibration) showCalibScreen("intro");
+  },
 });
 
 function renderPipButton() {
   if (!PipCompanion.supported()) {
     pipButton.disabled = true;
-    pipNote.textContent = "Butuh Chrome atau Edge versi baru (Document Picture-in-Picture).";
+    pipNote.textContent = "Needs a recent Chrome or Edge (Document Picture-in-Picture).";
     return;
   }
-  pipButton.textContent = companion.isOpen ? "Tutup pendamping" : "Buka pendamping";
+  pipButton.textContent = companion.isOpen ? "Close Picture-in-Picture" : "Picture-in-Picture";
+  pipButton.setAttribute("aria-pressed", String(companion.isOpen));
   const snoozed =
-    greeting.snoozeUntil > Date.now() ? ` Sapaan ditunda sampai ${clock(new Date(greeting.snoozeUntil))}.` : "";
+    greeting.snoozeUntil > Date.now() ? ` Nudges snoozed until ${clock(new Date(greeting.snoozeUntil))}.` : "";
   pipNote.textContent =
     (companion.isOpen
-      ? "Terbuka: pemantauan tetap jalan saat kamu di aplikasi lain."
-      : "Jendela kecil beruang. Buka sebelum pindah aplikasi supaya pemantauan tetap jalan.") +
+      ? "Open: monitoring keeps running while you work in other apps."
+      : "A small window that stays on top. It opens by itself when you switch tabs, so monitoring keeps running.") +
     snoozed;
 }
 
@@ -556,7 +582,7 @@ function openCompanion() {
   if (companion.isOpen) return;
   companion.open().catch((err) => {
     console.error(err);
-    pipNote.textContent = "Jendela pendamping tidak bisa dibuka.";
+    pipNote.textContent = "The Picture-in-Picture window can't be opened.";
   });
 }
 
@@ -565,29 +591,31 @@ pipButton.addEventListener("click", () => {
   else openCompanion();
 });
 
-// A hidden tab without the companion pauses monitoring (G-56), so switching tabs opens it on every link,
+// A hidden tab without the PiP window pauses monitoring (G-56), so switching tabs opens it on every link,
 // even after it was closed (D-66). The calibration click opens it too (D-67).
 if (PipCompanion.supported()) PipCompanion.openOnTabSwitch(openCompanion);
 
 function companionView(): CompanionView {
+  if (paused) return { state: null, label: "Paused", note: "The camera is off. Resume when you're back.", paused: true };
   if (calibration?.phase === "normal" && calibRemaining) {
-    return { mood: "menunggu", label: `Kalibrasi ${calibRemaining}`, note: "Bekerja seperti biasa, tetap di depan kamera." };
+    return { state: null, label: `Calibrating · ${calibRemaining}`, note: "Work as usual and stay in front of the camera.", paused: false };
   }
-  if (calibration) return { mood: "menunggu", label: "Kalibrasi…", note: "Lihat ke layar seperti biasa." };
-  if (!baseline) return { mood: "menunggu", label: "Belum dikalibrasi", note: "Kalibrasi dulu di tab Equilibre." };
+  if (calibration) return { state: null, label: "Calibrating…", note: "Look at the screen as usual.", paused: false };
+  if (!baseline) return { state: null, label: "Not calibrated", note: "Calibrate in the Equilibre tab first.", paused: false };
   const shown = monitor?.labelState.shown;
-  if (!shown) return { mood: "menunggu", label: "Menganalisis…", note: "Label pertama muncul sebentar lagi." };
+  if (!shown) return { state: null, label: "Reading…", note: "Your first state appears in a moment.", paused: false };
   return {
-    mood: moodFor(shown.label),
-    label: shown.label,
-    note: hold ? "Label terakhir ditahan sebentar." : `Dievaluasi ${clock(new Date())}`,
+    state: shown.label,
+    label: stateName(shown.label),
+    note: hold ? "The last state is kept for a moment." : (shown.alasan[0] ?? `Checked at ${clock(new Date())}`),
+    paused: false,
   };
 }
 
-// Before the window opens the greeting state still follows the label, so opening it later does
+// Before the window opens the nudge state still follows the label, so opening it later does
 // not replay an old change.
 function renderCompanion() {
-  const shown = calibration || !baseline ? null : (monitor?.labelState.shown?.label ?? null);
+  const shown = calibration || !baseline || paused ? null : (monitor?.labelState.shown?.label ?? null);
   const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now());
   greeting = step.state;
   companion.render(companionView());
@@ -619,8 +647,8 @@ function onBody(b: BodySample) {
 // ── Rendering ───────────────────────────────────────────────────────────────────
 
 const CALIB_FACE_TEXT: Partial<Record<FaceState, string>> = {
-  found: "Wajah terlihat",
-  missing: "Wajah tidak terlihat",
+  found: "Face in view",
+  missing: "Face not in view",
 };
 
 function setFaceStatus(state: FaceState, text: string) {
@@ -633,7 +661,7 @@ function setFaceStatus(state: FaceState, text: string) {
 
 let lastEarDraw = 0;
 function renderSignals(s: FrameSignal) {
-  setFaceStatus(s.face ? "found" : "missing", s.face ? "Wajah terdeteksi" : "Wajah tidak terdeteksi");
+  setFaceStatus(s.face ? "found" : "missing", s.face ? "Face found" : "Face not found");
   earChart.push(s.t, s.face ? s.ear : null);
   live.chart.push(s.t, s.face ? s.ear : null);
   if (router.page === "debug" && s.t - lastEarDraw >= 100) {
@@ -645,7 +673,7 @@ function renderSignals(s: FrameSignal) {
   signalRows.earRight(ear(s.earRight), s.earRight / 0.5);
   signalRows.ear(ear(s.ear), s.ear / 0.5);
   signalRows.pitch(show(s.pitchDeg, asDeg));
-  signalRows.pitchRel(baseline ? show(s.pitchDeg - baseline.pitchDeg, asDeg) : "belum kalibrasi");
+  signalRows.pitchRel(baseline ? show(s.pitchDeg - baseline.pitchDeg, asDeg) : "not calibrated");
   const score = (x: number) => show(x, (v) => fmt2.format(v));
   signalRows.jawOpen(score(s.jawOpen), s.jawOpen);
   signalRows.blinkLeft(score(s.blinkLeft), s.blinkLeft);
@@ -653,26 +681,26 @@ function renderSignals(s: FrameSignal) {
   signalRows.lookDown(score(s.lookDown), s.lookDown);
   signalRows.eyes(
     !baseline
-      ? "belum kalibrasi"
+      ? "not calibrated"
       : eyesReadable(s, baseline)
-        ? "ya"
+        ? "yes"
         : !s.face
-          ? "tidak (wajah hilang)"
+          ? "no (face missing)"
           : headDown(s, baseline)
-            ? "tidak (menunduk)"
-            : "tidak",
+            ? "no (head down)"
+            : "no",
   );
 }
 
 function renderBody(b: BodySample) {
   const present = bodyPresent(b, baseline?.bodyArea ?? null);
-  signalRows.bodyArea(`${asPct(b.area)} · ${present ? "ada orang" : "kosong"}`, b.area);
+  signalRows.bodyArea(`${asPct(b.area)} · ${present ? "person" : "empty"}`, b.area);
   signalRows.bodyMotion(show(b.motion, (v) => fmt3.format(v)));
 }
 
 function renderFeatures() {
   const f = features;
-  byId("window-title").textContent = `${WINDOW_MS / 1000} detik terakhir`;
+  byId("window-title").textContent = `Last ${WINDOW_MS / 1000} seconds`;
   featureRows.perclos(show(f?.perclos, asPct));
   featureRows.kedip(show(f?.kedip_per_menit, (v) => fmt.format(v)));
   featureRows.durasi(show(f?.durasi_kedip_ms, (v) => `${Math.round(v)} ms`));
@@ -682,11 +710,11 @@ function renderFeatures() {
   featureRows.hilang(show(f?.pct_wajah_hilang, asPct));
   featureRows.terbuka(show(f?.pct_mata_terbuka, asPct));
   featureRows.terpejam(show(f?.pct_mata_tertutup, asPct));
-  featureRows.tubuh(bodyDetection ? show(f?.pct_tubuh_ada, asPct) : "nonaktif (model gagal dimuat)");
+  featureRows.tubuh(bodyDetection ? show(f?.pct_tubuh_ada, asPct) : "off (model failed to load)");
   featureRows.diam(show(f?.pct_tubuh_diam, asPct));
   featureRows.gerak(show(f?.gerak_tubuh, (v) => fmt3.format(v)));
   featureRows.menitLelah(monitor ? fmt.format(menitLelah) : "–");
-  featureRows.frame(f ? `${f.n_frame} (data ${Math.round(f.durasi_jendela_detik)} detik)` : "–");
+  featureRows.frame(f ? `${f.n_frame} (${Math.round(f.durasi_jendela_detik)} s of data)` : "–");
 }
 
 // The label in the dashboard chip and in the header chip on every page (shape + text, never color alone).
@@ -701,27 +729,28 @@ function setLabel(text: string, label: Label | "none" = "none") {
 function renderBlinkScore() {
   const score = calibration || !baseline ? null : monitor?.blinkScore(lastEvalT);
   if (!monitor?.labelState.shown || calibration) {
-    blinkScoreNote.textContent = "Muncul setelah kalibrasi dan label pertama.";
+    blinkScoreNote.textContent = "Shows after calibration and the first state.";
   } else if (!score) {
     blinkScoreNote.textContent =
-      "Kalibrasi ulang untuk mengaktifkan skor ini (baseline ini belum punya data kedipan)." +
-      (COMBINED ? " Sampai itu, label tetap dari aturan saja." : "");
+      "Recalibrate to turn this score on (this baseline has no blink data yet)." +
+      (COMBINED ? " Until then, the state comes from the rules only." : "");
   } else if (score.chance === null) {
-    blinkScoreNote.textContent = `Mengumpulkan kedipan: ${score.n} dari minimal ${MIN_SCORE_BLINKS}…`;
+    blinkScoreNote.textContent = `Collecting blinks: ${score.n} of at least ${MIN_SCORE_BLINKS}…`;
   } else {
     // 0.5 alarmed falsely on 30% of the alert windows of people the model had not seen (plan P17 C3).
-    const verdict = score.chance >= BLINK_PATTERN_THRESHOLD ? "mirip orang mengantuk" : "mirip orang segar";
+    const verdict = score.chance >= BLINK_PATTERN_THRESHOLD ? "like a sleepy person" : "like an alert person";
     const role = COMBINED
-      ? `ikut menentukan label: ≥ ${asPct(BLINK_PATTERN_THRESHOLD)} menaikkan normal ke lelah ringan`
-      : "tampil saja, label dari aturan";
+      ? `helps decide the state: ≥ ${asPct(BLINK_PATTERN_THRESHOLD)} raises Normal to Mildly tired`
+      : "shown only; the state comes from the rules";
     const value = document.createElement("strong");
     value.textContent = asPct(score.chance);
-    blinkScoreNote.replaceChildren(value, ` ${verdict} · ${score.n} kedipan terakhir (maks. ${BLINK_SEQUENCE}) · ${role}`);
+    blinkScoreNote.replaceChildren(value, ` ${verdict} · last ${score.n} blinks (max ${BLINK_SEQUENCE}) · ${role}`);
   }
 }
 
 function heroState(): HeroState {
   if (cameraProblem) return { kind: "error", message: cameraProblem };
+  if (paused) return { kind: "paused" };
   if (cameraOff) return { kind: "off" };
   if (calibration) return { kind: "calibrating" };
   if (!detecting) return { kind: "loading" };
@@ -745,8 +774,6 @@ function renderStatus() {
   const label = state.kind === "label" ? state.label : "none";
   setLabel(copy.chip, label);
   hero.dataset.label = label;
-  hero.dataset.mood = state.kind === "label" ? moodFor(state.label) : "menunggu";
-  heroBear.setMood(state.kind === "label" ? moodFor(state.label) : "menunggu");
   heroTitle.textContent = copy.title;
   if (state.kind !== "calibrating") heroText.textContent = copy.text; // calibration writes its own steps
   heroProgress.hidden = state.kind !== "calibrating" || calibProgress.hidden;
@@ -754,6 +781,7 @@ function renderStatus() {
   heroCalib.hidden = state.kind !== "uncalibrated";
   heroSaran.hidden = !(saran !== null || label === "lelah ringan" || label === "lelah" || label === "tertidur");
   document.body.toggleAttribute("data-calibrated", baseline !== null);
+  renderControls();
 
   const labelState = monitor?.labelState;
   const shown = state.kind === "label" ? labelState?.shown : undefined;
@@ -761,13 +789,13 @@ function renderStatus() {
   why.hidden = !labelState || !shown; // nothing to explain before the first label
   if (!labelState || !shown) return;
 
-  labelMeta.textContent = `Diperbarui ${clock(new Date())}`;
+  labelMeta.textContent = `Updated ${clock(new Date())}`;
   whyHint.textContent =
     shown.alasan.length === 0
-      ? "Tidak ada tanda lelah di jendela terakhir."
-      : `${shown.alasan.length} tanda terbaca di ${WINDOW_MS / 1000} detik terakhir.`;
+      ? "No signs of tiredness in the last window."
+      : `${shown.alasan.length} ${shown.alasan.length === 1 ? "sign" : "signs"} read in the last ${WINDOW_MS / 1000} seconds.`;
   if (shown.alasan.length === 0) {
-    reasonList.append(el("li", shown.label === "normal" ? "Tidak ada tanda kelelahan di jendela ini." : "–"));
+    reasonList.append(el("li", shown.label === "normal" ? "No signs of tiredness in this window." : "–"));
   }
   for (const reason of shown.alasan) reasonList.append(el("li", reason));
   for (const note of shown.catatan) reasonList.append(el("li", note, "muted"));
@@ -778,8 +806,8 @@ function renderStatus() {
   } else if (labelState.candidate && latest) {
     pendingNote.hidden = false;
     pendingNote.textContent =
-      `Evaluasi terakhir: "${labelState.candidate}" (${labelState.streak}/${RULES.confirmEvaluations}). ` +
-      `Label berganti kalau hasil ini muncul lagi. ${latest.alasan.join(" ")}`;
+      `Last reading: "${stateName(labelState.candidate)}" (${labelState.streak}/${RULES.confirmEvaluations}). ` +
+      `The state changes if this shows again. ${latest.alasan.join(" ")}`;
   }
 }
 
@@ -795,7 +823,7 @@ const notSent = (payload: AnalyzePayload | null) => payload?.label === "tidak di
 
 function renderPayload() {
   const payload = currentPayload();
-  payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "Belum ada status.";
+  payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "No state yet.";
   sendButton.disabled = DEMO || payload === null || sending || notSent(payload);
   sendNote.hidden = DEMO || !notSent(payload);
 }
@@ -807,20 +835,20 @@ function renderBaseline() {
   if (!baseline) return;
   const b = baseline;
   const rows: [string, string, string][] = [
-    ["EAR mata terbuka", fmt3.format(b.earOpen), "Median saat bekerja biasa (tahap B)."],
+    ["EAR, eyes open", fmt3.format(b.earOpen), "Median while working normally (step 2)."],
     // The ratio shows a narrowed eye recorded as "closed" (G-73): developer 0.05–0.15, tester B 0.56 (D-62).
-    ["EAR mata terpejam", fmt3.format(b.earClosed), `${fmt2.format(b.earClosed / b.earOpen)} × EAR terbuka.`],
-    ["Kedip per menit", fmt.format(b.blinkPerMin), "Normalmu saat kalibrasi."],
-    ["Durasi kedip", b.blinkDurationMs === null ? "tidak ada kedip terekam" : `${Math.round(b.blinkDurationMs)} ms`, ""],
-    ["Pitch normal", asDeg(b.pitchDeg), "Acuan pitch relatif."],
-    ["jawOpen P95", fmt2.format(b.jawOpenP95), "Mulut saat bekerja biasa."],
-    ["Luas tubuh normal", b.bodyArea === null ? "belum ada (kalibrasi ulang)" : asPct(b.bodyArea), ""],
+    ["EAR, eyes closed", fmt3.format(b.earClosed), `${fmt2.format(b.earClosed / b.earOpen)} × EAR open.`],
+    ["Blinks per minute", fmt.format(b.blinkPerMin), "Your normal during calibration."],
+    ["Blink length", b.blinkDurationMs === null ? "no blink recorded" : `${Math.round(b.blinkDurationMs)} ms`, ""],
+    ["Normal pitch", asDeg(b.pitchDeg), "Reference for relative pitch."],
+    ["jawOpen P95", fmt2.format(b.jawOpenP95), "Mouth while working normally."],
+    ["Normal body area", b.bodyArea === null ? "none yet (recalibrate)" : asPct(b.bodyArea), ""],
     [
-      "Kedip untuk pola kedip",
-      b.kedip ? `${b.kedip.n} kedip, ${Math.round(b.kedip.durasi.mean)} ms, ${fmt.format(b.kedip.perMenit)}/menit` : "belum ada (kalibrasi ulang)",
+      "Blinks for the blink pattern",
+      b.kedip ? `${b.kedip.n} blinks, ${Math.round(b.kedip.durasi.mean)} ms, ${fmt.format(b.kedip.perMenit)}/min` : "none yet (recalibrate)",
       "",
     ],
-    ["Dibuat", new Date(b.createdAt).toLocaleString("id-ID"), ""],
+    ["Created", new Date(b.createdAt).toLocaleString(LOCALE), ""],
   ];
   for (const [name, value, sub] of rows) metricTile(baselineList, name, sub)(value);
 }
@@ -828,25 +856,50 @@ function renderBaseline() {
 // About how long a calibration takes, as the user reads it (±5 menit; seconds for ?calib=30).
 function calibLength(): string {
   const seconds = Math.round((CALIB_NORMAL_MS + CALIB_CLOSED_MS) / 1000) + 4;
-  return seconds >= 90 ? `±${Math.round(seconds / 60)} menit` : `±${seconds} detik`;
+  return seconds >= 90 ? `about ${Math.round(seconds / 60)} min` : `about ${seconds} s`;
 }
 
 function renderCalibrationIdle(message?: string, isError = false) {
   setCalibProgress(null);
   cameraPrompt.hidden = true;
-  calibButton.textContent = baseline ? "Kalibrasi ulang" : "Mulai kalibrasi";
-  calibButton.disabled = !detecting;
+  calibButton.textContent = baseline ? "Recalibrate" : "Start calibration";
+  calibButton.disabled = !detecting || paused;
   calibStatus.dataset.state = isError ? "error" : "";
   calibStatus.textContent =
     message ??
     (cameraOff
-      ? "Kamera belum menyala. Nyalakan dari Dashboard."
+      ? "The camera is off. Turn it on from the Dashboard."
       : baseline
         ? baseline.bodyArea === null && bodyDetection
-          ? "Baseline ini dibuat sebelum ada deteksi tubuh. Kalibrasi ulang supaya Equilibre juga mengenal posisi dudukmu."
-          : "Baseline tersimpan di perangkat ini. Kalibrasi ulang kalau posisi duduk, kacamata, atau pencahayaan berubah."
-        : `Kalibrasi ${calibLength()}: pejamkan mata sebentar, lalu bekerja seperti biasa.`);
+          ? "This baseline was made before body detection. Recalibrate so Equilibre also knows how you sit."
+          : "Your baseline is saved on this device. Recalibrate when your seating, glasses or lighting change."
+        : `Calibration takes ${calibLength()}: close your eyes briefly, then work as usual.`);
+  byId("baseline-age").textContent = baseline ? `Baseline · ${ageText(baseline.createdAt)}` : "No baseline";
   renderBaseline();
+  renderControls();
+}
+
+// "12 min ago", "3 h ago", "2 days ago": how old the baseline is.
+function ageText(createdAt: number, now = Date.now()): string {
+  const minutes = Math.max(0, Math.round((now - createdAt) / 60_000));
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+const baselineIsStale = (b: Baseline, now = Date.now()) => now - b.createdAt > BASELINE_STALE_MS;
+
+// Pause, Recalibrate and the paused veil on the dashboard (D-78).
+function renderControls() {
+  pauseButton.textContent = paused ? "Resume" : "Pause";
+  pauseButton.classList.toggle("primary", paused);
+  pauseButton.classList.toggle("outline", !paused);
+  pauseButton.setAttribute("aria-pressed", String(paused));
+  pauseButton.disabled = !detecting || calibration !== null;
+  recalibButton.disabled = !detecting || paused || calibration !== null;
+  pausedVeil.hidden = !paused;
+  document.body.toggleAttribute("data-paused", paused);
 }
 
 // ── Debug overlay (?debug=1) ────────────────────────────────────────────────────
@@ -939,7 +992,7 @@ function renderDebug(result: FaceLandmarkerResult, grid: BodyGrid | null) {
         .map((v) => v.toFixed(3).padStart(9))
         .join(" "),
     );
-    byId("matrix").textContent = `data[0..15], 4 per baris:\n${rows.join("\n")}`;
+    byId("matrix").textContent = `data[0..15], 4 per row:\n${rows.join("\n")}`;
   }
 }
 
@@ -956,13 +1009,13 @@ async function startCamera() {
 function cameraErrorMessage(err: unknown): string {
   switch ((err as DOMException)?.name) {
     case "NotAllowedError":
-      return "Izin kamera ditolak. Izinkan kamera di pengaturan browser, lalu muat ulang halaman.";
+      return "Camera permission was denied. Allow the camera in your browser's site settings, then reload the page.";
     case "NotFoundError":
-      return "Kamera tidak ditemukan.";
+      return "No camera found.";
     case "NotReadableError":
-      return "Kamera sedang dipakai aplikasi lain.";
+      return "The camera is being used by another app.";
     default:
-      return "Kamera tidak bisa dinyalakan.";
+      return "The camera can't be turned on.";
   }
 }
 
@@ -990,7 +1043,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
 
   const tick = () => {
     const now = performance.now();
-    if (video.currentTime !== lastVideoTime) {
+    if (!paused && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
       const result = landmarker.detectForVideo(video, now);
       if (segmenter && now - lastBodyT >= BODY_INTERVAL_MS) {
@@ -1006,7 +1059,10 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);
       onFrame(signal);
       renderSignals(signal);
-      if (router.page === "dashboard") renderLive(result, signal);
+      if (scan.running) {
+        scanInput = { result, signal, grid };
+        renderScan();
+      } else if (router.page === "dashboard") renderLive(result, signal);
       else if (DEBUG || router.page === "debug") renderDebug(result, grid);
       fpsFrames++;
     }
@@ -1026,16 +1082,16 @@ function runDetection({ landmarker, segmenter }: Detectors) {
 function renderPower() {
   const reason = powerReason(power);
   powerToggle.checked = reason !== null;
-  const battery = batteryLevel === null ? "" : `baterai ${asPct(batteryLevel)}`;
+  const battery = batteryLevel === null ? "" : `battery ${asPct(batteryLevel)}`;
   powerNote.textContent =
     reason === "baterai"
-      ? `Aktif otomatis: ${battery}, tidak diisi.`
+      ? `On by itself: ${battery}, not charging.`
       : reason === "pilihan"
-        ? "Baterai lebih awet, tapi sebagian kedip singkat terlewat."
+        ? "The battery lasts longer, but some short blinks are missed."
         : power.dismissed
-          ? "Dimatikan; tidak menyala otomatis sampai baterai diisi."
+          ? "Turned off. It won't switch on by itself until the battery is charged."
           : batteryLevel !== null
-            ? `±10 fps. Menyala otomatis saat baterai < ${asPct(LOW_BATTERY)} dan tidak diisi.`
+            ? `±10 fps. Turns on by itself below ${asPct(LOW_BATTERY)} battery when not charging.`
             : "±10 fps.";
 }
 
@@ -1069,7 +1125,7 @@ async function watchBattery() {
     battery.addEventListener("chargingchange", update);
     update();
   } catch (err) {
-    console.warn("Status baterai tidak tersedia; hemat daya hanya manual.", err);
+    console.warn("Battery status unavailable; power saving is manual only.", err);
   }
 }
 
@@ -1133,7 +1189,10 @@ function setCalibScreen(phase: CalibScreenPhase, detail = "") {
 // Shows the screen (again) at a phase; a stage B error reopens it after the user hid it.
 function showCalibScreen(phase: CalibScreenPhase, detail = "") {
   setCalibScreen(phase, detail);
-  if (!calibScreen.open) calibScreen.showModal();
+  if (!calibScreen.open) {
+    calibScreen.showModal();
+    enterCalibStage();
+  }
   const first = calibSections.find((x) => !x.hidden)?.querySelector<HTMLButtonElement>(".cs-go");
   first?.focus({ preventScroll: true }); // headings are read from the top
 }
@@ -1142,16 +1201,51 @@ function closeCalibScreen() {
   if (calibScreen.open) calibScreen.close();
 }
 
+// ── The calibration scan (scanEffect.ts, the user's "Tab UX Calibration" sheet) ──
+
+const scan = new ScanEffect();
+let scanInput: { result: FaceLandmarkerResult; signal: FrameSignal; grid: BodyGrid | null } | null = null;
+
+function renderScan() {
+  const ctx = overlayContext();
+  if (!ctx || !scanInput) return;
+  const { result, signal, grid } = scanInput;
+  const values = signal.face ? { earLeft: signal.earLeft, earRight: signal.earRight, jawOpen: signal.jawOpen } : null;
+  scan.draw(ctx, video, grid, result.faceLandmarks[0], values, performance.now());
+}
+
+// The camera box moves into the screen; the opening sweep is drawn every display frame (±2 s), after that on
+// detector frames only.
+function enterCalibStage() {
+  calibSlot.prepend(cameraBox);
+  if (video.srcObject) void video.play().catch(() => {});
+  overlay.hidden = false;
+  scan.start(performance.now());
+  const until = performance.now() + SCAN.delayMs + SCAN.sweepMs + SCAN.boxesAfterMs + SCAN.boxesInMs + 100;
+  const frame = (now: number) => {
+    if (!scan.running) return;
+    renderScan();
+    if (now < until) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+calibScreen.addEventListener("close", () => {
+  scan.stop();
+  calibStale.hidden = true;
+  onPage(router.page); // the camera goes back where the page wants it
+});
+
 // The companion keeps detection at full speed while the user works in another app (G-56, D-59), so
 // stage B offers it. Opening it needs a click: the beep comes too long after "Mulai" for that click.
 function renderCalibPip() {
   const supported = PipCompanion.supported();
   calibPipOpen.hidden = !supported || companion.isOpen;
   calibPipNote.textContent = !supported
-    ? "Browser ini tidak punya jendela pendamping. Biarkan tab Equilibre tetap terlihat sampai selesai, karena tab tersembunyi memperlambat kamera."
+    ? "This browser has no Picture-in-Picture window. Keep the Equilibre tab visible until it's done: a hidden tab slows the camera."
     : companion.isOpen
-      ? "Pendamping terbuka. Kamu boleh pindah ke aplikasi lain; beruang kecil itu menjaga kalibrasi tetap berjalan."
-      : "Buka jendela beruang kecil supaya kalibrasi tetap berjalan saat kamu pindah ke aplikasi lain.";
+      ? "Picture-in-Picture is open. You can switch to other apps; it keeps calibration running."
+      : "Open the small Picture-in-Picture window so calibration keeps running while you use other apps.";
 }
 
 const minSec = (ms: number) => {
@@ -1182,7 +1276,7 @@ async function runCalibration() {
   calibration = run;
   // Created inside the click handler, so the browser lets it play the beep.
   const audio = new AudioContext();
-  calibButton.textContent = "Batalkan kalibrasi";
+  calibButton.textContent = "Cancel calibration";
   document.body.dataset.calibrating = "1"; // small screens: the camera preview grows for the prompts
   renderStatus();
   userTest?.render();
@@ -1192,7 +1286,7 @@ async function runCalibration() {
   try {
     cameraPrompt.hidden = false;
     for (const n of [3, 2, 1]) {
-      setCalibStatus(`Tahap 1/2: pejamkan mata saat hitungan habis. ${n}…`);
+      setCalibStatus(`Step 1 of 2: close your eyes when the countdown ends. ${n}…`);
       cameraPrompt.textContent = String(n);
       setCalibScreen("countdown", String(n));
       tone(audio, 440, 0.08);
@@ -1202,8 +1296,8 @@ async function runCalibration() {
 
     run.openRef = median(run.open.filter((f) => f.face && Number.isFinite(f.ear)).map((f) => f.ear));
     run.phase = "waiting";
-    setCalibStatus("Tahap 1/2: pejamkan mata sampai terdengar beep.");
-    cameraPrompt.textContent = "Pejamkan mata";
+    setCalibStatus("Step 1 of 2: keep your eyes closed until the beep.");
+    cameraPrompt.textContent = "Close your eyes";
     setCalibScreen("closing");
     const waitStart = performance.now();
     while (run.closedStreak < CALIB_CONFIRM_CLOSED_FRAMES) {
@@ -1212,8 +1306,8 @@ async function runCalibration() {
         tone(audio, 220, 0.6);
         outcome = {
           message:
-            `Mata tidak terdeteksi terpejam dalam ${CALIB_WAIT_CLOSED_MS / 1000} detik setelah aba-aba. ` +
-            "Ulangi, pastikan wajah terlihat jelas, lalu pejamkan mata rapat saat hitungan habis.",
+            `Your eyes weren't seen closed within ${CALIB_WAIT_CLOSED_MS / 1000} s of the cue. ` +
+            "Try again: keep your face clearly in view and close your eyes fully when the countdown ends.",
           isError: true,
         };
         failed = true;
@@ -1237,11 +1331,11 @@ async function runCalibration() {
       setCalibProgress(fraction);
       calibRemaining = minSec(CALIB_NORMAL_MS - elapsed);
       calibBar.querySelector("span")!.style.width = `${fraction * 100}%`;
-      calibLeft.textContent = `Sisa ${calibRemaining}`;
+      calibLeft.textContent = `${calibRemaining} left`;
       setCalibStatus(
-        `Tahap 2/2: bekerja seperti biasa. ` +
-          (companion.isOpen ? "Boleh pindah aplikasi. " : "Tab ini tetap terlihat. ") +
-          `Sisa ${calibRemaining}.`,
+        `Step 2 of 2: work as usual. ` +
+          (companion.isOpen ? "You can switch apps. " : "Keep this tab visible. ") +
+          `${calibRemaining} left.`,
       );
       renderCompanion();
       await sleep(500);
@@ -1255,13 +1349,13 @@ async function runCalibration() {
     }
     // Blink shapes of the same stage B frames, for the blink-pattern score (blinkScore.ts).
     baseline = { ...result.baseline, kedip: calibrateBlinks(run.normal, result.baseline) };
-    const saved = store !== null && saveBaseline(store, baseline);
+    const saved = baselineStore !== null && saveBaseline(baselineStore, baseline);
     resetWindow(performance.now());
     userTest?.calibrated(Date.now()); // the first calibration after consent starts the test clock
     outcome = {
       message: saved
-        ? "Kalibrasi selesai dan tersimpan di perangkat ini."
-        : "Kalibrasi selesai, tapi tidak bisa disimpan (penyimpanan browser diblokir). Kalibrasi perlu diulang setelah halaman dimuat ulang.",
+        ? "Calibration done and saved on this device."
+        : "Calibration done, but it couldn't be saved (browser storage is blocked). You'll need to calibrate again after a reload.",
       isError: !saved,
     };
   } finally {
@@ -1271,8 +1365,8 @@ async function runCalibration() {
     calibRemaining = "";
     if (run.cancelled || !outcome) closeCalibScreen();
     else if (failed) showCalibScreen("error", outcome.message);
-    else if (calibScreen.open) setCalibScreen("done", `${outcome.message} Label pertama muncul dalam ±1 menit.`);
-    renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Kalibrasi dibatalkan." : undefined), outcome?.isError);
+    else if (calibScreen.open) setCalibScreen("done", `${outcome.message} Your first state appears within about a minute.`);
+    renderCalibrationIdle(outcome?.message ?? (run.cancelled ? "Calibration cancelled." : undefined), outcome?.isError);
     renderStatus();
     userTest?.render();
   }
@@ -1331,7 +1425,13 @@ byId("welcome-privacy").addEventListener("click", () => welcomeScreen.close());
 // Debug page it goes beside the EAR chart, with the eye points and body mask (also on every page with
 // ?debug=1). The detector keeps reading the same <video>, which stays rendered either way; play()
 // again in case the move paused it.
+// The Insights page (insights/): mounted once the history is open, redrawn when the page is opened.
+let insights: ReturnType<typeof mountInsights> | null = null;
+
 function onPage(page: string) {
+  insights?.setVisible(page === "insights");
+  if (page === "insights") void insights?.refresh();
+  if (scan.running) return; // the calibration screen holds the camera until it closes
   const liveOn = page === "dashboard";
   const debugOn = page === "debug";
   const home = liveOn ? liveSlot : debugOn ? debugSlot : dock;
@@ -1339,7 +1439,6 @@ function onPage(page: string) {
     home.prepend(cameraBox);
     if (video.srcObject) void video.play().catch(() => {});
   }
-  live.attach(liveOn ? video.srcObject : null);
   const overlayOn = DEBUG || debugOn || liveOn;
   overlay.hidden = !overlayOn;
   overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
@@ -1377,26 +1476,26 @@ function renderAnswer(reply: AnalyzeResponse, label: Label) {
   else {
     const rows = new Map(view.rows);
     const tags = el("div", "", "advice-tags");
-    const chip = el("span", capitalize(label), "label-chip");
+    const chip = el("span", stateName(label), "label-chip");
     chip.dataset.label = label;
     tags.append(chip);
     if (rows.has("Status")) tags.append(el("span", rows.get("Status")!, "pill"));
-    if (rows.has("Lama jeda")) tags.append(el("span", `Jeda ${rows.get("Lama jeda")}`, "pill"));
+    if (rows.has("Break length")) tags.append(el("span", `Break ${rows.get("Break length")}`, "pill"));
     card.append(tags);
-    if (rows.has("Rekomendasi")) card.append(el("p", rows.get("Rekomendasi")!, "advice-main"));
-    if (rows.has("Alasan")) {
+    if (rows.has("Recommendation")) card.append(el("p", rows.get("Recommendation")!, "advice-main"));
+    if (rows.has("Why")) {
       const why = el("p", "", "advice-why");
-      why.append(el("strong", "Kenapa: "), rows.get("Alasan")!);
+      why.append(el("strong", "Why: "), rows.get("Why")!);
       card.append(why);
     }
-    const extra = view.rows.filter(([name]) => !["Status", "Rekomendasi", "Alasan", "Lama jeda"].includes(name));
+    const extra = view.rows.filter(([name]) => !["Status", "Recommendation", "Why", "Break length"].includes(name));
     if (extra.length > 0) {
       const list = el("dl", "", "extra");
       for (const [name, value] of extra) list.append(el("dt", name), el("dd", value));
       card.append(list);
     }
     if (view.sumber) {
-      if (view.sumber.length === 0) card.append(el("p", "Tanpa sumber dari knowledge base.", "helper"));
+      if (view.sumber.length === 0) card.append(el("p", "No sources from the knowledge base.", "helper"));
       else {
         const items = el("ul", "", "sources");
         items.append(...view.sumber.map((s) => el("li", s.text, s.known ? undefined : "error")));
@@ -1404,38 +1503,38 @@ function renderAnswer(reply: AnalyzeResponse, label: Label) {
       }
     }
   }
-  if (view.cadangan) card.append(el("p", "Dijawab model cadangan karena model utama gagal.", "helper"));
+  if (view.cadangan) card.append(el("p", "Answered by the backup model because the main model failed.", "helper"));
   answer.replaceChildren(card);
 }
 
 // ── Automatic sending (NOTES D-37) ──────────────────────────────────────────────
 
-const minuteClock = (t: number) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+const minuteClock = (t: number) => new Date(t).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 
 function renderAutoSend() {
   autoSendToggle.checked = autoSendOn;
-  autoPill.textContent = autoSendOn ? "Saran otomatis aktif" : "Saran otomatis mati";
+  autoPill.textContent = autoSendOn ? "Auto advice on" : "Auto advice off";
   autoPill.dataset.on = autoSendOn ? "1" : "0";
   if (DEMO) {
     autoSendToggle.disabled = true;
     autoSendNote.textContent = DEMO_NOTE.autoSend;
     return;
   }
-  const rule = `saran diminta sendiri saat label lelah ringan atau lebih, maks. 1× per ${AUTO_SEND.minGapMs / 60_000} menit.`;
+  const rule = `advice is requested by itself when the state is Mildly tired or worse, at most once every ${AUTO_SEND.minGapMs / 60_000} min.`;
   if (!autoSendOn) {
-    autoSendNote.textContent = `Mati. Kalau dinyalakan, ${rule}`;
+    autoSendNote.textContent = `Off. When on, ${rule}`;
     return;
   }
   const last =
     lastAuto === null
       ? ""
-      : ` Terakhir ${minuteClock(lastAuto.t)} (${lastAuto.target}): ` +
+      : ` Last ${minuteClock(lastAuto.t)} (${lastAuto.target}): ` +
         (lastAuto.ok === null
-          ? "menunggu jawaban."
+          ? "waiting for the answer."
           : lastAuto.ok
-            ? "terkirim."
-            : `gagal, dicoba lagi paling cepat ${minuteClock(lastAuto.t + AUTO_SEND.minGapMs)}.`);
-  autoSendNote.textContent = `Menyala: ${rule}${last}`;
+            ? "sent."
+            : `failed; tried again at ${minuteClock(lastAuto.t + AUTO_SEND.minGapMs)} at the earliest.`);
+  autoSendNote.textContent = `On: ${rule}${last}`;
 }
 
 autoSendToggle.addEventListener("change", () => {
@@ -1450,10 +1549,10 @@ function renderKssReminder() {
   kssReminderToggle.checked = TEST_MODE || kssReminderOn;
   kssReminderToggle.disabled = TEST_MODE;
   kssReminderNote.textContent = TEST_MODE
-    ? "Selalu aktif selama uji coba."
+    ? "Always on during the user test."
     : kssReminderOn
-      ? "Bunyi tiap 15 menit, lalu isi Cek kantuk di Dashboard."
-      : "Mati. Kalau dinyalakan, ada bunyi tiap 15 menit untuk mengisi Cek kantuk.";
+      ? "A beep every 15 min; then fill in the sleepiness check on the Dashboard."
+      : "Off. When on, a beep every 15 min reminds you to fill in the sleepiness check.";
 }
 
 kssReminderToggle.addEventListener("change", () => {
@@ -1494,7 +1593,7 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
   sending = true;
   sendButton.disabled = true;
   answer.replaceChildren(
-    el("p", pemicu === "otomatis" ? "Diminta otomatis, Langflow sedang menyusun saran…" : "Langflow sedang menyusun saran…", "muted"),
+    el("p", pemicu === "otomatis" ? "Requested automatically. Langflow is writing your advice…" : "Langflow is writing your advice…", "muted"),
   );
   selfReport.showRecommendation(null);
   try {
@@ -1505,7 +1604,7 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(body.error ?? `Backend tidak menjawab (HTTP ${res.status}). Pastikan server sudah jalan.`);
+      throw new Error(body.error ?? `The backend didn't answer (HTTP ${res.status}). Make sure the server is running.`);
     }
     const reply = body as AnalyzeResponse;
     renderAnswer(reply, payload.label);
@@ -1513,8 +1612,8 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
     const context = { t: Date.now(), sesi: SESSION, pemicu, label: payload.label };
     selfReport.showRecommendation(await panel.add("rekomendasi", toRecommendationRecord(reply, context)));
   } catch (err) {
-    const message = err instanceof TypeError ? "Tidak bisa menghubungi backend." : (err as Error).message;
-    answer.replaceChildren(el("p", pemicu === "otomatis" ? `Saran otomatis gagal: ${message}` : message, "callout danger"));
+    const message = err instanceof TypeError ? "Can't reach the backend." : (err as Error).message;
+    answer.replaceChildren(el("p", pemicu === "otomatis" ? `Automatic advice failed: ${message}` : message, "callout danger"));
     if (pemicu === "otomatis") autoSendDone(false);
   } finally {
     sending = false;
@@ -1522,6 +1621,120 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
   }
 }
 sendButton.addEventListener("click", () => void sendStatus("manual"));
+
+// ── Pause (D-78): the camera off, nothing read or stored, until Resume ─────────
+
+async function setPaused(on: boolean) {
+  if (on === paused || calibration || !detecting) return;
+  paused = on;
+  if (on) {
+    for (const track of (video.srcObject as MediaStream | null)?.getTracks() ?? []) track.stop();
+    video.srcObject = null;
+  } else {
+    try {
+      await startCamera();
+    } catch (err) {
+      console.error(err);
+      cameraFailed(cameraErrorMessage(err));
+      return;
+    }
+    // Back from a pause: the window and the time since the last break start again.
+    breakState = initialBreakState(performance.now());
+  }
+  resetWindow(performance.now());
+  setFaceStatus("loading", paused ? "Paused" : "Reading…");
+  renderStatus();
+  renderSinceBreak();
+  renderCalibrationIdle();
+}
+
+pauseButton.addEventListener("click", () => void setPaused(!paused));
+recalibButton.addEventListener("click", () => calibButton.click());
+
+// "Why this state?" is answered on this laptop, from the rules and the numbers (no LLM).
+askWhy.addEventListener("click", () => {
+  if (why.hidden) {
+    answer.replaceChildren(el("p", "No state yet. The first one appears about 10 s after calibration.", "muted"));
+    return;
+  }
+  why.open = true;
+  why.scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
+
+// "What we see" draws the face points over the camera; "What you see" is the plain camera.
+for (const button of document.querySelectorAll<HTMLButtonElement>(".stage-view button")) {
+  button.addEventListener("click", () => {
+    hero.dataset.view = button.dataset.view ?? "we";
+    for (const other of document.querySelectorAll<HTMLButtonElement>(".stage-view button")) {
+      other.setAttribute("aria-pressed", String(other === button));
+    }
+  });
+}
+
+// ── Account (D-78) ──────────────────────────────────────────────────────────────
+
+const accountButton = byId<HTMLButtonElement>("account-button");
+const accountMenu = byId("account-menu");
+
+function partOfDay(hour: number): string {
+  return hour < 11 ? "Good morning" : hour < 15 ? "Good afternoon" : hour < 19 ? "Good evening" : "Working late";
+}
+
+function renderAccount() {
+  const now = new Date();
+  byId("greeting-date").textContent = new Intl.DateTimeFormat(LOCALE, { weekday: "long", day: "numeric", month: "long" }).format(now);
+  const first = account?.name.split(/\s+/)[0];
+  byId("greeting").textContent = first ? `${partOfDay(now.getHours())}, ${first}.` : `${partOfDay(now.getHours())}.`;
+  byId("account").hidden = account === null;
+  byId("account-card").hidden = account === null;
+  if (!account) return;
+  byId("account-initial").textContent = account.name.charAt(0).toUpperCase();
+  byId("account-name").textContent = account.name;
+  byId("account-email").textContent = account.email;
+  byId("settings-name").textContent = account.name;
+  byId("settings-email").textContent = account.email;
+}
+
+function setMenu(open: boolean) {
+  accountMenu.hidden = !open;
+  accountButton.setAttribute("aria-expanded", String(open));
+}
+accountButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setMenu(accountMenu.hidden === true);
+});
+document.addEventListener("click", (event) => {
+  if (!accountMenu.hidden && !accountMenu.contains(event.target as Node)) setMenu(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !accountMenu.hidden) {
+    setMenu(false);
+    accountButton.focus();
+  }
+});
+
+async function leave() {
+  await signOut().catch((err) => console.error(err));
+  location.replace("./");
+}
+for (const id of ["sign-out", "sign-out-2"]) byId(id).addEventListener("click", () => void leave());
+
+// No baseline, or one older than a working day: the calibration screen opens by itself (D-78). A test link is led
+// by its own card (plans/P08).
+function maybeAskToCalibrate() {
+  if (TEST_CODE || calibScreen.open || welcomeScreen.open) return;
+  if (!baseline) {
+    showCalibScreen("intro");
+    return;
+  }
+  if (baselineIsStale(baseline)) {
+    calibStale.hidden = false;
+    calibStale.textContent =
+      `Your last calibration was ${ageText(baseline.createdAt)}. Light and seating change through the day, so a ` +
+      "fresh one keeps readings accurate. Cancel to keep using the old one.";
+    showCalibScreen("intro");
+  }
+}
 
 // ── Start ───────────────────────────────────────────────────────────────────────
 
@@ -1533,6 +1746,19 @@ function cameraFailed(message: string) {
 }
 
 async function main() {
+  if (NEEDS_ACCOUNT) {
+    account = await currentAccount().catch(() => null);
+    if (!account) {
+      location.replace(`auth.html?next=${encodeURIComponent(`app.html${location.search}${location.hash}`)}#signin`);
+      return;
+    }
+  }
+  document.body.dataset.gate = "open";
+  renderAccount();
+  if (store) {
+    baselineStore = account ? accountStore(store, account) : store;
+    baseline = loadBaseline(baselineStore);
+  }
   onPage(router.page);
   byId("debug").hidden = !DEBUG;
   renderFeatures();
@@ -1547,7 +1773,11 @@ async function main() {
   renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
-  void panel.open(HISTORY_DB).then(() => selfReport.restoreKssClock(userTest?.started ?? null));
+  void panel.open(historyDbName(account)).then(() => {
+    selfReport.restoreKssClock(userTest?.started ?? null);
+    insights = mountInsights(byId("insights-root"), { load: () => panel.allRecords(), evalIntervalMs: EVAL_INTERVAL_MS });
+    insights.setVisible(router.page === "insights");
+  });
   setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
   userTest?.render();
   // KSS reminders (when on) and the test card's clock.
@@ -1557,7 +1787,7 @@ async function main() {
     userTest?.render(now);
   }, KSS_CHECK_MS);
   if (NO_CAMERA) {
-    cameraFailed("Kamera tidak dinyalakan (?kamera=0).");
+    cameraFailed("Camera not started (?kamera=0).");
     return;
   }
 
@@ -1565,9 +1795,9 @@ async function main() {
   // camera; getUserMedia runs only after "Nyalakan kamera" (P17 C5).
   if (needsWelcome({ noCamera: NO_CAMERA, done: store !== null && welcomeDone(store), calibrated: baseline !== null })) {
     cameraOff = true;
-    setFaceStatus("loading", "Kamera belum menyala");
+    setFaceStatus("loading", "Camera is off");
     byId("welcome-next").textContent =
-      `Setelah itu: kalibrasi ${calibLength()}, lalu label tiap ${EVAL_INTERVAL_MS / 1000} detik.`;
+      `Next: a calibration of ${calibLength()}, then a state every ${EVAL_INTERVAL_MS / 1000} s.`;
     renderStatus();
     renderCalibrationIdle();
     welcomeScreen.showModal();
@@ -1575,7 +1805,7 @@ async function main() {
       if (store) saveWelcomeDone(store);
       if (welcomeScreen.open) welcomeScreen.close();
       cameraOff = false;
-      setFaceStatus("loading", "Memuat kamera dan model…");
+      setFaceStatus("loading", "Loading camera and model…");
       renderStatus();
       renderCalibrationIdle();
     });
@@ -1590,22 +1820,22 @@ async function main() {
   if (model.status === "rejected") {
     console.error(model.reason);
     cameraFailed(
-      "Model pembaca wajah gagal dimuat. Muat ulang halaman; kalau tetap gagal, coba Chrome atau Edge versi terbaru." +
+      "The face model didn't load. Reload the page; if it still fails, try the latest Chrome or Edge." +
         // The WASM files are copied when the dev server starts; only a developer can act on that.
-        (import.meta.env.DEV ? " (Pengembang: jalankan ulang npm run dev.)" : ""),
+        (import.meta.env.DEV ? " (Developer: restart npm run dev.)" : ""),
     );
     return;
   }
 
-  if (router.page === "dashboard") live.attach(video.srcObject);
   bodyDetection = model.value.segmenter !== null;
-  delegateOutput.textContent = `${model.value.delegate} · tubuh ${bodyDetection ? "CPU" : "nonaktif"}`;
+  delegateOutput.textContent = `${model.value.delegate} · body ${bodyDetection ? "CPU" : "off"}`;
   resetWindow(performance.now());
   detecting = true;
   renderCalibrationIdle();
   renderFeatures();
   renderStatus();
   runDetection(model.value);
+  maybeAskToCalibrate();
 }
 
 void main();

@@ -54,6 +54,8 @@ describe("displayName and nextPage", () => {
 
   it("only returns to our own app page", () => {
     expect(nextPage("app.html#insights")).toBe("app.html#insights");
+    expect(nextPage("app.html?riwayat=demo#insights")).toBe("app.html?riwayat=demo#insights");
+    expect(nextPage("app.htmlx")).toBe("app.html");
     expect(nextPage("https://evil.example")).toBe("app.html");
     expect(nextPage(null)).toBe("app.html");
   });

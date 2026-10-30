@@ -3,12 +3,11 @@ import {
   GREETING,
   GREETING_TEXT,
   initialGreetingState,
-  moodFor,
   snoozeGreeting,
   stepGreeting,
   type GreetingState,
 } from "./companion.ts";
-import { LABELS, type Label } from "./rules.ts";
+import type { Label } from "./rules.ts";
 
 // Feeds a sequence of shown labels (with or without the long-rest advice) and collects what was said.
 function run(steps: Array<[Label | null, boolean?]>, start: GreetingState = initialGreetingState(), now = 1_000) {
@@ -21,13 +20,6 @@ function run(steps: Array<[Label | null, boolean?]>, start: GreetingState = init
   }
   return { state, said };
 }
-
-describe("companion mood", () => {
-  it("has a face for every label and one for no label yet", () => {
-    expect(LABELS.map(moodFor)).toEqual(["normal", "lelah-ringan", "lelah", "tertidur", "pergi"]);
-    expect(moodFor(null)).toBe("menunggu");
-  });
-});
 
 describe("companion greeting", () => {
   it("speaks up once when the label turns lelah or tertidur", () => {

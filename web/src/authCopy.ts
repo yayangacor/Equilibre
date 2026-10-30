@@ -75,5 +75,5 @@ export function displayName(email: string | undefined, metadata: Record<string, 
 
 // Where to go after signing in: back to the page that sent the user here, but only to our own pages.
 export function nextPage(param: string | null): string {
-  return param === "app.html" || param?.startsWith("app.html#") ? param : "app.html";
+  return param !== null && /^app\.html([?#].*)?$/.test(param) ? param : "app.html";
 }
