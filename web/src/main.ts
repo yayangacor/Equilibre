@@ -74,7 +74,7 @@ import {
 import { Router } from "./router.ts";
 import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
-import { ScanEffect, SCAN } from "./scanEffect.ts";
+import { ScanEffect } from "./scanEffect.ts";
 import { stateName } from "./stateCopy.ts";
 import { heroCopy, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
@@ -1060,7 +1060,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       onFrame(signal);
       renderSignals(signal);
       if (scan.running) {
-        scanInput = { result, signal, grid };
+        scanInput = { result, signal };
         renderScan();
       } else if (router.page === "dashboard") renderLive(result, signal);
       else if (DEBUG || router.page === "debug") renderDebug(result, grid);
@@ -1204,28 +1204,28 @@ function closeCalibScreen() {
 // ── The calibration scan (scanEffect.ts, the user's "Tab UX Calibration" sheet) ──
 
 const scan = new ScanEffect();
-let scanInput: { result: FaceLandmarkerResult; signal: FrameSignal; grid: BodyGrid | null } | null = null;
+let scanInput: { result: FaceLandmarkerResult; signal: FrameSignal } | null = null;
 
 function renderScan() {
   const ctx = overlayContext();
   if (!ctx || !scanInput) return;
-  const { result, signal, grid } = scanInput;
+  const { result, signal } = scanInput;
   const values = signal.face ? { earLeft: signal.earLeft, earRight: signal.earRight, jawOpen: signal.jawOpen } : null;
-  scan.draw(ctx, video, grid, result.faceLandmarks[0], values, performance.now());
+  scan.draw(ctx, video, result.faceLandmarks[0], values, performance.now());
 }
 
-// The camera box moves into the screen; the opening sweep is drawn every display frame (±2 s), after that on
-// detector frames only.
+// The camera box moves into the screen. The opening (it starts on the first face) is drawn every display frame,
+// after that on detector frames only.
 function enterCalibStage() {
   calibSlot.prepend(cameraBox);
   if (video.srcObject) void video.play().catch(() => {});
   overlay.hidden = false;
-  scan.start(performance.now());
-  const until = performance.now() + SCAN.delayMs + SCAN.sweepMs + SCAN.boxesAfterMs + SCAN.boxesInMs + 100;
-  const frame = (now: number) => {
+  scanInput = null;
+  scan.arm(performance.now());
+  const frame = () => {
     if (!scan.running) return;
     renderScan();
-    if (now < until) requestAnimationFrame(frame);
+    if (scan.animating(performance.now())) requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
 }
