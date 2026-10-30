@@ -1,0 +1,566 @@
+/* Insights page, "The Readout": an instrument on paper (NOTES D-78). Tokens from design/tokens.css. Color is
+   used only for body states; ink carries the interface; numbers and labels are Plex Mono. 4px corners, 1px
+   rules, no shadows, no gradients (the hatch is a texture for "no data"). Scoped under .ins. */
+
+.ins {
+  container: ins / inline-size;
+  --ins-sticky-top: 84px;
+  display: grid;
+  gap: 40px;
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+.ins [hidden] {
+  display: none !important;
+}
+
+.ins-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Header ── */
+
+.ins-head {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.ins-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.ins-title {
+  margin: 0;
+  font-size: var(--t-h1);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.ins-title .serif-accent {
+  font-weight: 400;
+}
+
+.ins-summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  min-height: 1.4em;
+}
+
+/* Segmented control (range) and chips (bubble grouping): ink on paper, one pressed */
+.ins-seg,
+.ins-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+}
+
+.ins-chips {
+  border-color: var(--rule);
+}
+
+.ins .ins-seg button,
+.ins .ins-chips button {
+  min-height: 30px;
+  padding: 4px 12px;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.ins .ins-chips button {
+  min-height: 26px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+}
+
+.ins .ins-seg button:hover,
+.ins .ins-chips button:hover {
+  color: var(--ink);
+  background: var(--paper-sunk);
+}
+
+.ins .ins-seg button[aria-pressed="true"],
+.ins .ins-chips button[aria-pressed="true"] {
+  color: var(--on-ink);
+  background: var(--ink);
+}
+
+/* ── Empty state ── */
+
+.ins-empty {
+  display: grid;
+  gap: 8px;
+  padding: 48px 0;
+  max-width: 44ch;
+}
+
+.ins-empty-title {
+  margin: 0;
+  font-size: var(--t-h2);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.ins-empty-text {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.ins-body {
+  display: grid;
+  gap: 56px;
+}
+
+/* ── Story: essay steps beside a sticky graphic (stacked on narrow widths) ── */
+
+/* A sticky grid item only sticks within its own grid area, so on narrow widths the graphic and the essay share
+   one area: the graphic sticks on top (paper behind it) and the steps scroll up beneath it. */
+.ins-story {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "stack";
+}
+
+.ins-graphic {
+  grid-area: stack;
+  align-self: start;
+  position: sticky;
+  top: var(--ins-sticky-top);
+  z-index: 1;
+  height: max(300px, 52vh);
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 8px;
+}
+
+.ins-essay {
+  grid-area: stack;
+  padding: calc(max(300px, 52vh) + 8vh) 0 30vh;
+}
+
+@container ins (min-width: 720px) {
+  .ins-story {
+    grid-template-columns: minmax(14rem, 20rem) minmax(0, 1fr);
+    grid-template-areas: "essay graphic";
+    gap: 32px;
+  }
+  .ins-graphic {
+    grid-area: graphic;
+    height: min(680px, calc(100vh - var(--ins-sticky-top) - 24px));
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .ins-essay {
+    grid-area: essay;
+    padding: 22vh 0 36vh;
+  }
+}
+
+.ins-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ins-step {
+  padding: 4px 0 4px 16px;
+  border-left: 2px solid var(--rule);
+  opacity: 0.42;
+  cursor: default;
+  transition: opacity 0.3s var(--ease-out), border-color 0.3s var(--ease-out);
+}
+
+.ins-step + .ins-step {
+  margin-top: 46vh;
+}
+
+.ins-step.is-active {
+  opacity: 1;
+  border-left-color: var(--ink);
+}
+
+.ins-step-count {
+  margin: 0 0 6px;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--ink-3);
+}
+
+.ins-step-text {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 1.125rem;
+  line-height: 1.55;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.ins-num {
+  font-family: var(--mono);
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--ink);
+}
+
+.ins-num[data-s="normal"] { text-decoration-color: var(--s-normal); }
+.ins-num[data-s="mild"] { text-decoration-color: var(--s-mild); }
+.ins-num[data-s="tired"] { text-decoration-color: var(--s-tired); }
+.ins-num[data-s="asleep"] { text-decoration-color: var(--s-asleep); }
+.ins-num[data-s="away"] { text-decoration-color: var(--s-away); }
+
+/* ── Bubbles ── */
+
+.ins-bub {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  height: 100%;
+  padding-top: 8px;
+}
+
+.ins-bub-stage {
+  position: relative;
+  min-height: 0;
+}
+
+.ins-bub-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+
+.ins-bub-svg:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--r);
+}
+
+.ins-bub-dot {
+  fill: var(--s-normal);
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.ins-bub-dot.is-dim {
+  opacity: 0.2;
+}
+
+[data-s="normal"].ins-bub-dot,
+[data-s="normal"].ins-db-seg { fill: var(--s-normal); }
+[data-s="mild"].ins-bub-dot,
+[data-s="mild"].ins-db-seg { fill: var(--s-mild); }
+[data-s="tired"].ins-bub-dot,
+[data-s="tired"].ins-db-seg { fill: var(--s-tired); }
+[data-s="asleep"].ins-bub-dot,
+[data-s="asleep"].ins-db-seg { fill: var(--s-asleep); }
+[data-s="away"].ins-bub-dot,
+[data-s="away"].ins-db-seg { fill: var(--s-away); }
+
+.ins-bub-ring {
+  fill: none;
+  stroke: var(--rule-strong);
+  stroke-width: 1.25;
+  stroke-dasharray: 0 5;
+  stroke-linecap: round;
+  transition: opacity 0.3s var(--ease-out), stroke 0.3s var(--ease-out);
+}
+
+.ins-bub-ring.is-hl {
+  stroke: var(--ink);
+}
+
+.ins-bub-name,
+.ins-bub-total {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.ins-bub-name {
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--ink);
+}
+
+.ins-bub-total {
+  fill: var(--ink-3);
+}
+
+.ins-bub-ring.is-dim,
+.ins-bub-name.is-dim,
+.ins-bub-total.is-dim {
+  opacity: 0.35;
+}
+
+.ins-bub-focus {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+/* ── Legends, dots, tooltip ── */
+
+.ins-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  color: var(--ink-2);
+}
+
+.ins-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ins-dot,
+.ins-sq {
+  flex: none;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--s-normal);
+}
+
+.ins-sq {
+  border-radius: 2px;
+}
+
+.ins-dot[data-s="normal"], .ins-sq[data-s="normal"] { background: var(--s-normal); }
+.ins-dot[data-s="mild"], .ins-sq[data-s="mild"] { background: var(--s-mild); }
+.ins-dot[data-s="tired"], .ins-sq[data-s="tired"] { background: var(--s-tired); }
+.ins-dot[data-s="asleep"], .ins-sq[data-s="asleep"] { background: var(--s-asleep); }
+.ins-dot[data-s="away"], .ins-sq[data-s="away"] { background: var(--s-away); }
+.ins-dot.ins-dot-ink { background: var(--ink-2); width: 6px; height: 6px; }
+
+.ins-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: 2px;
+  max-width: 280px;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  pointer-events: none;
+}
+
+.ins-tip-title {
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.ins-tip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ins-tip-row .ins-dot {
+  transform: translateY(-1px);
+}
+
+/* ── Figures (heatmap, daily bars) ── */
+
+.ins-fig {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.ins-fig-head {
+  display: grid;
+  gap: 4px;
+}
+
+.ins-fig-title {
+  margin: 0;
+  font-size: var(--t-h2);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.ins-fig-sub {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+}
+
+/* Heatmap: a CSS grid, 2px surface gaps */
+.ins-hm-stage,
+.ins-db-stage {
+  position: relative;
+}
+
+.ins-hm {
+  display: grid;
+  grid-template-columns: 4.25rem repeat(var(--cols, 1), minmax(0, 1fr));
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.ins-hm-hour {
+  padding-bottom: 2px;
+  text-align: center;
+}
+
+.ins-hm-day {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+.ins-hm-cell {
+  height: 22px;
+  border-radius: 2px;
+  background: var(--paper-raised);
+}
+
+.ins-hm-cell:hover {
+  outline: 1.5px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.ins-hm-cell[data-bin="0"],
+.ins-hm-swatch[data-bin="0"] { background: color-mix(in oklab, var(--s-tired) 7%, var(--paper-raised)); }
+.ins-hm-cell[data-bin="1"],
+.ins-hm-swatch[data-bin="1"] { background: color-mix(in oklab, var(--s-tired) 24%, var(--paper-raised)); }
+.ins-hm-cell[data-bin="2"],
+.ins-hm-swatch[data-bin="2"] { background: color-mix(in oklab, var(--s-tired) 46%, var(--paper-raised)); }
+.ins-hm-cell[data-bin="3"],
+.ins-hm-swatch[data-bin="3"] { background: color-mix(in oklab, var(--s-tired) 72%, var(--paper-raised)); }
+.ins-hm-cell[data-bin="4"],
+.ins-hm-swatch[data-bin="4"] { background: var(--s-tired); }
+
+.ins-hm-cell[data-empty],
+.ins-hm-swatch[data-empty] {
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--rule) 3px 4px), var(--paper);
+}
+
+.ins-hm-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+@container ins (max-width: 560px) {
+  .ins-hm[data-many="true"] .ins-hm-hour.is-minor {
+    visibility: hidden;
+  }
+  .ins-hm {
+    grid-template-columns: 3.5rem repeat(var(--cols, 1), minmax(0, 1fr));
+  }
+}
+
+/* Daily bars */
+.ins-db-svg {
+  display: block;
+  overflow: visible;
+}
+
+.ins-grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.ins-axis {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.ins-tick {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--ink-3);
+}
+
+.ins-tick-strong {
+  fill: var(--ink-2);
+}
+
+.ins-tick-cap {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.ins-db-dot {
+  fill: var(--ink-2);
+}
+
+.ins-db-hit {
+  fill: transparent;
+}
+
+.ins-db-hit:hover {
+  fill: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ins-step,
+  .ins-bub-dot,
+  .ins-bub-ring,
+  .ins-bub-name,
+  .ins-bub-total {
+    transition: none;
+  }
+}
