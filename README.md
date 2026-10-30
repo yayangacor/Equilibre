@@ -248,9 +248,10 @@ Tiga halaman (`web/index.html`, `web/auth.html`, `web/app.html`; Vite multi-page
 | **Settings** | Akun (Sign out), kalibrasi dan umur baseline, saran otomatis, pengingat cek kantuk, hemat daya, PiP, apa yang keluar dari laptop ini, unduh/hapus riwayat, mode Debug, batasan Equilibre |
 | **Debug** (di menu hanya saat **Debug mode** menyala di Settings atau lewat `?debug=1`) | Kamera dengan 6 titik EAR per mata dan mask tubuh, grafik EAR dengan batas pribadi, tile sinyal per frame, fitur jendela, baseline, skor pola kedip, JSON yang dikirim, unduh log CSV |
 
-**Kalibrasi** (`scanEffect.ts`): kamera biasa → garis scan menyapu dari atas ke bawah dalam 1 detik dan mengubah area tubuh
-(grid segmentasi) menjadi piksel → 0,5 detik kemudian kotak berlabel di mata kiri, mata kanan, dan mulut dengan nilai langsung
-(EAR, Jaw Open), tetap tampil selama kalibrasi. Digambar di kanvas overlay hanya pada frame detektor.
+**Kalibrasi** (`scanEffect.ts`): kamera biasa → begitu wajah pertama terlihat, garis scan menyapu dari atas ke bawah dalam
+1 detik dan mengubah tubuh (siluet kepala, leher, bahu, dan badan yang dibentuk dari titik wajah) menjadi piksel → 0,5 detik
+kemudian kotak berlabel di mata kiri, mata kanan, dan mulut dengan nilai langsung (EAR, Jaw Open), tetap tampil selama kalibrasi.
+Pembukaan digambar tiap frame layar, sesudahnya hanya pada frame detektor.
 
 **Gaya visual "The Readout"** (hasil riset brand-fit, `src/design/tokens.css`): kertas `#F3F2ED` dan tinta `#121518`; warna
 hanya untuk kondisi tubuh (Normal `#1F9D8A`, Mildly tired `#E0A526`, Tired `#E5483B`, Asleep `#6B5BD2`, Away `#9AA1A9`);
