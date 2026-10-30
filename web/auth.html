@@ -8,11 +8,115 @@
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <title>Sign in · Equilibre</title>
   </head>
-  <body>
-    <main id="auth"></main>
+  <body class="auth-body" data-mode="signup">
+    <a class="auth-wordmark" href="./">Equilibre</a>
+
+    <main class="auth" id="main">
+      <section class="auth-form-col" aria-labelledby="auth-title">
+        <p id="auth-eyebrow" class="eyebrow">Create account</p>
+        <h1 id="auth-title" class="auth-title">Create your account</h1>
+        <p id="auth-sub" class="auth-sub">Takes a minute. Your camera stays off until you turn it on.</p>
+
+        <p id="auth-offline" class="auth-banner" role="status" hidden>
+          You're offline. Signing in needs the internet; the camera and your history don't.
+        </p>
+        <div id="auth-summary" class="auth-summary" role="alert" hidden>
+          <p id="auth-summary-text"></p>
+          <button id="auth-switch-signin" type="button" class="link-btn" hidden>Sign in instead</button>
+        </div>
+        <div id="auth-unconfigured" class="auth-summary info" hidden>
+          <p>Accounts aren't set up in this build (no Supabase project). You can still try the app on this device.</p>
+          <a class="btn-ink" href="app.html">Continue without an account</a>
+        </div>
+
+        <form id="auth-form" class="auth-form" novalidate>
+          <div class="field" data-for="signup">
+            <label for="auth-name">Name</label>
+            <input id="auth-name" name="name" type="text" autocomplete="name" aria-describedby="auth-name-help auth-name-error" />
+            <p id="auth-name-help" class="field-help">Shown on your dashboard.</p>
+            <p id="auth-name-error" class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" name="email" type="email" inputmode="email" autocomplete="email" aria-describedby="auth-email-error" />
+            <p id="auth-email-error" class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <div class="field-row">
+              <label for="auth-password">Password</label>
+              <button id="auth-forgot" type="button" class="link-btn small" data-for="signin">Forgot your password?</button>
+            </div>
+            <div class="password">
+              <input id="auth-password" name="password" type="password" autocomplete="new-password" aria-describedby="auth-password-rule auth-password-error" />
+              <button id="auth-show" type="button" class="password-toggle" aria-controls="auth-password" aria-label="Show password">Show</button>
+            </div>
+            <p id="auth-password-rule" class="field-help rule" data-for="signup"><span class="tick" aria-hidden="true"></span>At least 8 characters</p>
+            <p id="auth-password-error" class="field-error" hidden></p>
+            <p id="auth-forgot-note" class="field-help" hidden>
+              Password reset by email isn't available in this preview yet. Ask the Equilibre team to reset it for you.
+            </p>
+          </div>
+
+          <p class="consent" data-for="signup">
+            Equilibre will ask to use your camera on the next step. Video is processed in this browser and never sent. We store
+            only your name and email.
+          </p>
+
+          <button id="auth-submit" type="submit" class="btn-ink block">
+            <span class="spinner" aria-hidden="true"></span><span id="auth-submit-text">Create account</span>
+          </button>
+        </form>
+
+        <p class="auth-cross">
+          <span id="auth-cross-text">Already have an account?</span>
+          <a id="auth-cross-link" href="#signin">Sign in</a>
+        </p>
+
+        <section class="keep" aria-labelledby="keep-title">
+          <h2 id="keep-title" class="eyebrow">What we keep</h2>
+          <ul class="keep-list">
+            <li><span class="keep-tag never">Never sent</span><span>Video and images of your face.</span></li>
+            <li><span class="keep-tag local">This device</span><span>Your fatigue history and calibration (30 days).</span></li>
+            <li><span class="keep-tag cloud">Stored by us</span><span>Your name and email, to sign you in (Supabase).</span></li>
+          </ul>
+          <details class="keep-more">
+            <summary>What Supabase records</summary>
+            <p>
+              Your name, email and a password hash, plus sign-in times, IP address and browser in its sign-in logs. Never your
+              video, your face, your states or your history.
+            </p>
+          </details>
+        </section>
+      </section>
+
+      <aside class="auth-visual" aria-hidden="true">
+        <div class="readout-card">
+          <div class="readout-head">
+            <span class="eyebrow">Live · on-device</span>
+            <span id="demo-chip" class="state-chip" data-state="normal"><span class="dot"></span><span id="demo-chip-text">Normal</span></span>
+          </div>
+          <svg id="demo-face" class="demo-face" viewBox="0 0 320 300"></svg>
+          <div class="trace">
+            <div class="trace-head">
+              <span class="eyebrow">Eye openness (EAR), last 20 s</span>
+              <span id="demo-ear" class="readout">0.29</span>
+            </div>
+            <svg id="demo-trace" class="demo-trace" viewBox="0 0 320 80" preserveAspectRatio="none">
+              <rect class="band" x="0" y="22" width="320" height="22" />
+              <path id="demo-trace-path" class="trace-line" d="" />
+            </svg>
+          </div>
+          <p id="demo-why" class="demo-why">No signs of tiredness in the last minute.</p>
+        </div>
+        <p class="visual-caption">
+          Your camera is read in this browser. Only numbers like <span class="mono">eyes closed 18%</span> are kept, on this
+          device.
+        </p>
+      </aside>
+    </main>
     <script type="module" src="/src/authPage.ts"></script>
   </body>
 </html>
