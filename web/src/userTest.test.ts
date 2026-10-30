@@ -323,7 +323,7 @@ describe("sending with retries", () => {
   it("gives up after the last attempt with the last error", async () => {
     const { fn, bodies } = scripted();
     const result = await sendWithRetry("u", sub, { ...noWait, fetchFn: fn });
-    expect(result).toEqual({ ok: false, error: "Penerima menjawab HTTP 404." });
+    expect(result).toEqual({ ok: false, error: "The receiver answered HTTP 404." });
     expect(bodies).toHaveLength(SEND_ATTEMPTS);
   });
 });

@@ -1,6 +1,7 @@
 import { detectEyeClosures } from "./blink.ts";
 import type { BlinkNorm } from "./blinkScore.ts";
 import type { BodySample } from "./body.ts";
+import { LOCALE } from "./format.ts";
 import type { FrameSignal } from "./signals.ts";
 
 // Personal reference values. Numbers only: nothing here can reconstruct a face.
@@ -94,7 +95,7 @@ export function looksClosed(f: FrameSignal, earOpenRef: number): boolean {
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-const num = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format;
+const num = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 }).format;
 
 export type CalibrationResult = { ok: true; baseline: Baseline } | { ok: false; error: string };
 
@@ -112,24 +113,24 @@ export function computeBaseline(
   const normal = withFace(normalFrames);
 
   for (const [all, faces, stage] of [
-    [closedFrames, closed, "mata terpejam"],
-    [normalFrames, normal, "kerja normal"],
+    [closedFrames, closed, "eyes-closed"],
+    [normalFrames, normal, "normal-work"],
   ] as const) {
     if (all.length === 0) {
-      return { ok: false, error: `Tidak ada frame yang terekam saat tahap ${stage}. Pastikan kamera menyala, lalu ulangi.` };
+      return { ok: false, error: `No frames were recorded during the ${stage} step. Make sure the camera is on, then try again.` };
     }
     const missing = 1 - faces.length / all.length;
     if (missing > MAX_MISSING_FACE) {
       return {
         ok: false,
-        error: `Wajah tidak terdeteksi di ${pct(missing)} frame saat tahap ${stage} (maksimal ${pct(MAX_MISSING_FACE)}). Pastikan wajah terlihat jelas di kamera, lalu ulangi.`,
+        error: `Face not detected in ${pct(missing)} of the frames during the ${stage} step (maximum ${pct(MAX_MISSING_FACE)}). Make sure your face is clearly visible to the camera, then try again.`,
       };
     }
   }
 
   const spanMs = normalFrames[normalFrames.length - 1].t - normalFrames[0].t;
   if (spanMs < MIN_NORMAL_STAGE_MS) {
-    return { ok: false, error: "Tahap kerja normal terlalu singkat. Ulangi kalibrasi." };
+    return { ok: false, error: "The normal-work step was too short. Please calibrate again." };
   }
 
   const intervalMs = median(normalFrames.slice(1).map((f, i) => f.t - normalFrames[i].t));
@@ -137,8 +138,8 @@ export function computeBaseline(
     return {
       ok: false,
       error:
-        `Kamera hanya terbaca ±${num(1000 / intervalMs)} fps saat tahap kerja normal (minimal ±${num(1000 / MAX_MEDIAN_FRAME_INTERVAL_MS)} fps). ` +
-        "Biasanya karena tab ini tersembunyi; ulangi dengan tab Equilibre tetap terlihat.",
+        `The camera read only ±${num(1000 / intervalMs)} fps during the normal-work step (minimum ±${num(1000 / MAX_MEDIAN_FRAME_INTERVAL_MS)} fps). ` +
+        "This usually means the tab was hidden; try again with the Equilibre tab visible.",
     };
   }
 
@@ -149,8 +150,8 @@ export function computeBaseline(
     return {
       ok: false,
       error:
-        `Mata hanya terdeteksi terpejam di ${pct(closedShare)} frame tahap mata terpejam (minimal ${pct(MIN_CLOSED_SHARE)}). ` +
-        "Ulangi, dan tahan mata tetap terpejam sampai terdengar bunyi beep panjang.",
+        `Eyes were seen closed in only ${pct(closedShare)} of the frames in the eyes-closed step (minimum ${pct(MIN_CLOSED_SHARE)}). ` +
+        "Try again, and keep your eyes closed until you hear the long beep.",
     };
   }
   const range = { earOpen, earClosed: median(closedLike.map((f) => f.ear)) };
@@ -158,14 +159,14 @@ export function computeBaseline(
     return {
       ok: false,
       error:
-        `EAR saat terpejam (${num(range.earClosed)}) terlalu dekat dengan saat terbuka (${num(range.earOpen)}); ` +
-        `selisih minimal ${num(MIN_EAR_RANGE)}. Ulangi dengan wajah menghadap kamera.`,
+        `EAR with eyes closed (${num(range.earClosed)}) is too close to EAR with eyes open (${num(range.earOpen)}); ` +
+        `the difference must be at least ${num(MIN_EAR_RANGE)}. Try again facing the camera.`,
     };
   }
 
   const pitches = normal.map((f) => f.pitchDeg).filter(Number.isFinite);
   if (pitches.length === 0) {
-    return { ok: false, error: "Posisi kepala tidak terbaca. Ulangi kalibrasi." };
+    return { ok: false, error: "Head position could not be read. Please calibrate again." };
   }
 
   const blinks = detectEyeClosures(normalFrames, blinkThreshold(range)).filter((e) => e.kind === "blink");

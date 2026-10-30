@@ -50,12 +50,13 @@ describe("liveTiles", () => {
     const tiles = liveTiles(frame(0, { ear: 0.281 }), FEATURES, BASELINE, "normal", 60);
     const byKey = Object.fromEntries(tiles.map((t) => [t.key, t]));
     expect(tiles.map((t) => t.key)).toEqual(["mata", "kedip", "perclos", "menguap", "menunduk", "label"]);
-    expect(byKey.mata.value).toBe("Terbuka");
-    expect(byKey.mata.sub).toBe("EAR 0,281; tertutup di bawah 0,200.");
-    expect(byKey.kedip.value).toBe("17,5");
-    expect(byKey.kedip.sub).toContain("Normalmu 15;");
+    expect(byKey.mata.value).toBe("Open");
+    expect(byKey.mata.eye).toBe("terbuka");
+    expect(byKey.mata.sub).toBe("EAR 0.281; closed below 0.200.");
+    expect(byKey.kedip.value).toBe("17.5");
+    expect(byKey.kedip.sub).toContain("Your normal: 15;");
     expect(byKey.perclos.value).toBe("12%");
-    expect(byKey.perclos.sub).toContain("60 detik terakhir");
+    expect(byKey.perclos.sub).toContain("last 60 s");
     expect(byKey.menguap.value).toBe("1×");
     expect(byKey.menunduk.value).toBe("30%");
     expect(byKey.menunduk.sub).toContain("15°");
@@ -65,14 +66,14 @@ describe("liveTiles", () => {
   it("waits for a calibration instead of showing zeros", () => {
     const tiles = liveTiles(frame(0), null, null, null, 60);
     for (const t of tiles.filter((x) => x.key !== "mata")) expect(t.value).toBe("–");
-    expect(tiles.find((t) => t.key === "perclos")!.sub).toBe("Muncul setelah kalibrasi.");
-    expect(tiles.find((t) => t.key === "mata")!.sub).toBe("EAR 0,300.");
+    expect(tiles.find((t) => t.key === "perclos")!.sub).toBe("Appears after calibration.");
+    expect(tiles.find((t) => t.key === "mata")!.sub).toBe("EAR 0.300.");
   });
 
   it("keeps a null blink rate as a dash, not 0", () => {
     const tiles = liveTiles(noFace(0), { ...FEATURES, kedip_per_menit: null, perclos: null }, BASELINE, null, 60);
     expect(tiles.find((t) => t.key === "kedip")!.value).toBe("–");
     expect(tiles.find((t) => t.key === "perclos")!.value).toBe("–");
-    expect(tiles.find((t) => t.key === "mata")!.value).toBe("Tidak terlihat");
+    expect(tiles.find((t) => t.key === "mata")!.value).toBe("Not seen");
   });
 });

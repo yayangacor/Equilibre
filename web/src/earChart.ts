@@ -24,7 +24,7 @@ export class EarChart {
       li.append(swatch, label);
       return li;
     };
-    legend.replaceChildren(item("line-key", "EAR rata-rata kedua mata"), item("dash-key", "Batas pribadi dari kalibrasi"));
+    legend.replaceChildren(item("line-key", "Average EAR of both eyes"), item("dash-key", "Personal limits from calibration"));
   }
 
   push(t: number, ear: number | null) {
@@ -77,15 +77,15 @@ export class EarChart {
       ctx.fillText(v.toFixed(1), left - 8, y(v));
     }
     ctx.textAlign = "left";
-    ctx.fillText("−20 dtk", left, height - 8);
+    ctx.fillText("−20 s", left, height - 8);
     ctx.textAlign = "right";
-    ctx.fillText("sekarang", left + plotW, height - 8);
+    ctx.fillText("now", left + plotW, height - 8);
 
     if (baseline) {
       const refs: [number, string][] = [
-        [baseline.earOpen, "terbuka (baseline)"],
-        [blinkThreshold(baseline), "batas kedip"],
-        [perclosThreshold(baseline), "batas tertutup"],
+        [baseline.earOpen, "open (baseline)"],
+        [blinkThreshold(baseline), "blink limit"],
+        [perclosThreshold(baseline), "closed limit"],
       ];
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = color("--on-surface-variant");

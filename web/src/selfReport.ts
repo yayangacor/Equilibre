@@ -1,4 +1,5 @@
 import { feedbackButtons } from "./dashboard.ts";
+import { LOCALE } from "./format.ts";
 import {
   cameraJustCountedBreak,
   correctionChoices,
@@ -12,13 +13,14 @@ import {
 import type { HistoryPanel } from "./historyPanel.ts";
 import { KSS_SCALE, kssDue } from "./kss.ts";
 import type { Evaluation, Label } from "./rules.ts";
+import { stateName } from "./stateCopy.ts";
 
 // What the user tells Equilibre back, all kept on the device (NOTES D-06, D-36):
 // feedback on a recommendation, a correction of the shown label, a KSS rating (with a
 // reminder every 15 minutes in a user test or when switched on, D-67), and a break the camera missed (D-42).
 // Text goes in via textContent.
 
-const KSS_PROMPT = "Seberapa mengantuk kamu dalam 5 menit terakhir? Pilih satu.";
+const KSS_PROMPT = "How sleepy have you felt in the last 5 min? Pick one.";
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -31,7 +33,7 @@ function button(text: string, className: string, onClick: () => void): HTMLButto
   return node;
 }
 
-const clock = (t: number) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+const clock = (t: number) => new Date(t).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 
 export type SelfReportDeps = {
   panel: HistoryPanel;
@@ -73,7 +75,7 @@ export class SelfReport {
     this.breakButton.addEventListener("click", () => this.showBreakChoices(true));
     byId("break-cancel").addEventListener("click", () => this.showBreakChoices(false));
     byId("break-options").replaceChildren(
-      ...MANUAL_BREAK_MINUTES.map((m) => button(`±${m} menit`, "btn outline small", () => void this.markBreak(m))),
+      ...MANUAL_BREAK_MINUTES.map((m) => button(`±${m} min`, "btn outline small", () => void this.markBreak(m))),
     );
     byId("kss-scale").replaceChildren(
       ...KSS_SCALE.map((step) => {
@@ -122,7 +124,7 @@ export class SelfReport {
     const shown = this.deps.shown();
     if (!shown) return;
     this.correctionFor = shown.label;
-    this.options.replaceChildren(...correctionChoices(shown.label).map((l) => button(l, "btn outline small", () => void this.correct(l))));
+    this.options.replaceChildren(...correctionChoices(shown.label).map((l) => button(stateName(l), "btn outline small", () => void this.correct(l))));
     this.choices.hidden = false;
     this.correctButton.hidden = true;
     this.correctionNote.textContent = "";
@@ -141,8 +143,8 @@ export class SelfReport {
     const id = await this.deps.panel.add("koreksi_label", toLabelCorrection(shown, koreksi, { t: Date.now(), sesi: this.deps.session }));
     this.correctionNote.textContent =
       id === null
-        ? "Koreksi tidak bisa disimpan: riwayat tidak tersedia di perangkat ini."
-        : `Tercatat: menurutmu "${koreksi}", bukan "${shown.label}". Disimpan di perangkat ini untuk evaluasi, tidak mengubah label.`;
+        ? "The correction could not be saved: history is not available on this device."
+        : `Noted: you say "${stateName(koreksi)}", not "${stateName(shown.label)}". Saved on this device for evaluation; it does not change the state.`;
   }
 
   // ── Break marked by hand ──────────────────────────────────────────────────────
@@ -157,15 +159,15 @@ export class SelfReport {
     const t = Date.now();
     const last = this.deps.lastCameraBreak();
     if (last !== null && cameraJustCountedBreak(last, t)) {
-      this.breakNote.textContent = `Jeda ini sudah terhitung otomatis, selesai pukul ${clock(last)}. Tidak dicatat dua kali.`;
+      this.breakNote.textContent = `This break was already counted automatically, ending at ${clock(last)}. It is not recorded twice.`;
       return;
     }
     this.deps.breakTaken();
     const id = await this.deps.panel.add("jeda", toManualBreakRecord(menit, t, this.deps.session));
     this.breakNote.textContent =
       (id === null
-        ? "Jeda dihitung untuk sesi ini, tapi tidak bisa disimpan: riwayat tidak tersedia di perangkat ini."
-        : `Jeda ±${menit} menit tercatat pukul ${clock(t)}.`) + " Menit sejak jeda mulai lagi dari nol.";
+        ? "The break counts for this session, but it could not be saved: history is not available on this device."
+        : `Break of ±${menit} min recorded at ${clock(t)}.`) + " Time since your last break starts again from zero.";
   }
 
   // ── KSS ───────────────────────────────────────────────────────────────────────
@@ -175,7 +177,7 @@ export class SelfReport {
     if (!this.deps.reminders() || this.kssDueNow || !kssDue(this.lastKss, now)) return;
     this.kssDueNow = true;
     this.kssPanel.dataset.due = "1";
-    this.kssPrompt.textContent = "Waktunya mengisi KSS (tiap 15 menit): seberapa mengantuk kamu dalam 5 menit terakhir?";
+    this.kssPrompt.textContent = "Time for the sleepiness check (KSS), every 15 min: how sleepy have you felt in the last 5 min?";
     this.deps.beep();
   }
 
@@ -186,14 +188,14 @@ export class SelfReport {
       toKssRecord(kss, { t, sesi: this.deps.session, labelTampil: this.deps.shown()?.label ?? null, pengingat: this.kssDueNow }),
     );
     if (id === null) {
-      this.kssNote.textContent = "KSS tidak bisa disimpan: riwayat tidak tersedia di perangkat ini.";
+      this.kssNote.textContent = "The KSS rating could not be saved: history is not available on this device.";
       return;
     }
     this.lastKss = t;
     this.kssDueNow = false;
     delete this.kssPanel.dataset.due;
     this.kssPrompt.textContent = KSS_PROMPT;
-    this.kssNote.textContent = `KSS ${kss} tersimpan pukul ${clock(t)}.${this.deps.reminders() ? " Pengingat berikutnya 15 menit lagi." : ""}`;
+    this.kssNote.textContent = `KSS ${kss} saved at ${clock(t)}.${this.deps.reminders() ? " Next reminder in 15 min." : ""}`;
   }
 
   // ── Feedback on the answer in the Langflow panel ──────────────────────────────

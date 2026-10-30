@@ -70,8 +70,8 @@ export class HistoryPanel {
   }
 
   private failed(err: unknown) {
-    if (this.problem === null) console.warn("Riwayat tidak bisa disimpan.", err);
-    this.problem = `Riwayat tidak bisa disimpan di perangkat ini: ${err instanceof Error ? err.message : String(err)}`;
+    if (this.problem === null) console.warn("History can't be saved.", err);
+    this.problem = `History can't be saved on this device: ${err instanceof Error ? err.message : String(err)}`;
   }
 
   // Fire and forget, for the monitoring loop.
@@ -117,7 +117,7 @@ export class HistoryPanel {
     const day = this.shownDay ?? today;
     const view = { days: [] as string[], day, today, summary: null, rekomendasi: [], evaluasi: [], jeda: [], problem: this.problem };
     if (!this.db) {
-      this.dashboard.render({ ...view, problem: this.problem ?? "Riwayat belum siap." });
+      this.dashboard.render({ ...view, problem: this.problem ?? "History is not ready yet." });
       this.onToday(null);
       return;
     }
@@ -177,15 +177,15 @@ export class HistoryPanel {
   private async exportFile() {
     const stores = await this.allRecords();
     if (!stores) {
-      this.actionNote.textContent = this.problem ?? "Riwayat belum siap.";
+      this.actionNote.textContent = this.problem ?? "History is not ready yet.";
       return;
     }
     const { evaluasi, jeda, rekomendasi, koreksi_label, kss } = stores;
     const file = toExport(stores, Date.now());
     downloadFile(JSON.stringify(file), `equilibre-riwayat-${fileStamp(new Date())}.json`, "application/json");
     this.actionNote.textContent =
-      `Diunduh: ${evaluasi.length} evaluasi, ${jeda.length} jeda, ${rekomendasi.length} rekomendasi, ` +
-      `${koreksi_label.length} koreksi, ${kss.length} KSS. File tetap di perangkat ini sampai kamu membagikannya.`;
+      `Downloaded: ${evaluasi.length} assessments, ${jeda.length} breaks, ${rekomendasi.length} advice, ` +
+      `${koreksi_label.length} corrections, ${kss.length} KSS. The file stays on this device until you share it.`;
   }
 
   // Two clicks within CLEAR_CONFIRM_MS, no browser dialog.
@@ -193,9 +193,9 @@ export class HistoryPanel {
     const now = Date.now();
     if (now > this.clearArmedUntil) {
       this.clearArmedUntil = now + CLEAR_CONFIRM_MS;
-      this.clearButton.textContent = "Klik lagi untuk menghapus";
+      this.clearButton.textContent = "Click again to delete";
       this.actionNote.textContent =
-        "Semua riwayat di perangkat ini akan dihapus: evaluasi, jeda, rekomendasi, koreksi, dan KSS. Baseline kalibrasi tetap.";
+        "All history on this device will be deleted: assessments, breaks, advice, corrections and KSS. Your calibration baseline stays.";
       setTimeout(() => {
         if (Date.now() >= this.clearArmedUntil) this.disarm();
       }, CLEAR_CONFIRM_MS);
@@ -205,7 +205,7 @@ export class HistoryPanel {
     if (!this.db) return;
     try {
       await this.db.clear();
-      this.actionNote.textContent = "Semua riwayat dihapus dari perangkat ini.";
+      this.actionNote.textContent = "All history was deleted from this device.";
       this.onCleared();
     } catch (err) {
       this.failed(err);
@@ -216,6 +216,6 @@ export class HistoryPanel {
 
   private disarm() {
     this.clearArmedUntil = 0;
-    this.clearButton.textContent = "Hapus semua riwayat";
+    this.clearButton.textContent = "Delete all history";
   }
 }

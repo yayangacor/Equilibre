@@ -117,13 +117,13 @@ describe("computeBaseline", () => {
     const mostlyAway = normalStage().map((f, i) => (i % 3 === 0 ? noFace(f.t) : f)); // 34% missing
     const result = computeBaseline(closedStage(), mostlyAway, 0);
     expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toContain("kerja normal");
+    expect(!result.ok && result.error).toContain("normal-work");
   });
 
   it("rejects calibration when the eyes were not really closed in stage A", () => {
     const result = computeBaseline(earSeries(repeat(0.28, 30)), normalStage(), 0);
     expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toContain("hanya terdeteksi terpejam di 0%");
+    expect(!result.ok && result.error).toContain("seen closed in only 0%");
   });
 
   it("tolerates eyes flickering open during stage A and uses only the closed frames", () => {
@@ -142,7 +142,7 @@ describe("computeBaseline", () => {
   it("reports the measured EARs when open and closed are too close", () => {
     const barelyClosed = earSeries(repeat(0.27, 30)).map((f) => ({ ...f, blinkLeft: 0.9, blinkRight: 0.9 }));
     const result = computeBaseline(barelyClosed, normalStage(), 0);
-    expect(!result.ok && result.error).toContain("EAR saat terpejam (0,27)");
+    expect(!result.ok && result.error).toContain("EAR with eyes closed (0.27)");
   });
 
   it("rejects a normal stage shorter than 10 s", () => {
@@ -153,7 +153,7 @@ describe("computeBaseline", () => {
   it("rejects a normal stage recorded at ~1 fps (hidden tab)", () => {
     const sparse = Array.from({ length: 30 }, (_, i) => frame(i * 1000));
     const result = computeBaseline(closedStage(), sparse, 0);
-    expect(!result.ok && result.error).toContain("tersembunyi");
+    expect(!result.ok && result.error).toContain("hidden");
   });
 
   it("stores null blink duration when no blink was seen", () => {

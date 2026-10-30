@@ -1,3 +1,4 @@
+import { LOCALE } from "./format.ts";
 import {
   CHART_LABELS,
   type BreakRecord,
@@ -10,7 +11,7 @@ import {
 import { bucketFor, dayTiles, hourSpan, insightSentences, levelSeries } from "./insight.ts";
 import { renderLabelBars, TrendChart, trendSubtitle } from "./insightCharts.ts";
 import { LABELS } from "./rules.ts";
-import { capitalize } from "./statusCopy.ts";
+import { stateName } from "./stateCopy.ts";
 
 // The "Insight" page (plan P14, was the "Riwayat" panel of plan P06): one day in sentences and
 // tiles, time per label, the fatigue level over the day, an hourly stacked column chart with the
@@ -19,12 +20,12 @@ import { capitalize } from "./statusCopy.ts";
 // stacked fills in both color schemes with the dataviz palette validator (plans/P06, step 3).
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const one = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
-const minutes = (x: number) => `${one.format(x)} menit`;
+const one = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const minutes = (x: number) => `${one.format(x)} min`;
 const two = (n: number) => String(n).padStart(2, "0");
 
 const PLOT_H = 140;
-const MARGIN = { top: 10, right: 8, bottom: 24, left: 46 }; // left: room for "60 mnt"
+const MARGIN = { top: 10, right: 8, bottom: 24, left: 46 }; // left: room for "60 min"
 const GAP = 2; // surface gap between stacked segments
 const RADIUS = 4; // rounded data end, square at the baseline
 
@@ -61,8 +62,8 @@ export type DashboardElements = {
 };
 
 export const FEEDBACKS: readonly { value: Feedback; text: string }[] = [
-  { value: "sudah dilakukan", text: "Sudah dilakukan" },
-  { value: "tidak relevan", text: "Tidak relevan" },
+  { value: "sudah dilakukan", text: "Done" },
+  { value: "tidak relevan", text: "Not relevant" },
 ];
 
 // The recommendation sentence of a reply; the raw text when the reply was not JSON.
@@ -86,14 +87,14 @@ function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string,
 }
 
 function dayName(day: string, today: string): string {
-  if (day === today) return "Hari ini";
+  if (day === today) return "Today";
   const [y, m, d] = day.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+  return new Date(y, m - 1, d).toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" });
 }
 
 function describeHour(h: HourSummary): string {
-  const parts = [...LABELS.map((l) => `${l} ${minutes(h.menit[l])}`), `tidak dinilai ${minutes(h.ditahan)}`];
-  return `Jam ${hourSpan(h.jam)}: ${parts.join(", ")}`;
+  const parts = [...LABELS.map((l) => `${stateName(l)} ${minutes(h.menit[l])}`), `not assessed ${minutes(h.ditahan)}`];
+  return `${hourSpan(h.jam)}: ${parts.join(", ")}`;
 }
 
 export class Dashboard {
@@ -110,7 +111,7 @@ export class Dashboard {
       ...[...CHART_LABELS].reverse().map((label) => {
         const item = html("li");
         item.dataset.label = label;
-        item.append(html("span", "", "shape"), html("span", capitalize(label)));
+        item.append(html("span", "", "shape"), html("span", stateName(label)));
         return item;
       }),
     );
@@ -141,8 +142,8 @@ export class Dashboard {
     ui.note.textContent =
       view.problem ??
       (view.day === view.today
-        ? "Belum ada riwayat hari ini. Riwayat tercatat tiap 10 detik setelah kalibrasi, dan hanya disimpan di perangkat ini."
-        : "Tidak ada riwayat untuk hari ini.");
+        ? "No history for today yet. History is recorded every 10 s after calibration and stays on this device."
+        : "No history for this day.");
     ui.body.hidden = empty;
     this.renderRecommendations(view.rekomendasi);
     this.hours = s && !empty ? s.perJam : [];
@@ -168,29 +169,32 @@ export class Dashboard {
     this.trend.render({ points: levelSeries(view.evaluasi, bucket), bucket, breaks: view.jeda });
 
     const rows: [string, string][] = [
-      ["Dipantau", `${minutes(judged + notJudged)} · ${s.sesi} sesi`],
-      ...LABELS.map((l): [string, string] => [l, minutes(s.menit[l])]),
+      ["Monitored", `${minutes(judged + notJudged)} · ${s.sesi} ${s.sesi === 1 ? "session" : "sessions"}`],
+      ...LABELS.map((l): [string, string] => [stateName(l), minutes(s.menit[l])]),
       [
-        "Tidak dinilai",
+        "Not assessed",
         notJudged === 0
           ? minutes(0)
-          : `${minutes(notJudged)} (tab tidak terlihat ${one.format(s.ditahan.fps)}, mata tidak terlihat ${one.format(s.ditahan.mata)})`,
+          : `${minutes(notJudged)} (tab hidden ${one.format(s.ditahan.fps)}, eyes not visible ${one.format(s.ditahan.mata)})`,
       ],
       [
-        "Jeda ≥ 2 menit",
+        "Breaks ≥ 2 min",
         s.jeda.jumlah === 0
-          ? "belum ada"
-          : `${s.jeda.jumlah}× · ${minutes(s.jeda.menit)}${s.jeda.manual > 0 ? ` (${s.jeda.manual} ditandai sendiri)` : ""}`,
+          ? "none yet"
+          : `${s.jeda.jumlah}× · ${minutes(s.jeda.menit)}${s.jeda.manual > 0 ? ` (${s.jeda.manual} marked by you)` : ""}`,
       ],
       [
-        "Rekomendasi",
+        "Advice",
         s.rekomendasi.jumlah === 0
-          ? "belum ada"
-          : `${s.rekomendasi.jumlah} (${s.rekomendasi.otomatis} otomatis) · sudah dilakukan ${s.rekomendasi.sudahDilakukan} · ` +
-            `tidak relevan ${s.rekomendasi.tidakRelevan} · belum dinilai ${s.rekomendasi.belum}`,
+          ? "none yet"
+          : `${s.rekomendasi.jumlah} (${s.rekomendasi.otomatis} automatic) · done ${s.rekomendasi.sudahDilakukan} · ` +
+            `not relevant ${s.rekomendasi.tidakRelevan} · not rated ${s.rekomendasi.belum}`,
       ],
-      ["Koreksi label", String(s.koreksi)],
-      ["KSS", s.kss.rataRata === null ? "belum ada" : `${s.kss.jumlah} isian · rata-rata ${one.format(s.kss.rataRata)}`],
+      ["Label corrections", String(s.koreksi)],
+      [
+        "Sleepiness check (KSS)",
+        s.kss.rataRata === null ? "none yet" : `${s.kss.jumlah} ${s.kss.jumlah === 1 ? "rating" : "ratings"} · average ${one.format(s.kss.rataRata)}`,
+      ],
     ];
     ui.stats.replaceChildren(
       ...rows.map(([name, value]) => {
@@ -213,13 +217,13 @@ export class Dashboard {
     list.replaceChildren(
       ...[...recs].reverse().map((r) => {
         const item = html("li");
-        const time = new Date(r.t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+        const time = new Date(r.t).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
         const head = html("p", "", "rec-head");
-        const chip = html("span", capitalize(r.label), "label-chip");
+        const chip = html("span", stateName(r.label), "label-chip");
         chip.dataset.label = r.label;
         head.append(html("span", time), chip);
         if (r.status) head.append(html("span", r.status, "pill"));
-        if (r.pemicu === "otomatis") head.append(html("span", "otomatis", "pill"));
+        if (r.pemicu === "otomatis") head.append(html("span", "automatic", "pill"));
         item.append(head, html("p", recommendationText(r), "rec-text"));
         if (r.id !== undefined) item.append(feedbackButtons(r.feedback, (f) => this.onFeedback(r.id as number, f)));
         return item;
@@ -229,7 +233,7 @@ export class Dashboard {
 
   private renderTable() {
     const head = html("tr");
-    for (const name of ["Jam", ...LABELS, "tidak dinilai"]) head.append(html("th", name));
+    for (const name of ["Hour", ...LABELS.map((l) => stateName(l)), "Not assessed"]) head.append(html("th", name));
     const body = this.hours.map((h) => {
       const row = html("tr");
       row.append(html("td", hourSpan(h.jam)));
@@ -261,11 +265,11 @@ export class Dashboard {
     const y = (m: number) => MARGIN.top + PLOT_H - (m / maxY) * PLOT_H;
 
     const root = svg("svg", { width, height, viewBox: `0 0 ${width} ${height}`, class: "chart-svg", role: "group" });
-    root.setAttribute("aria-label", "Menit per jam menurut label. Rinciannya ada di tabel di bawah grafik.");
+    root.setAttribute("aria-label", "Minutes per hour by state. The table below the chart has the details.");
     for (const tick of [0, 30, 60]) {
       root.append(svg("line", { x1: MARGIN.left, x2: width - MARGIN.right, y1: y(tick), y2: y(tick), class: tick === 0 ? "axis" : "grid" }));
       const label = svg("text", { x: MARGIN.left - 6, y: y(tick) + 4, "text-anchor": "end", class: "tick" });
-      label.textContent = tick === 60 ? "60 mnt" : String(tick);
+      label.textContent = tick === 60 ? "60 min" : String(tick);
       root.append(label);
     }
 
@@ -324,9 +328,9 @@ export class Dashboard {
     };
     tip.replaceChildren(
       html("p", hourSpan(h.jam), "tip-head"),
-      ...[...CHART_LABELS].reverse().map((l) => row(l, h.menit[l], l)),
-      row("tidak di depan layar", h.menit["tidak di depan layar"], "tidak di depan layar"),
-      row("ditahan", h.ditahan, "tidak dinilai"),
+      ...[...CHART_LABELS].reverse().map((l) => row(l, h.menit[l], stateName(l))),
+      row("tidak di depan layar", h.menit["tidak di depan layar"], stateName("tidak di depan layar")),
+      row("ditahan", h.ditahan, "not assessed"),
     );
     tip.hidden = false;
     const tipW = tip.offsetWidth;

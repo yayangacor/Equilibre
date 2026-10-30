@@ -87,14 +87,14 @@ describe("toEvaluationRecord", () => {
   });
 
   it("marks windows that were not judged, and why", () => {
-    const hidden = { features: features(20, 20), latest: null, hold: "Kamera hanya terbaca ±1 fps …", menitLelah: 0 };
+    const hidden = { features: features(20, 20), latest: null, hold: "The camera reads only ±1 fps …", menitLelah: 0 };
     expect(toEvaluationRecord(shown, hidden, context)).toMatchObject({ dinilai: false, sebab_ditahan: "fps", label_mentah: null });
 
-    const headDown = { features: features(200, 20), latest: null, hold: "Mata tidak terlihat 80% …", menitLelah: 0 };
+    const headDown = { features: features(200, 20), latest: null, hold: "Eyes not visible 80% …", menitLelah: 0 };
     expect(toEvaluationRecord(shown, headDown, context)).toMatchObject({ dinilai: false, sebab_ditahan: "mata" });
 
     // Negative control: ±5 fps (power saving) is not a hidden tab, so a hold there is the eyes.
-    const saving = { features: features(100, 20), latest: null, hold: "Mata tidak terlihat 80% …", menitLelah: 0 };
+    const saving = { features: features(100, 20), latest: null, hold: "Eyes not visible 80% …", menitLelah: 0 };
     expect(toEvaluationRecord(shown, saving, context)).toMatchObject({ dinilai: false, sebab_ditahan: "mata" });
   });
 });

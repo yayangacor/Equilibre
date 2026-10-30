@@ -1,8 +1,9 @@
 import { toSource, type Source } from "./answer.ts";
+import { LOCALE } from "./format.ts";
 import type { DaySummary } from "./history.ts";
 import type { Label } from "./rules.ts";
 
-// "Tanya Equilibre" (plan P07): what the app sends with a question, and how the answer is shown.
+// "Ask Equilibre" (plan P07): what the app sends with a question, and how the answer is shown.
 // No DOM (tanyaPanel.ts renders). What may leave the device is NOTES D-44: the question, the
 // latest label with menit_lelah_60, and today's aggregate numbers. Field names and limits are
 // identical to server/src/tanya.ts (tanya.test.ts checks).
@@ -62,16 +63,16 @@ export type TanyaResponse = {
 
 export type TanyaView = { jawaban: string; sumber: Source[]; catatan: string[] };
 
-const number = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
-const MASKED: Record<string, string> = { email: "alamat email", nomor: "nomor panjang (telepon, NIK, rekening)" };
+const number = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const MASKED: Record<string, string> = { email: "email address", nomor: "long number (phone, national ID, bank account)" };
 
 export function toTanyaView(r: TanyaResponse): TanyaView {
-  const calls = r.tool_calls === null ? "" : `, ${r.tool_calls} panggilan flow Langflow`;
-  const catatan = [`Dijawab IBM Bob dalam ${number.format(r.detik)} detik${calls}.`];
-  if (r.format_bebas) catatan.push("Bob tidak menjawab dalam format yang diminta, jadi teksnya ditampilkan apa adanya.");
+  const calls = r.tool_calls === null ? "" : `, ${r.tool_calls} Langflow flow call${r.tool_calls === 1 ? "" : "s"}`;
+  const catatan = [`Answered by IBM Bob in ${number.format(r.detik)} s${calls}.`];
+  if (r.format_bebas) catatan.push("Bob did not answer in the requested format, so the text is shown as it came.");
   if (r.disamarkan && r.disamarkan.length > 0) {
-    const what = r.disamarkan.map((k) => MASKED[k] ?? k).join(" dan ");
-    catatan.push(`${what[0].toUpperCase()}${what.slice(1)} di pertanyaanmu disamarkan sebelum dikirim.`);
+    const what = r.disamarkan.map((k) => MASKED[k] ?? k).join(" and ");
+    catatan.push(`Masked in your question before sending: ${what}.`);
   }
   return { jawaban: r.jawaban, sumber: r.sumber.map(toSource), catatan };
 }

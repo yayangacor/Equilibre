@@ -31,7 +31,7 @@ async function run() {
   for (;;) {
     const next = (await (await fetchOk(`${driver}/job`)).json()) as Job | { selesai: true };
     if ("selesai" in next) {
-      status.textContent = "Selesai: tidak ada video lagi di antrean.";
+      status.textContent = "Done: no more videos in the queue.";
       return;
     }
     const job = next;
@@ -58,7 +58,7 @@ async function run() {
       } finally {
         image.close();
       }
-      if (k % 200 === 0) status.textContent = `${job.name}: frame ${k} dari ${job.frames}…`;
+      if (k % 200 === 0) status.textContent = `${job.name}: frame ${k} of ${job.frames}…`;
     }
     clock += job.frames * FRAME_MS + JOB_GAP_MS;
     const csv = framesToCsv(frames, bodies, TIME_ORIGIN, [
@@ -73,6 +73,6 @@ async function run() {
 }
 
 run().catch((err) => {
-  status.textContent = `Gagal: ${err instanceof Error ? err.message : String(err)}`;
+  status.textContent = `Failed: ${err instanceof Error ? err.message : String(err)}`;
   console.error(err);
 });

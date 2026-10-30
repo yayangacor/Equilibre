@@ -70,19 +70,19 @@ describe("toTanyaView", () => {
       detik: 21.4,
     });
     expect(view.sumber.map((s) => s.known)).toEqual([true, false]);
-    expect(view.catatan).toEqual(["Dijawab IBM Bob dalam 21,4 detik, 1 panggilan flow Langflow."]);
+    expect(view.catatan).toEqual(["Answered by IBM Bob in 21.4 s, 1 Langflow flow call."]);
   });
 
   it("marks an answer that was not in the asked-for format", () => {
     const view = toTanyaView({ jawaban: "**Halo**", sumber: [], format_bebas: true, tool_calls: null, biaya: null, detik: 3 });
     expect(view.catatan).toHaveLength(2);
-    expect(view.catatan[0]).toBe("Dijawab IBM Bob dalam 3 detik.");
+    expect(view.catatan[0]).toBe("Answered by IBM Bob in 3 s.");
   });
 
   it("says what the server masked in the question (P17 C10)", () => {
     const reply = { jawaban: "Halo", sumber: [], format_bebas: false, tool_calls: 1, biaya: null, detik: 3 };
     expect(toTanyaView({ ...reply, disamarkan: ["email", "nomor"] }).catatan.at(-1)).toBe(
-      "Alamat email dan nomor panjang (telepon, NIK, rekening) di pertanyaanmu disamarkan sebelum dikirim.",
+      "Masked in your question before sending: email address and long number (phone, national ID, bank account).",
     );
     expect(toTanyaView({ ...reply, disamarkan: [] }).catatan).toHaveLength(1);
     expect(toTanyaView(reply).catatan).toHaveLength(1); // a server from before C10 sends no field

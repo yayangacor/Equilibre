@@ -173,11 +173,11 @@ export class UserTestPanel {
     if (p === "kalibrasi" && this.calibButton) {
       const busy = this.deps.isCalibrating();
       this.calibButton.disabled = busy;
-      this.calibButton.textContent = busy ? "Kalibrasi berjalan…" : "Mulai kalibrasi";
+      this.calibButton.textContent = busy ? "Calibration in progress…" : "Start calibration";
     }
     if (p === "berjalan") {
       const minutes = elapsedMinutes(this.state, now);
-      if (this.timer) this.timer.textContent = `${Math.floor(minutes)} dari ${TEST_MINUTES} menit`;
+      if (this.timer) this.timer.textContent = `${Math.floor(minutes)} of ${TEST_MINUTES} min`;
       if (this.progress) this.progress.style.width = `${(minutes / TEST_MINUTES) * 100}%`;
       if (this.earlyButton) this.earlyButton.disabled = !canFinishEarly(this.state, now);
     }
@@ -188,54 +188,54 @@ export class UserTestPanel {
   private consentView(): HTMLElement[] {
     const intro = el(
       "p",
-      `Terima kasih sudah membantu. Uji ini ±${TEST_MINUTES + 5} menit di laptopmu sendiri, boleh berhenti setelah menit ${EARLY_FINISH_MINUTES}.`,
+      `Thank you for helping. This test takes ±${TEST_MINUTES + 5} min on your own laptop; you may stop after minute ${EARLY_FINISH_MINUTES}.`,
       "lead",
     );
     const todo = list([
-      "Kalibrasi ±5 menit, lalu bekerja seperti biasa di laptop ini.",
-      "Tiap 15 menit ada bunyi: isi \"Cek kantuk\" (skala 1–9) di halaman ini.",
+      "Calibrate for ±5 min, then work as usual on this laptop.",
+      "Every 15 min you hear a sound: fill in the sleepiness check (KSS, scale 1–9) on this page.",
       this.deps.openCompanion
-        ? "Jendela kecil berisi beruang (pendamping) muncul saat kalibrasi dimulai. Biarkan terbuka sampai selesai: tanpa " +
-          "jendela itu, pemantauan berhenti saat kamu pindah ke aplikasi lain."
-        : "Browser ini tidak punya jendela pendamping, jadi pemantauan berhenti saat tab ini tidak terlihat. Kalau bisa, pakai Chrome.",
-      "Di akhir, jawab 5 pertanyaan singkat lalu tekan Kirim.",
+        ? "A small Picture-in-Picture window opens when calibration starts. Keep it open until the end: without " +
+          "it, monitoring stops when you switch to another app."
+        : "This browser has no Picture-in-Picture window, so monitoring stops when this tab is not visible. Use Chrome if you can.",
+      "At the end, answer 5 short questions, then press Send.",
     ]);
     const sent = el(
       "p",
-      "Label dan angka ringkasan tiap 10 detik (mis. lama kedip, persen mata tertutup), isian Cek kantuk, koreksi label, jeda, " +
-        "angka kalibrasi, jenis browser dan sistem operasi, isian di bawah, jawaban feedback, dan kode uji.",
+      "The state and summary numbers every 10 s (e.g. blink length, percent of time with eyes closed), your sleepiness checks (KSS), " +
+        "state corrections, breaks, calibration numbers, browser and operating system, the answers below, your feedback, and the test code.",
     );
-    const never = el("p", "Video, foto, titik wajah, nama, dan email. Video tetap diproses di browsermu saja.");
+    const never = el("p", "Video, photos, face landmarks, your name and your email. Video is processed only in your browser.");
     const rights = el(
       "p",
-      "Data uji dipakai untuk mengukur ketepatan Equilibre dan, tanpa nama, sebagai bukti uji pengguna untuk lomba; dihapus " +
-        `paling lambat ${DELETE_BY}. Kamu boleh berhenti kapan saja ` +
-        "dengan menutup halaman; tidak ada yang terkirim sebelum kamu menekan Kirim. Untuk menghapus data yang sudah terkirim, " +
-        "hubungi orang yang memberimu link dan sebut kodemu.",
+      "Test data is used to measure how accurate Equilibre is and, without names, as evidence of user testing for the competition; it is deleted " +
+        `by ${DELETE_BY} at the latest. You can stop at any time ` +
+        "by closing the page; nothing is sent before you press Send. To delete data already sent, " +
+        "contact the person who gave you the link and mention your code.",
       "fine",
     );
 
     const form = el("div", "", "uji-form");
-    form.append(el("p", "Tentang kondisimu (boleh dikosongkan)", "choices-label"));
+    form.append(el("p", "About you today (optional)", "choices-label"));
     for (const q of INTAKE_QUESTIONS) form.append(radioGroup(`isian-${q.key}`, q.teks, q.pilihan));
     const sleepSet = el("fieldset");
-    const sleepLabel = el("label", "Jam tidur semalam ");
+    const sleepLabel = el("label", "Hours of sleep last night ");
     // Text, not type=number: a number input drops "6,5" (decimal comma) in many locales; checkIntake parses both.
     const sleepInput = el("input");
     sleepInput.type = "text";
     sleepInput.inputMode = "decimal";
     sleepInput.maxLength = 4;
-    sleepInput.placeholder = "mis. 6,5";
-    sleepInput.title = `${SLEEP_HOURS.min}–${SLEEP_HOURS.max} jam`;
-    sleepLabel.append(sleepInput, " jam");
+    sleepInput.placeholder = "e.g. 6.5";
+    sleepInput.title = `${SLEEP_HOURS.min}–${SLEEP_HOURS.max} h`;
+    sleepLabel.append(sleepInput, " h");
     sleepSet.append(sleepLabel);
     form.append(sleepSet);
 
     const agree = el("label", "", "check");
     const box = el("input");
     box.type = "checkbox";
-    agree.append(box, "Aku sudah membaca dan setuju ikut uji ini.");
-    const start = button("Setuju, lanjut ke kalibrasi", "btn primary", () => {
+    agree.append(box, "I have read this and agree to take part in the test.");
+    const start = button("Agree and continue to calibration", "btn primary", () => {
       const answers: Partial<Record<IntakeKey, string>> = {};
       for (const q of INTAKE_QUESTIONS) answers[q.key] = checkedValue(form, `isian-${q.key}`);
       this.setState(consent(this.state, checkIntake(answers, sleepInput.value), Date.now()));
@@ -248,11 +248,11 @@ export class UserTestPanel {
 
     return [
       intro,
-      el("h3", "Yang kamu lakukan"),
+      el("h3", "What you do"),
       todo,
-      el("h3", "Yang dikirim, setelah kamu menekan Kirim di akhir"),
+      el("h3", "What is sent, after you press Send at the end"),
       sent,
-      el("h3", "Yang tidak pernah dikirim"),
+      el("h3", "What is never sent"),
       never,
       rights,
       form,
@@ -262,20 +262,20 @@ export class UserTestPanel {
   }
 
   private calibrationView(): HTMLElement[] {
-    this.calibButton = button("Mulai kalibrasi", "btn primary", () => {
+    this.calibButton = button("Start calibration", "btn primary", () => {
       if (!this.deps.isCalibrating()) this.deps.startCalibration();
       this.update("kalibrasi", Date.now());
     });
     const actions = el("div", "", "row");
     actions.append(this.calibButton);
     return [
-      el("p", "Langkah 1 dari 3 · Kalibrasi ±5 menit", "step"),
+      el("p", "Step 1 of 3 · Calibration, ±5 min", "step"),
       el(
         "p",
-        "Duduk seperti biasa dengan wajah terlihat kamera. Tekan tombol lalu ikuti aba-aba: mata terbuka, pejamkan ±3 detik sampai " +
-          "bunyi beep panjang, lalu bekerja biasa ±5 menit. Biarkan tab ini terlihat selama kalibrasi. Waktu uji mulai dihitung " +
-          "setelah kalibrasi selesai." +
-          (this.deps.openCompanion ? " Jendela kecil berisi beruang ikut muncul saat kamu menekan tombol: biarkan terbuka." : ""),
+        "Sit as usual with your face visible to the camera. Press the button and follow the prompts: eyes open, close them for ±3 s until " +
+          "the long beep, then work as usual for ±5 min. Keep this tab visible during calibration. The test clock starts " +
+          "when calibration is done." +
+          (this.deps.openCompanion ? " A small Picture-in-Picture window opens when you press the button: keep it open." : ""),
         "helper",
       ),
       actions,
@@ -290,26 +290,26 @@ export class UserTestPanel {
     const actions = el("div", "", "row");
     if (this.deps.openCompanion) {
       const open = this.deps.openCompanion;
-      actions.append(button("Buka pendamping", "btn tonal", () => open()));
+      actions.append(button("Open Picture-in-Picture window", "btn tonal", () => open()));
     }
-    this.earlyButton = button("Selesai lebih awal", "btn outline", () => {
+    this.earlyButton = button("Finish early", "btn outline", () => {
       this.setState(finish(this.state, Date.now()));
       this.render();
     });
     actions.append(this.earlyButton);
     return [
-      el("p", "Langkah 2 dari 3 · Bekerja seperti biasa", "step"),
+      el("p", "Step 2 of 3 · Work as usual", "step"),
       this.timer,
       bar,
       list([
-        "Isi \"Cek kantuk\" di bawah saat ada bunyi (tiap 15 menit).",
+        "Fill in the sleepiness check (KSS) below when you hear the sound (every 15 min).",
         this.deps.openCompanion
-          ? "Biarkan jendela beruang (pendamping) terbuka saat pindah ke aplikasi lain. Tertutup? Tekan \"Buka pendamping\"."
-          : "Biarkan tab ini terlihat: tanpa jendela pendamping, pemantauan berhenti saat tab ini tertutup jendela lain.",
-        "Label terasa salah? Buka \"Kenapa label ini?\" di Dashboard lalu \"Label ini tidak sesuai?\".",
+          ? "Keep the Picture-in-Picture window open when you switch to another app. Closed it? Press \"Open Picture-in-Picture window\"."
+          : "Keep this tab visible: without a Picture-in-Picture window, monitoring stops when another window covers this tab.",
+        "State feels wrong? Correct it from the state details on the Dashboard.",
       ]),
       actions,
-      el("p", `"Selesai lebih awal" aktif mulai menit ${EARLY_FINISH_MINUTES}.`, "helper"),
+      el("p", `"Finish early" is available from minute ${EARLY_FINISH_MINUTES}.`, "helper"),
     ];
   }
 
@@ -320,7 +320,7 @@ export class UserTestPanel {
     const commentSet = el("fieldset");
     const commentLabel = el(
       "label",
-      `Apa yang paling bermanfaat, dan apa yang perlu diperbaiki? (opsional, maks. ${COMMENT_MAX} karakter)`,
+      `What helped most, and what should be improved? (optional, max. ${COMMENT_MAX} characters)`,
     );
     const comment = el("textarea");
     comment.maxLength = COMMENT_MAX;
@@ -331,9 +331,9 @@ export class UserTestPanel {
 
     const status = el("p", "", "helper");
     status.setAttribute("aria-live", "polite");
-    const download = button("Unduh file hasil", "btn outline", () => this.download());
+    const download = button("Download results file", "btn outline", () => this.download());
     download.hidden = true;
-    const send = button("Kirim hasil", "btn primary", () => {
+    const send = button("Send results", "btn primary", () => {
       const answers: Partial<Record<FeedbackKey, string | number>> = {};
       for (const q of FEEDBACK_QUESTIONS) {
         const raw = checkedValue(form, `fb-${q.key}`);
@@ -341,7 +341,7 @@ export class UserTestPanel {
       }
       const feedback = checkFeedback(answers, comment.value);
       if (!feedback) {
-        status.textContent = `Jawab ${FEEDBACK_QUESTIONS.length} pertanyaan dulu (komentar boleh kosong).`;
+        status.textContent = `Please answer all ${FEEDBACK_QUESTIONS.length} questions first (the comment is optional).`;
         return;
       }
       void this.send(feedback, { send, download, status });
@@ -349,8 +349,8 @@ export class UserTestPanel {
     const actions = el("div", "", "row");
     actions.append(send, download);
     return [
-      el("p", "Langkah 3 dari 3 · Ceritakan pengalamanmu", "step"),
-      el("p", `Uji tercatat ${minutes} menit. Jawab ${FEEDBACK_QUESTIONS.length} pertanyaan lalu kirim.`, "helper"),
+      el("p", "Step 3 of 3 · Tell us how it went", "step"),
+      el("p", `Test recorded: ${minutes} min. Answer ${FEEDBACK_QUESTIONS.length} questions, then send.`, "helper"),
       form,
       actions,
       status,
@@ -360,21 +360,21 @@ export class UserTestPanel {
   private sentView(): HTMLElement[] {
     const sent = this.state.terkirim!;
     const counts = this.lastSubmission
-      ? ` · ${this.lastSubmission.evaluasi.length} evaluasi, ${this.lastSubmission.kss.length} isian Cek kantuk`
+      ? ` · ${this.lastSubmission.evaluasi.length} readings, ${this.lastSubmission.kss.length} sleepiness checks (KSS)`
       : "";
     const parts: HTMLElement[] = [
-      el("p", "Terima kasih! Hasil ujimu sudah terkirim.", "step"),
-      el("p", `Nomor kiriman ${sent.id.slice(0, 8)}${counts}. Kamu boleh menutup halaman ini.`, "helper"),
+      el("p", "Thank you! Your test results have been sent.", "step"),
+      el("p", `Submission number ${sent.id.slice(0, 8)}${counts}. You can close this page now.`, "helper"),
       el(
         "p",
-        `Mau datamu dihapus? Hubungi orang yang memberimu link dan sebut kode ${this.state.kode}. Riwayat uji di browser ini ` +
-          "bisa dihapus lewat Privasi → Hapus semua riwayat.",
+        `Want your data deleted? Contact the person who gave you the link and mention code ${this.state.kode}. The test history in this browser ` +
+          "can be deleted on the Privacy page (delete all history).",
         "fine",
       ),
     ];
     if (this.lastSubmission) {
       const actions = el("div", "", "row");
-      actions.append(button("Unduh salinan hasil", "btn outline", () => this.download()));
+      actions.append(button("Download a copy of the results", "btn outline", () => this.download()));
       parts.push(actions);
     }
     return parts;
@@ -386,10 +386,10 @@ export class UserTestPanel {
     const { mulai, selesai } = this.state;
     if (mulai === null || selesai === null) return;
     ui.send.disabled = true;
-    ui.status.textContent = "Menyiapkan hasil…";
+    ui.status.textContent = "Preparing results…";
     const records = await this.deps.records();
     if (!records) {
-      ui.status.textContent = "Riwayat uji tidak bisa dibaca di browser ini, jadi tidak ada yang bisa dikirim.";
+      ui.status.textContent = "The test history cannot be read in this browser, so there is nothing to send.";
       ui.send.disabled = false;
       return;
     }
@@ -403,14 +403,14 @@ export class UserTestPanel {
     this.lastSubmission = sub;
     if (!UJI_URL) {
       ui.status.textContent =
-        "Pengiriman otomatis belum disiapkan. Unduh file hasil, lalu kirim ke orang yang memberimu link.";
+        "Automatic sending is not set up yet. Download the results file and send it to the person who gave you the link.";
       ui.download.hidden = false;
       ui.send.disabled = false;
       return;
     }
     const result = await sendWithRetry(UJI_URL, sub, {
       onAttempt: (n) => {
-        ui.status.textContent = n === 1 ? "Mengirim…" : `Belum ada konfirmasi, mencoba lagi (${n} dari ${SEND_ATTEMPTS})…`;
+        ui.status.textContent = n === 1 ? "Sending…" : `No confirmation yet, trying again (${n} of ${SEND_ATTEMPTS})…`;
       },
     });
     if (result.ok) {
@@ -418,7 +418,7 @@ export class UserTestPanel {
       this.render();
       return;
     }
-    ui.status.textContent = `Gagal mengirim: ${result.error} Coba lagi, atau unduh file hasil lalu kirim ke orang yang memberimu link.`;
+    ui.status.textContent = `Sending failed: ${result.error} Try again, or download the results file and send it to the person who gave you the link.`;
     ui.download.hidden = false;
     ui.send.disabled = false;
   }
