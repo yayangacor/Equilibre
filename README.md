@@ -1,11 +1,12 @@
 # Equilibre
 
-Equilibre adalah web app pendamping kerja yang membantu pekerja di depan komputer mengenali tanda kelelahan sebelum berubah
+Equilibre adalah web app *wellness and productivity* untuk pekerja kantoran yang membantu mereka mengenali tanda kelelahan sebelum berubah
 menjadi stres dan burnout. MediaPipe berjalan langsung di browser untuk membaca indikator mata dan wajah (kedip, PERCLOS,
 menguap, posisi kepala) serta keberadaan tubuh di depan kamera. **Video dan data wajah tidak pernah keluar dari perangkat.**
 Yang dikirim ke server hanya label, angka ringkasan, dan nama aturan yang terpenuhi. Flow **IBM Langflow** menyusun rekomendasi
-jeda berbasis bukti dalam Bahasa Indonesia, dan **IBM Bob** menjadi agen percakapan "Tanya Equilibre" yang memanggil flow
-Langflow lewat MCP.
+jeda berbasis bukti dalam Bahasa Indonesia, dan **IBM Bob** menjadi agen percakapan "Ask Equilibre" yang memanggil flow
+Langflow lewat MCP. Equilibre memberi tahu **pola, bukan diagnosis**: berbeda dari timer seperti Pomodoro, sapaannya
+mengikuti tanda di wajahmu terhadap kalibrasi pribadi dan selalu menyebut alasannya. Antarmuka berbahasa Inggris.
 
 **Untuk siapa.** Equilibre gratis bagi pekerja yang seharian di depan laptop untuk mengenali kelelahan dan mengambil jeda, dan
 dibayar perusahaan sebagai program kesejahteraan dan K3: pekerja memilih sendiri untuk ikut, wajah dianalisis di perangkat, dan
@@ -28,7 +29,7 @@ flowchart LR
     feat --> blink["Skor pola kedip<br/>(bawaan: hanya ditampilkan)"]
     blink -. "?label=gabungan" .-> label
     label --> db[("Riwayat IndexedDB")]
-    label --> pip["Pendamping PiP"]
+    label --> pip["Jendela PiP"]
   end
   label -- "label + angka agregat<br/>+ nama aturan" --> api["Backend Express<br/>127.0.0.1:8787"]
   ask["Pertanyaan pengguna<br/>+ angka hari ini"] --> api
@@ -43,7 +44,7 @@ flowchart LR
 
 - **Jalur A (rekomendasi):** tombol "Minta saran sekarang" (Dashboard) atau saran otomatis → backend → flow `analisis_status`
   → rekomendasi jeda + alasan + sumber.
-- **Jalur B (percakapan):** halaman "Tanya" → backend menjalankan IBM Bob → Bob memilih salah satu dari dua tool Langflow
+- **Jalur B (percakapan):** kotak "Ask Equilibre" di Dashboard → backend menjalankan IBM Bob → Bob memilih salah satu dari dua tool Langflow
   lewat MCP → jawaban + sumber.
 - Backend menyimpan API key Langflow dan Bob, sehingga browser tidak pernah memegang kunci apa pun.
 
@@ -52,10 +53,11 @@ flowchart LR
 | Ke mana | Isi | Penjaga |
 |---|---|---|
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan; `pola_kedip` hanya dengan `?label=gabungan`), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
-| `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain dan menyamarkan email serta deret ≥ 9 angka (telepon, NIK, rekening) sebelum pertanyaan diteruskan; nama tidak bisa disaring. Halaman Tanya menyebutkan apa yang dikirim di bawah kotak pertanyaan, dan jawaban memberi tahu bila ada yang disamarkan |
+| `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain dan menyamarkan email serta deret ≥ 9 angka (telepon, NIK, rekening) sebelum pertanyaan diteruskan; nama tidak bisa disaring. Kotak Ask menyebutkan apa yang dikirim di bawahnya, dan jawaban memberi tahu bila ada yang disamarkan |
 | Google Sheet pengembang, **hanya mode uji `?kode=`** setelah penguji setuju dan menekan Kirim | riwayat jendela uji (label + angka payload per evaluasi, KSS, koreksi label, jeda), 4 angka baseline kalibrasi, jenis browser/OS, resolusi kamera, fps rata-rata, isian awal, feedback, kode uji | whitelist field di `web/src/userTest.ts` (dites); penerima menolak kode yang tidak terdaftar (`uji-pengguna/Code.gs`); data dihapus paling lambat 30 Nov 2026 (gelombang pertama: 31 Okt), sesuai layar persetujuan |
-| Google (`odml.pa.googleapis.com`), dari library MediaPipe Tasks tiap 60 detik per task | **diblokir.** Metrik kinerja dan pemakaian MediaPipe: jenis task, mode, keluarga OS, versi library, waktu muat, jumlah dan lama inferensi (88–103 byte per kiriman, diukur 29 Okt); tanpa video, gambar, landmark, atau label. MediaPipe tidak punya opsi untuk mematikannya ([Privacy Notice](https://github.com/google-ai-edge/mediapipe#privacy-notice)) | `Content-Security-Policy` `connect-src` di `web/index.html` hanya mengizinkan origin sendiri dan penerima uji Apps Script (`web/src/csp.test.ts`) |
-| tidak pernah | video, gambar, landmark wajah, EAR per frame, skor pola kedip; baseline kalibrasi dan riwayat di luar mode uji | diproses dan disimpan hanya di browser |
+| Google (`odml.pa.googleapis.com`), dari library MediaPipe Tasks tiap 60 detik per task | **diblokir.** Metrik kinerja dan pemakaian MediaPipe: jenis task, mode, keluarga OS, versi library, waktu muat, jumlah dan lama inferensi (88–103 byte per kiriman, diukur 29 Okt); tanpa video, gambar, landmark, atau label. MediaPipe tidak punya opsi untuk mematikannya ([Privacy Notice](https://github.com/google-ai-edge/mediapipe#privacy-notice)) | `Content-Security-Policy` `connect-src` di ketiga halaman (`index.html`, `auth.html`, `app.html`) hanya mengizinkan origin sendiri, penerima uji Apps Script, dan Supabase Auth (`web/src/csp.test.ts`, dengan kontrol negatif) |
+| Supabase Auth (`https://<project>.supabase.co`), saat daftar dan masuk | nama, email, password (disimpan Supabase sebagai hash); Supabase juga mencatat waktu masuk, alamat IP, dan browser di log-nya | tidak ada tabel data: riwayat, label, dan baseline tidak pernah dikirim ke Supabase; link uji `?kode=` tidak memakai akun |
+| tidak pernah | video, gambar, landmark wajah, EAR per frame, skor pola kedip; baseline kalibrasi dan riwayat di luar mode uji | diproses dan disimpan hanya di browser, terpisah per akun di laptop yang sama |
 
 Penjaga di browser berlaku untuk semua host, jadi library yang ditambah kemudian pun tidak bisa mengirim ke tempat lain. Diukur
 dengan Chrome headless dan kamera palsu berwajah selama 150 detik: tanpa CSP, 4 POST ke `odml.pa.googleapis.com` dijawab HTTP 200
@@ -104,10 +106,15 @@ kedipan). Hasilnya jadi **baseline pribadi** di `localStorage`, jadi setiap bata
 - **Saran istirahat panjang:** ≥ 15 menit `lelah`/`tertidur` dalam 60 menit terakhir → saran berhenti, bila perlu minta izin.
 - **Jeda** tercatat saat wajah dan tubuh tidak terlihat ≥ 2 menit, atau lewat tombol "Saya sudah jeda".
 - **Mode hemat daya:** deteksi 5 fps (bawaan 10 fps), menyala sendiri saat baterai < 20% dan tidak diisi.
-- **Pendamping (Picture-in-Picture):** jendela kecil berisi karakter beruang yang ekspresinya mengikuti label dan menyapa saat
-  `lelah`/`tertidur`. Selama jendela ini terbuka, deteksi tetap ±10 fps walau tab Equilibre tersembunyi (terukur 9,9 fps).
-  Dibuka lewat tombol atau ikut terbuka saat klik "Mulai" kalibrasi, dan di Chrome terbuka sendiri saat pindah tab (auto-PiP
-  Media Session, hanya selama kamera aktif); pindah ke aplikasi lain tetap butuh tombol.
+- **Jendela Picture-in-Picture:** jendela kecil yang selalu di atas, berisi kondisi saat ini (titik warna + nama), alasan
+  singkatnya, sapaan saat `lelah`/`tertidur` (duduk tegak, jalan sebentar, cari cahaya siang), serta tombol **Pause** dan
+  **Recalibrate** (`pipCompanion.ts`). Selama jendela ini terbuka, deteksi tetap ±10 fps walau tab Equilibre tersembunyi
+  (terukur 9,9 fps). Dibuka lewat tombol, ikut terbuka saat klik "Start" kalibrasi, dan di Chrome terbuka sendiri saat
+  pindah tab (auto-PiP Media Session, hanya selama kamera aktif); pindah ke aplikasi lain tetap butuh tombol.
+- **Pause** mematikan kamera; tidak ada yang dibaca atau disimpan sampai **Resume**. Jendela penilaian dan hitungan sejak jeda
+  mulai dari awal sesudahnya.
+- **Kalibrasi ulang otomatis:** bila belum ada baseline, atau baseline lebih tua dari 12 jam ⚠️ (cahaya dan posisi duduk
+  berubah dalam sehari), layar kalibrasi terbuka sendiri setelah kamera menyala; baseline lama tetap dipakai bila dibatalkan.
 - Semua threshold adalah konstanta bernama di modulnya; yang masih nilai awal ditandai ⚠️ di kode.
 
 ### Skor pola kedip (UTA-RLDD)
@@ -195,7 +202,7 @@ balasan hanya JSON.
 Advances, American Academy of Ophthalmology, Environmental Health Perspectives, Regulation (EU) 432/2012), masing-masing dengan
 sitasi dan lisensi. Klaim yang tidak ada di catatan tidak boleh muncul di rekomendasi; daftarnya di `knowledge/README.md`.
 
-**Saran otomatis** (toggle "Minta saran otomatis" di halaman Privasi & pengaturan, bawaan mati): hanya saat label berubah menjadi `lelah ringan`/`lelah`/`tertidur`
+**Saran otomatis** (sakelar "Ask for advice automatically" di Settings, bawaan mati): hanya saat label berubah menjadi `lelah ringan`/`lelah`/`tertidur`
 atau saran istirahat panjang muncul, paling sering sekali per 10 menit (`tertidur` dan istirahat panjang boleh menembus sekali,
 jadi maksimal 2 panggilan per 10 menit).
 
@@ -224,29 +231,31 @@ diputuskan server, bukan LLM.
 Riwayat disimpan di IndexedDB browser, **hanya di perangkat**, selama 30 hari: label tiap 10 detik beserta angka
 ringkasannya, jeda, rekomendasi Langflow dan umpan baliknya ("sudah dilakukan" / "tidak relevan"), koreksi label dari
 pengguna ("Label ini tidak sesuai"), dan isian Karolinska Sleepiness Scale (KSS). Halaman "Insight" menampilkan satu hari per
-tampilan (lihat "Antarmuka"); riwayat bisa diunduh sebagai JSON atau dihapus seluruhnya dari halaman Privasi & pengaturan.
+tampilan (lihat "Antarmuka"); riwayat bisa diunduh sebagai JSON atau dihapus seluruhnya dari Settings.
 
 ## Antarmuka
 
-Satu halaman web dengan lima tab (`web/index.html`, navigasi lewat hash URL di `web/src/router.ts`; alamat lama `#sekarang` dan
-`#teknis` tetap membuka Dashboard dan Debug). Detektor membaca satu video terus-menerus: di Dashboard dan Debug video itu tampil
-besar di dalam halaman, di tab lain sebagai pratinjau kecil di samping; di layar sempit pratinjau mengambang di pojok dan tab
-pindah ke bawah. Istilah yang janggal bila diterjemahkan memakai bahasa Inggris (Dashboard, Insight, Debug, Live view).
-Kunjungan pertama dibuka dengan layar sambutan: apa yang tetap di laptop, apa yang dikirim dan kapan, lalu langkah berikutnya.
-Browser baru meminta izin kamera setelah tombol "Nyalakan kamera" (`welcome.ts`).
+Tiga halaman (`web/index.html`, `web/auth.html`, `web/app.html`; Vite multi-page). Alurnya: **landing** → **Sign up / Sign in**
+→ layar sebelum kamera (kunjungan pertama) → **kalibrasi** bila baseline tidak ada atau basi → **Dashboard**. Link lama
+(`/?kode=…`, `/?debug=1`, `/#dashboard`) dialihkan ke `app.html` dengan query yang sama.
 
-| Tab | Isi |
+| Halaman | Isi |
 |---|---|
-| **Dashboard** | Label saat ini dalam satu kalimat bersama beruang yang matanya mengikuti label (`statusCopy.ts`, `bear.ts`), dengan "Kenapa label ini?" (kalimat alasan dari aturan dan tombol "Label ini tidak sesuai?"); **Live view**: kamera biasa di samping kamera dengan jaring wajah MediaPipe (garis mata hijau/merah menurut batas kedip pribadi, mulut kuning saat menguap), 6 tile dengan satu kalimat cara membaca, grafik EAR 20 detik (`live.ts`, `liveView.ts`); ringkasan hari ini (menit sejak jeda, waktu dipantau, jumlah jeda, satu batang komposisi label) di samping "Minta saran sekarang" dengan umpan balik; cek kantuk KSS |
-| **Insight** | Satu hari: 2–3 kalimat ringkasan dan empat angka (`insight.ts`), waktu per label untuk kelima label, garis tingkat kelelahan (normal 0 … tertidur 3, rata-rata per 1/5/10 menit, putus saat tidak dipantau, jeda diarsir), menit per jam bertumpuk dengan tabelnya, saran hari itu dengan umpan baliknya, dan rincian angka |
-| **Tanya** | Percakapan dengan IBM Bob: contoh pertanyaan, gelembung tanya-jawab beserta sumbernya; tiap pertanyaan tetap dijawab sendiri-sendiri |
-| **Privasi & pengaturan** | Apa yang keluar dari perangkat, kalibrasi, saran otomatis, pengingat cek kantuk tiap 15 menit, hemat daya, pendamping, unduh/hapus riwayat, mode pengembang, dan batasan Equilibre (bukan alat medis, kalibrasi ulang saat kondisi berubah, HP setinggi dada, tidak menebak emosi) |
-| **Debug** (di menu hanya saat **Mode pengembang** menyala di Privasi atau lewat `?debug=1`; `#debug` tetap bisa dibuka langsung, `devMode.ts`) | Kamera besar dengan 6 titik EAR per mata dan mask tubuh, di samping grafik EAR 20 detik dengan batas pribadi dari kalibrasi (`earChart.ts`); tile sinyal per frame, fitur jendela, dan baseline (termasuk EAR terpejam ÷ EAR terbuka), masing-masing dengan satu kalimat cara membaca; skor pola kedip, JSON yang dikirim, unduh log CSV |
+| **Landing** (`index.html`, `src/landing/`) | "You can't see what your body feels": cara kerja, perbandingan timer vs Equilibre, "What you see vs. what we see" (ilustrasi berubah menjadi titik wajah dan kotak berlabel EAR/Jaw open saat digulir), janji privasi, ajakan mulai. Animasi GSAP + ScrollTrigger; tidak menyalakan kamera |
+| **Sign up / Sign in** (`auth.html`, `authPage.ts`) | Supabase Auth email + password, galat per kode Supabase (`authCopy.ts`), panel "What we keep", tampilan readout sintetis |
+| **Dashboard** | Kamera selebar layar dengan sakelar **What we see** (jaring wajah MediaPipe) / **What you see** (kamera biasa), kondisi saat ini, tombol **Pause**, **Recalibrate**, **Picture-in-Picture**; tile "What we see, right now" + grafik EAR 20 detik; **Ask Equilibre**: "Why this state?" dijawab di perangkat dari aturan dan angka, "What should I do?" meminta saran Langflow, pertanyaan bebas ke IBM Bob; ringkasan hari ini dan cek kantuk KSS |
+| **Insights** (`src/insights/`) | Esai pribadi bergaya scrollytelling dari riwayat sendiri (template di perangkat, tanpa LLM) di samping *clustered force layout* (d3-force: tiap gelembung = 15 menit, warna = kondisi, dikelompokkan per kondisi / waktu / hari); heatmap jam × hari; batang harian per kondisi; lalu rincian satu hari (garis tingkat kelelahan, menit per jam, saran hari itu) |
+| **Settings** | Akun (Sign out), kalibrasi dan umur baseline, saran otomatis, pengingat cek kantuk, hemat daya, PiP, apa yang keluar dari laptop ini, unduh/hapus riwayat, mode Debug, batasan Equilibre |
+| **Debug** (di menu hanya saat **Debug mode** menyala di Settings atau lewat `?debug=1`) | Kamera dengan 6 titik EAR per mata dan mask tubuh, grafik EAR dengan batas pribadi, tile sinyal per frame, fitur jendela, baseline, skor pola kedip, JSON yang dikirim, unduh log CSV |
 
-Gaya visualnya: peran warna ala Material 3 (surface/container/on-*), indikator status ala IBM Carbon (tiap label punya warna,
-bentuk, dan teks: ● normal, ◆ lelah ringan, ▲ lelah, ■ tertidur, ○ tidak di depan layar), panduan grafik Apple HIG, mode terang
-dan gelap mengikuti sistem. Warna grafik diperiksa dengan validator palet (buta warna dan kontras). Font IBM Plex Sans disajikan
-dari `web/public/fonts/`, jadi app tidak menghubungi layanan font pihak ketiga.
+**Kalibrasi** (`scanEffect.ts`): kamera biasa → garis scan menyapu dari atas ke bawah dalam 1 detik dan mengubah area tubuh
+(grid segmentasi) menjadi piksel → 0,5 detik kemudian kotak berlabel di mata kiri, mata kanan, dan mulut dengan nilai langsung
+(EAR, Jaw Open), tetap tampil selama kalibrasi. Digambar di kanvas overlay hanya pada frame detektor.
+
+**Gaya visual "The Readout"** (hasil riset brand-fit, `src/design/tokens.css`): kertas `#F3F2ED` dan tinta `#121518`; warna
+hanya untuk kondisi tubuh (Normal `#1F9D8A`, Mildly tired `#E0A526`, Tired `#E5483B`, Asleep `#6B5BD2`, Away `#9AA1A9`);
+IBM Plex Sans untuk antarmuka, Plex Mono untuk setiap angka dan label, Plex Serif italic untuk satu kata aksen; sudut 4px, garis
+1px, tanpa bayangan. Semua font disajikan dari situs sendiri, jadi app tidak menghubungi layanan font pihak ketiga.
 
 ## Menjalankan (development)
 
@@ -256,7 +265,8 @@ Prasyarat: Node.js 22.18+ (skrip `.ts` dijalankan langsung dengan type stripping
 `node langflow-flows/buat-kb.mjs` dan `node langflow-flows/ganti-model.mts gemini`), serta IBM Bob Shell untuk "Tanya Equilibre".
 
 ```bash
-cp .env.example .env          # isi LANGFLOW_API_KEY, LANGFLOW_FLOW_ID, dan BOB_API_KEY (Tanya Equilibre)
+cp .env.example .env          # isi LANGFLOW_API_KEY, LANGFLOW_FLOW_ID, dan BOB_API_KEY (Ask Equilibre)
+# akun (opsional): web/.env.local berisi VITE_SUPABASE_URL dan VITE_SUPABASE_PUBLISHABLE_KEY; tanpa keduanya app terbuka tanpa akun
 
 cd server && npm install && npm run dev     # http://localhost:8787 (cek: curl 127.0.0.1:8787/api/health)
 cd web && npm install && npm run dev        # http://localhost:5173
@@ -268,22 +278,22 @@ Parameter URL untuk pengembangan dan uji coba:
 |---|---|
 | `?calib=30&window=20&tidur=1` | kalibrasi 30 detik, jendela fitur 20 detik, `tertidur` setelah 1 menit (untuk demo) |
 | `?debug=1` | overlay titik mata dan mask tubuh di semua tab, plus matriks transformasi wajah di tab Debug; juga menyalakan Mode pengembang (tab Debug di menu, diingat di perangkat ini) |
-| `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit selalu menyala (di luar uji: sakelar di Privasi, bawaan mati) |
+| `?uji=1` | mode uji pengguna: pengingat isian KSS tiap 15 menit selalu menyala (di luar uji: sakelar di Settings, bawaan mati) |
 | `?kode=EQ-XXXX` | uji pengguna jarak jauh: kartu persetujuan → kalibrasi → 60 menit kerja dengan KSS tiap 15 menit → feedback → satu kiriman ke Google Sheet pengembang; riwayat uji di database terpisah (`uji-pengguna/README.md`) |
 | `?riwayat=<nama>` | riwayat disimpan di database terpisah, tidak mencampuri riwayat asli |
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
 | `?label=gabungan` | label dari rules + skor pola kedip (dalam uji): skor ≥ 71% menaikkan `normal` ke `lelah ringan`, tanda `pola_kedip` ikut terkirim; butuh baseline dengan data kedipan |
 
 **Demo online (frontend saja).** `cd web && npm run build:demo` menghasilkan `web/dist/` untuk hosting statis tanpa backend.
-Deteksi, riwayat, Insight, dan pendamping sama persis dengan versi lokal karena semuanya berjalan di browser. Saran Langflow dan
-Tanya Equilibre dinonaktifkan dengan keterangan, karena keduanya butuh backend, Langflow, dan Bob Shell yang berjalan lokal.
+Deteksi, riwayat, Insights, akun, dan jendela PiP sama persis dengan versi lokal karena semuanya berjalan di browser. Saran Langflow dan
+Ask Equilibre (Bob) dinonaktifkan dengan keterangan, karena keduanya butuh backend, Langflow, dan Bob Shell yang berjalan lokal.
 Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dari `main`, tidak pernah berisi kode sendiri.
 
 ## Testing dan validasi
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **296 test, 25 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, pendamping, skor pola kedip, layar sambutan sebelum kamera, CSP). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **343 test, 29 file lolos** (rules, fitur, kedip, menguap, kalibrasi, whitelist payload, server `/api/analyze` dan `/api/tanya`, riwayat, kirim otomatis, sapaan PiP, skor pola kedip, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
@@ -301,7 +311,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 |---|---|
 | Privasi | Video diproses di perangkat; hanya label, angka agregat, dan nama aturan yang dikirim, dengan whitelist di server (tabel "Data yang keluar"). Riwayat hanya di IndexedDB, bisa diunduh atau dihapus seluruhnya. Log sesi CSV hanya dibuat kalau pengguna menekan tombol unduh |
 | Transparansi dan explainability | Tiap label disertai alasan per aturan dengan angka dan batasnya ("Kedipan rata-rata 430 ms, lebih lambat dari biasanya (151 ms; batas 301 ms)"); konteks yang tidak dihitung ditulis sebagai catatan. Tiap rekomendasi dan jawaban Bob menyebut sumber dari knowledge base. Skor pola kedip diberi keterangan perannya (tampil saja, atau ikut menentukan label di `?label=gabungan`); alasan `pola_kedip` menyebut skor dan batasnya |
-| Bukan diagnosis | Prompt melarang diagnosis dan menyebut penyakit; knowledge base hanya berisi panduan jeda dan kerja yang bersumber; keluhan di luar catatan ditolak; halaman Privasi & pengaturan menyatakan Equilibre bukan alat medis |
+| Bukan diagnosis | Prompt melarang diagnosis dan menyebut penyakit; knowledge base hanya berisi panduan jeda dan kerja yang bersumber; keluhan di luar catatan ditolak; landing dan Settings menyatakan Equilibre bukan alat medis dan memberi tahu pola, bukan diagnosis |
 | Human oversight | Pengguna yang memutuskan tindakan. Kirim otomatis bawaan mati. Pengguna bisa mengoreksi label, memberi umpan balik rekomendasi, dan mengisi KSS; semuanya tersimpan untuk evaluasi |
 | Fairness | Setiap batas dinilai terhadap baseline pribadi hasil kalibrasi. UTA-RLDD didominasi pria (±85%) dan threshold disetel dari rekaman pengembang, jadi hasil pada orang lain belum diketahui (lihat Keterbatasan) |
 | Regulasi | EU AI Act (Regulation (EU) 2024/1689) Pasal 5(1)(f) melarang AI menyimpulkan emosi di tempat kerja; Recital 18 menegaskan keadaan fisik seperti kelelahan tidak termasuk pengenalan emosi. Equilibre hanya mendeteksi kelelahan dan tidak punya label emosi |
@@ -364,7 +374,10 @@ Situs dataset: https://sites.google.com/view/utarldd/home
 
 Sumber knowledge base dan lisensinya tercantum di `knowledge/README.md`. Deteksi wajah dan tubuh memakai
 [MediaPipe](https://ai.google.dev/edge/mediapipe) (Face Landmarker dan Image Segmenter). Font
-[IBM Plex Sans](https://github.com/IBM/plex) © IBM Corp., SIL Open Font License 1.1 (`web/public/fonts/OFL.txt`).
+[IBM Plex Sans, Mono, Serif](https://github.com/IBM/plex) © IBM Corp., SIL Open Font License 1.1 (`web/public/fonts/OFL.txt`;
+Mono dan Serif lewat paket `@fontsource`). Animasi memakai [GSAP](https://gsap.com) (lisensi GSAP "no charge", bebas untuk
+pemakaian komersial), visualisasi Insights memakai [d3-force](https://github.com/d3/d3-force) (ISC), dan akun memakai
+[supabase-js](https://github.com/supabase/supabase-js) (MIT).
 
 ## Lisensi
 
@@ -373,5 +386,7 @@ tetap mengikuti ketentuannya masing-masing:
 
 - koefisien skor pola kedip (`web/src/blinkScore.ts`), dilatih dari UTA-RLDD: pemakaian ulang mengikuti ketentuan dataset;
 - `@mediapipe/tasks-vision` (Apache-2.0) beserta model di `web/public/models/`, sesuai model card MediaPipe masing-masing;
-- font IBM Plex Sans (SIL Open Font License 1.1, `web/public/fonts/OFL.txt`);
+- font IBM Plex Sans, Mono, dan Serif (SIL Open Font License 1.1, `web/public/fonts/OFL.txt`);
+- `gsap` (lisensi GSAP standar "no charge"), `lenis` (MIT), `d3-force` (ISC), `@supabase/supabase-js` (MIT), sebagai
+  dependensi npm, tidak disalin ke repo;
 - isi `knowledge/`: parafrase sumber pihak ketiga, lisensi per sumber di `knowledge/README.md`.
