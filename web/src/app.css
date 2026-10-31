@@ -373,27 +373,40 @@ input:focus-visible {
 }
 
 .stage {
+  --stage-h: min(66vh, 680px);
   scroll-margin-top: 88px;
   border: 1px solid var(--ink);
   border-radius: var(--r-lg);
   overflow: hidden;
-  background: var(--paper-raised);
-}
-
-.stage-frame {
-  position: relative;
+  /* shows either side of the camera when a short screen makes it narrower than the stage */
   background: #0d0f11;
 }
 
-/* The camera fills the stage: one screen wide, at most ~2/3 of the screen tall. */
+/* The camera keeps its shape on every screen (NOTES G-100): between 16:9 and 2:1, at most ~2/3 of the screen tall.
+   A short laptop screen gets a narrower picture with dark sides, not a flatter strip that cuts the face. */
+.stage-frame {
+  position: relative;
+  width: min(100%, var(--stage-h) * 2);
+  margin-inline: auto;
+  background: #0d0f11;
+}
+
 .stage-video .camera video,
 .stage-video .camera canvas {
-  aspect-ratio: auto;
   width: 100%;
-  height: min(66vh, 680px);
-  min-height: 300px;
   object-fit: cover;
   border-radius: 0;
+}
+
+.stage-video .camera video {
+  aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: var(--stage-h);
+  min-height: 300px;
+}
+
+.stage-video .camera canvas {
+  height: 100%;
 }
 
 .stage-video .cam-badge {
@@ -525,6 +538,7 @@ input:focus-visible {
   gap: 16px 24px;
   padding: 18px 20px;
   border-top: 1px solid var(--ink);
+  background: var(--paper-raised);
 }
 
 .stage-status {
@@ -1231,9 +1245,15 @@ dialog.welcome[open] {
     display: none;
   }
 
-  .stage-video .camera video,
-  .stage-video .camera canvas {
+  /* Narrow screens keep the full-width picture, half the screen tall. */
+  .stage-frame {
+    width: 100%;
+  }
+
+  .stage-video .camera video {
+    aspect-ratio: auto;
     height: 52vh;
+    max-height: none;
   }
 }
 
