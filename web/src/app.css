@@ -151,6 +151,12 @@ input:focus-visible {
   border-radius: var(--r);
 }
 
+/* Demo account (?demo=rina): above every page, says the history is sample data. */
+.demo-note {
+  margin: 0 0 20px;
+  border-left: 3px solid var(--s-normal);
+}
+
 .switch-track {
   border-radius: 999px;
 }

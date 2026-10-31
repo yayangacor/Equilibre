@@ -45,7 +45,8 @@ import {
 import { initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { LOCALE } from "./format.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
-import { DB_NAME } from "./historyDb.ts";
+import { DB_NAME, openHistory } from "./historyDb.ts";
+import { DEMO_ACCOUNTS, demoHistory, demoNote, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
 import { HistoryPanel } from "./historyPanel.ts";
 import { mountInsights } from "./insights/insightsPage.ts";
 import { formatDuration, monitoredMinutes } from "./insight.ts";
@@ -111,12 +112,16 @@ const DEBUG = params.get("debug") === "1";
 const HISTORY_SUFFIX = params.get("riwayat")?.match(/^[a-z0-9-]{1,20}$/)?.[0];
 // ?kode=EQ-XXXX: remote user test (plans/P08, NOTES D-57) with its own history database and the test card.
 const TEST_CODE = parseCode(params.get("kode"));
+// ?demo=rina: the demo account (plans/P19), no sign-in, its own history filled with Rina's sample days.
+const DEMO_PERSONA: DemoPersona | null = TEST_CODE ? null : parseDemo(params.get("demo"));
 // With an account (D-78) the history and the baseline belong to that account on this laptop; ?riwayat= and test
 // codes keep their own databases.
 const historyDbName = (owner: Account | null) =>
   TEST_CODE
     ? `${DB_NAME}-${testDbSuffix(TEST_CODE)}`
-    : HISTORY_SUFFIX
+    : DEMO_PERSONA
+      ? `${DB_NAME}-demo-${DEMO_PERSONA}`
+      : HISTORY_SUFFIX
       ? `${DB_NAME}-${HISTORY_SUFFIX}`
       : scopeKey(DB_NAME, owner);
 // ?uji=1 (or a ?kode= test): user test mode, the KSS reminder every 15 minutes is always on.
@@ -126,7 +131,7 @@ const NO_CAMERA = params.get("kamera") === "0";
 // ?label=gabungan: rules + blink pattern (NOTES D-72), behind this flag until tested on people (P17 H3).
 const COMBINED = params.get("label") === "gabungan";
 // Accounts (D-78): user-test links and the no-camera check page (R-08) open without one.
-const NEEDS_ACCOUNT = ACCOUNTS && TEST_CODE === null && !NO_CAMERA;
+const NEEDS_ACCOUNT = ACCOUNTS && TEST_CODE === null && !NO_CAMERA && DEMO_PERSONA === null;
 // ⚠️ A baseline older than a working day asks for a new calibration: light and seating change (D-78).
 const BASELINE_STALE_MS = 12 * 60 * 60_000;
 const DASHBOARD_REFRESH_MS = 30_000;
@@ -1778,7 +1783,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 async function leave() {
-  await signOut().catch((err) => console.error(err));
+  if (!DEMO_PERSONA) await signOut().catch((err) => console.error(err));
   location.replace("./");
 }
 for (const id of ["sign-out", "sign-out-2"]) byId(id).addEventListener("click", () => void leave());
@@ -1808,7 +1813,33 @@ function cameraFailed(message: string) {
   renderStatus();
 }
 
+// The demo account's history: Rina's sample days, written again once a day so "today" always has some. Live readings
+// from the camera go into the same database on top of them until the next day's seed.
+async function seedDemo(persona: DemoPersona, name: string) {
+  const now = Date.now();
+  if (store?.getItem(seedKey(persona)) === seedStamp(now)) return;
+  const db = await openHistory(name);
+  try {
+    await db.replaceAll(demoHistory(persona, now));
+    store?.setItem(seedKey(persona), seedStamp(now));
+  } finally {
+    db.close();
+  }
+}
+
+function showDemoNote(persona: DemoPersona) {
+  const note = document.createElement("p");
+  note.className = "callout info demo-note";
+  note.setAttribute("role", "note");
+  note.textContent = demoNote(persona);
+  byId("main").prepend(note);
+}
+
 async function main() {
+  if (DEMO_PERSONA) {
+    account = DEMO_ACCOUNTS[DEMO_PERSONA];
+    showDemoNote(DEMO_PERSONA);
+  }
   if (NEEDS_ACCOUNT) {
     account = await currentAccount().catch(() => null);
     if (!account) {
@@ -1836,7 +1867,10 @@ async function main() {
   renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
-  void panel.open(historyDbName(account)).then(() => {
+  const seeded = DEMO_PERSONA
+    ? seedDemo(DEMO_PERSONA, historyDbName(account)).catch((err) => console.error("Demo history not seeded:", err))
+    : Promise.resolve();
+  void seeded.then(() => panel.open(historyDbName(account))).then(() => {
     selfReport.restoreKssClock(userTest?.started ?? null);
     insights = mountInsights(byId("insights-root"), { load: () => panel.allRecords(), evalIntervalMs: EVAL_INTERVAL_MS });
     insights.setVisible(router.page === "insights");

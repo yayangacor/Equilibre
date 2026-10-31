@@ -105,6 +105,17 @@ export class HistoryDb {
     return committed(tx).then(() => deleted);
   }
 
+  // Empties every store and fills it with these records in one transaction (the demo account's seed, demoAccount.ts).
+  replaceAll(data: { [S in StoreName]: Stores[S][] }): Promise<void> {
+    const tx = this.db.transaction(STORE_NAMES, "readwrite");
+    for (const name of STORE_NAMES) {
+      const objects = tx.objectStore(name);
+      objects.clear();
+      for (const record of data[name]) objects.add(record);
+    }
+    return committed(tx);
+  }
+
   clear(): Promise<void> {
     const tx = this.db.transaction(STORE_NAMES, "readwrite");
     for (const name of STORE_NAMES) tx.objectStore(name).clear();
