@@ -3,7 +3,7 @@
 // Scrubbed by ScrollTrigger (pinned on large screens); with reduced motion it shows the end state at once.
 import { posePoints, sharedFace, seeded } from "./faceModel.ts";
 import { clamp01, drawFace, easeInOutCubic, fitCanvas, formatReading, palette, project, smooth, type Fitted } from "./draw.ts";
-import { gsap, type Conditions } from "./gsap.ts";
+import { CONDITIONS, gsap, type Conditions } from "./gsap.ts";
 
 const FLIGHT_START = 0.12;
 const FLIGHT_SPAN = 0.66;
@@ -171,7 +171,7 @@ export function initSee(section: HTMLElement, mm: gsap.MatchMedia): void {
 
   new ResizeObserver(layout).observe(grid);
 
-  mm.add({ motion: "(prefers-reduced-motion: no-preference)", pinnable: "(min-width: 960px) and (min-height: 700px)" }, (context) => {
+  mm.add({ motion: CONDITIONS.motion, reduce: CONDITIONS.reduce, pinnable: CONDITIONS.pinnable }, (context) => {
     const { motion, pinnable } = context.conditions as Conditions;
     if (!motion) {
       staticEnd = true;

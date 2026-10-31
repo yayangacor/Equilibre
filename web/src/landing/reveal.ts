@@ -21,7 +21,7 @@ function sectionHeads(root: ParentNode): void {
   });
 }
 
-/** Ruled rows (comparison table, steps, privacy ledger): each row's rule draws, then its content rises. */
+/** Ruled rows (comparison table, steps, privacy points): each row's rule draws, then its content rises. */
 function ruledRows(root: ParentNode): void {
   root.querySelectorAll<HTMLElement>("[data-rows]").forEach((group) => {
     const rows = [...group.querySelectorAll<HTMLElement>("[data-row]")];

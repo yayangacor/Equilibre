@@ -1,8 +1,8 @@
 // The four "How it works" mini visuals: a baseline band forming, points flowing into a face, a state chip
-// changing every cycle, and a nudge card sliding in. Loops run only while the visual is on screen.
+// changing every cycle, and advice cards with their sources sliding in. Loops run only while the visual is on screen.
 import { posePoints, seeded, sharedFace } from "./faceModel.ts";
 import { clamp01, drawFace, fitCanvas, formatReading, palette, project, type Fitted } from "./draw.ts";
-import { gsap, ScrollTrigger, type Conditions } from "./gsap.ts";
+import { CONDITIONS, gsap, ScrollTrigger, type Conditions } from "./gsap.ts";
 
 /** A calibration trace: eyes closed for a moment (low EAR), then a normal level with a few blinks. */
 export function calibrationPath(): string {
@@ -24,7 +24,12 @@ const STATES = [
   { key: "away", label: "Away" },
 ] as const;
 
-const NUDGES = ["Sit upright.", "Take a short walk.", "Get some daylight."];
+// Tips the advice flow can give, each with the source it cites (knowledge/ in the repo).
+const NUDGES = [
+  { tip: "Take a brisk walk or climb a few flights of stairs.", source: "NIOSH" },
+  { tip: "Move somewhere brighter. Daylight is the brightest light.", source: "NIOSH" },
+  { tip: "Every 20 minutes, look 6 m away for 20 seconds.", source: "American Academy of Ophthalmology" },
+];
 
 /** Plays `loop` only while `el` is in view. */
 function whileVisible(el: Element, loop: gsap.core.Timeline | gsap.core.Tween): void {
@@ -148,10 +153,14 @@ function pattern(vis: HTMLElement, motion: boolean): void {
 function nudge(vis: HTMLElement, motion: boolean): void {
   const card = vis.querySelector<HTMLElement>(".nudge");
   const text = vis.querySelector<HTMLElement>(".nudge-text");
-  if (!card || !text || !motion) return;
+  const source = vis.querySelector<HTMLElement>(".nudge-src span");
+  if (!card || !text || !source || !motion) return;
   const tl = gsap.timeline({ paused: true, repeat: -1 });
-  for (const line of NUDGES) {
-    tl.call(() => void (text.textContent = line))
+  for (const { tip, source: from } of NUDGES) {
+    tl.call(() => {
+      text.textContent = tip;
+      source.textContent = from;
+    })
       .fromTo(card, { x: 28, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "power3.out" })
       .to(card, { x: -14, opacity: 0, duration: 0.35, ease: "power2.in" }, "+=2.2");
   }
@@ -160,7 +169,9 @@ function nudge(vis: HTMLElement, motion: boolean): void {
 
 export function initSteps(root: HTMLElement, mm: gsap.MatchMedia): void {
   const vis = (name: string) => root.querySelector<HTMLElement>(`[data-vis="${name}"]`);
-  mm.add({ motion: "(prefers-reduced-motion: no-preference)" }, (context) => {
+  // "reduce" is listed so the handler also runs (static frames) when motion is reduced: matchMedia skips a
+  // handler whose conditions all fail.
+  mm.add({ motion: CONDITIONS.motion, reduce: CONDITIONS.reduce }, (context) => {
     const { motion = false } = context.conditions as Conditions;
     const steps: [string, (el: HTMLElement, motion: boolean) => void][] = [
       ["calibrate", calibrate],

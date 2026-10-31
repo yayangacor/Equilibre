@@ -53,13 +53,15 @@
             You can’t see what your body <em class="serif-accent">feels</em>.
           </h1>
           <p class="lede intro" style="--i: 2">
-            Equilibre reads the early signs of tiredness from your webcam — eye closure, slow blinks, yawns, head
-            position — and shows you the pattern before the crash. It tells a pattern, not a diagnosis.
+            Equilibre reads early signs of tiredness from your webcam (eye closure, slow blinks, yawns, head position)
+            and shows you the pattern before the crash.
           </p>
           <div class="actions intro" style="--i: 3">
             <a class="btn" href="auth.html#signup" data-cta
-              ><span data-cta-label>Get started</span><span class="arr" aria-hidden="true">→</span></a
-            >
+              ><span data-cta-label>Get started</span
+              ><svg class="icon arr" viewBox="0 -960 960 960" aria-hidden="true">
+                <path d="M686-450H160v-60h526L438-758l42-42 320 320-320 320-42-42 248-248Z" /></svg
+            ></a>
             <a class="btn btn-ghost" href="#how">See how it works</a>
           </div>
         </div>
@@ -93,15 +95,15 @@
         <div class="signal-grid">
           <h2 id="signal-title" class="h2" data-reveal>Tired isn’t a mood. It’s a <em class="serif-accent">signal</em>.</h2>
           <p class="body" data-reveal>
-            Tiredness builds from short sleep and long, unbroken stretches at the screen, and you rarely notice it while it
-            builds. A timer can’t see it: Pomodoro rings every 25 minutes whether you’re sharp or fading. It doesn’t adapt
-            to how your body feels.
+            Tiredness builds over hours at the screen, and you rarely notice it while it builds. It does show in your face:
+            longer blinks, eyes closed for longer, more yawns. Break reminders run on a fixed schedule. Equilibre watches
+            for these signs and shows you when they appear.
           </p>
         </div>
 
         <div class="strip" aria-hidden="true">
           <div class="strip-row">
-            <span class="strip-k">A timer</span>
+            <span class="strip-k">Break reminder</span>
             <div class="strip-plot">
               <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
                 <line class="strip-base" x1="0" y1="30" x2="1000" y2="30" />
@@ -131,10 +133,10 @@
         </div>
 
         <table class="compare" data-rows>
-          <caption class="visually-hidden">A timer compared with Equilibre</caption>
+          <caption class="visually-hidden">A break reminder compared with Equilibre</caption>
           <thead>
             <tr>
-              <th scope="col">A timer</th>
+              <th scope="col">Break reminder</th>
               <th scope="col">Equilibre</th>
             </tr>
           </thead>
@@ -216,18 +218,19 @@
           <li class="step" data-row>
             <div class="step-vis dotgrid" data-vis="nudge" aria-hidden="true">
               <div class="nudge">
-                <p class="nudge-k">Nudge</p>
-                <p class="nudge-text">Take a short walk.</p>
-                <span class="nudge-ask">Ask for advice →</span>
+                <p class="nudge-k">Advice</p>
+                <p class="nudge-text">Take a brisk walk or climb a few flights of stairs.</p>
+                <p class="nudge-src">Source: <span>NIOSH</span></p>
               </div>
             </div>
             <div class="step-text">
               <p class="step-n">Step 4</p>
               <h3>Act on it</h3>
-              <p>
-                Sit upright, take a short walk, get some daylight. Ask for advice and an AI flow on IBM Langflow answers
-                with sources (WHO, NIOSH and Indonesian occupational-health guidance).
-              </p>
+              <p>Ask for advice. Every tip names its source, for example:</p>
+              <figure class="eg">
+                <blockquote>“Every 20 minutes, look at something 6 m away for 20 seconds.”</blockquote>
+                <figcaption>American Academy of Ophthalmology</figcaption>
+              </figure>
             </div>
           </li>
         </ol>
@@ -244,7 +247,7 @@
             </div>
             <div class="see-grid">
               <figure class="see-panel">
-                <figcaption><strong>What you see</strong> — just your camera.</figcaption>
+                <figcaption><strong>What you see:</strong> just your camera.</figcaption>
                 <div class="frame cam">
                   <svg
                     class="figure-svg"
@@ -277,7 +280,7 @@
                 </div>
               </figure>
               <figure class="see-panel">
-                <figcaption><strong>What we see</strong> — numbers, never pictures.</figcaption>
+                <figcaption><strong>What we see:</strong> numbers, never pictures.</figcaption>
                 <div class="frame mesh">
                   <div class="mesh-stage">
                     <div class="track track-l" data-track="eyeL">
@@ -321,46 +324,47 @@
           <p class="eyebrow">03 — Privacy</p>
           <h2 id="privacy-title" class="h2">Chill out. Your face never <em class="serif-accent">leaves</em> your laptop.</h2>
         </div>
-        <dl class="ledger" data-rows>
-          <div class="ledger-row" data-row>
-            <dt>
-              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="1.5" y="3.5" width="13" height="9" rx="1" /><path d="M2 14 14 2" />
-              </svg>
-              Never sent
-            </dt>
-            <dd>Video and images of your face.</dd>
-          </div>
-          <div class="ledger-row" data-row>
-            <dt>
-              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="2.5" y="3" width="11" height="7.5" rx="1" /><path d="M1 13h14" />
-              </svg>
-              Only on this device
-            </dt>
-            <dd>Your fatigue history and calibration (30 days).</dd>
-          </div>
-          <div class="ledger-row" data-row>
-            <dt>
-              <svg class="ledger-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <ellipse cx="8" cy="4" rx="5.5" ry="2" /><path d="M2.5 4v8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2V4M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2" />
-              </svg>
-              Stored by us
-            </dt>
-            <dd>Your name and email, to sign you in (Supabase). Supabase also logs sign-in times, IP address and browser.</dd>
-          </div>
-        </dl>
-        <div class="privacy-notes">
-          <p class="privacy-note" data-reveal>
-            When you ask for advice, only your state and a few numbers are sent — never your face.
+        <!-- Points first; each one's detail opens on hover or keyboard focus, and is always shown on touch screens. -->
+        <ul class="facts" data-rows>
+          <li class="fact" data-row tabindex="0">
+            <svg class="icon fact-icon" viewBox="0 -960 960 960" aria-hidden="true">
+              <path d="M880-275 720-435v111l-60-60v-356H304l-60-60h416q24 0 42 18t18 42v215l160-160v410ZM848-27 39-836l42-42L890-69l-42 42ZM484-560Zm-87 82ZM159-800l60 60h-79v520h520v-79l60 60v19q0 24-18 42t-42 18H140q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h19Z" />
+            </svg>
+            <p class="fact-n">01</p>
+            <h3 class="fact-title">Video is never sent</h3>
+            <p class="fact-detail"><span>The camera is read inside your browser tab. No video or image of your face leaves it.</span></p>
+          </li>
+          <li class="fact" data-row tabindex="0">
+            <svg class="icon fact-icon" viewBox="0 -960 960 960" aria-hidden="true">
+              <path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" />
+            </svg>
+            <p class="fact-n">02</p>
+            <h3 class="fact-title">History stays on your laptop</h3>
+            <p class="fact-detail"><span>Your states and calibration are kept in this browser for 30 days.</span></p>
+          </li>
+          <li class="fact" data-row tabindex="0">
+            <svg class="icon fact-icon" viewBox="0 -960 960 960" aria-hidden="true">
+              <path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" />
+            </svg>
+            <p class="fact-n">03</p>
+            <h3 class="fact-title">Advice sends numbers only</h3>
+            <p class="fact-detail"><span>When you ask for advice, only your state and a few numbers are sent.</span></p>
+          </li>
+          <li class="fact" data-row tabindex="0">
+            <svg class="icon fact-icon" viewBox="0 -960 960 960" aria-hidden="true">
+              <path d="M480-120q-151 0-255.5-46.5T120-280v-400q0-66 105.5-113T480-840q149 0 254.5 47T840-680v400q0 67-104.5 113.5T480-120Zm0-488q86 0 176.5-26.5T773-694q-27-32-117.5-59T480-780q-88 0-177 26t-117 60q28 35 116 60.5T480-608Zm-1 214q42 0 84-4.5t80.5-13.5q38.5-9 73.5-22t63-29v-155q-29 16-64 29t-74 22q-39 9-80 14t-83 5q-42 0-84-5t-80.5-14q-38.5-9-73-22T180-618v155q27 16 61 29t72.5 22q38.5 9 80.5 13.5t85 4.5Zm1 214q48 0 99-8.5t93.5-22.5q42.5-14 72-31t35.5-35v-125q-28 16-63 28.5T643.5-352q-38.5 9-80 13.5T479-334q-43 0-85-4.5T313.5-352q-38.5-9-72.5-21.5T180-402v126q5 17 34 34.5t72 31q43 13.5 94 22t100 8.5Z" />
+            </svg>
+            <p class="fact-n">04</p>
+            <h3 class="fact-title">We keep your name and email</h3>
+            <p class="fact-detail"><span>Supabase stores them to sign you in, with sign-in times, IP address and browser.</span></p>
+          </li>
+        </ul>
+        <aside class="medical" aria-label="Medical note" data-reveal>
+          <p>
+            <strong>Not a medical device.</strong> Equilibre shows a pattern of tiredness and cannot diagnose anything. If
+            tiredness keeps coming back, talk to a health professional.
           </p>
-          <aside class="medical" aria-label="Medical note" data-reveal>
-            <p>
-              <strong>Not a medical device.</strong> Equilibre shows a pattern, not a diagnosis. If tiredness keeps coming
-              back, talk to a health professional.
-            </p>
-          </aside>
-        </div>
+        </aside>
       </section>
 
       <!-- Final call to action -->
@@ -370,9 +374,7 @@
           Know your pattern before the 3&nbsp;p.m. <em class="serif-accent">crash</em>.
         </h2>
         <div class="cta-row" data-reveal>
-          <a class="btn btn-lg" href="auth.html#signup" data-cta
-            ><span data-cta-label>Get started</span><span class="arr" aria-hidden="true">→</span></a
-          >
+          <a class="btn btn-lg" href="auth.html#signup" data-cta><span data-cta-label>Get started</span></a>
           <p class="cta-note">Free for individuals. Calibration takes about 5 minutes.</p>
         </div>
       </section>

@@ -259,13 +259,13 @@ h3 {
 .vis-tag,
 .reason,
 .nudge-k,
-.nudge-ask,
+.nudge-src,
 .strip-k,
 .strip-ring,
 .strip-note,
 .track-label,
 .kept,
-.ledger dt,
+.fact-n,
 .cta-note,
 .foot,
 .compare th,
@@ -453,7 +453,6 @@ h3 {
   position: relative;
 }
 .step::before,
-.ledger-row::before,
 .compare tbody td::before {
   content: "";
   position: absolute;
@@ -782,14 +781,39 @@ h3 {
   font-weight: 600;
   letter-spacing: -0.015em;
 }
-.nudge-ask {
-  justify-self: start;
-  margin-top: 4px;
-  padding: 5px 8px;
-  border-radius: var(--r);
-  background: var(--ink);
-  color: var(--on-ink);
+.nudge-src {
   font-size: 11px;
+  color: var(--ink-2);
+}
+.nudge-src span {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* Step 4: one tip the advice flow gives, with its source */
+.step-text h3 + p {
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+.eg {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--ink);
+  background: var(--paper-raised);
+}
+.eg blockquote {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+.eg figcaption {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
 }
 
 /* 02 What you see vs. what we see */
@@ -957,71 +981,128 @@ h3 {
   }
 }
 
-/* 03 Privacy */
-.ledger {
-  margin: 0;
-}
-.ledger-row {
+/* 03 Privacy: four points; a point's detail opens on hover or focus (always open on touch screens) */
+.facts {
   display: grid;
-  grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
-  gap: 8px 32px;
-  padding: 22px 0;
-}
-.ledger-row:last-child {
-  border-bottom: 1px solid var(--rule-strong);
-}
-.ledger dt {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 4px;
-  font-size: var(--t-micro);
-  font-weight: 500;
-  letter-spacing: var(--track-micro);
-  text-transform: uppercase;
-}
-.ledger-icon {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-.ledger dd {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
   margin: 0;
-  max-width: 34em;
-  font-size: clamp(1.0625rem, 1.7vw, 1.375rem);
-  line-height: 1.4;
-  letter-spacing: -0.01em;
+  padding: 0;
+  list-style: none;
 }
-@media (max-width: 640px) {
-  .ledger-row {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 1040px) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.privacy-notes {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px clamp(32px, 6vw, 96px);
-  align-items: start;
-  margin-top: clamp(32px, 5vw, 56px);
-}
-@media (max-width: 820px) {
-  .privacy-notes {
+@media (max-width: 560px) {
+  .facts {
     grid-template-columns: minmax(0, 1fr);
   }
+  .fact {
+    min-height: 0;
+  }
 }
-.privacy-note {
-  font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
-  line-height: 1.5;
-}
-.medical {
-  padding: 18px 20px;
+.fact {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    "icon n"
+    ". ."
+    "title title"
+    "detail detail";
+  min-height: 248px;
+  padding: 22px 20px 24px;
   border: 1px solid var(--rule-strong);
   border-radius: var(--r);
   background: var(--paper-raised);
+  transition: background-color 0.3s var(--ease-out), color 0.3s var(--ease-out), border-color 0.3s var(--ease-out);
+}
+.fact:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.fact-icon {
+  grid-area: icon;
+  width: 36px;
+  height: 36px;
+}
+.fact-n {
+  grid-area: n;
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-micro);
+  color: var(--ink-3);
+  transition: color 0.3s var(--ease-out);
+}
+.fact-title {
+  grid-area: title;
+  max-width: 12em;
+  margin: 24px 0 0;
+  font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.fact-detail {
+  grid-area: detail;
+  display: grid;
+  grid-template-rows: 0fr;
+  margin: 0;
+  transition: grid-template-rows 0.4s var(--ease-out);
+}
+.fact-detail span {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 0;
+  line-height: 1.5;
+  opacity: 0;
+  translate: 0 6px;
+  transition: opacity 0.3s var(--ease-out), translate 0.4s var(--ease-out), padding-top 0.4s var(--ease-out);
+}
+.fact:is(:hover, :focus-visible) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+}
+.fact:is(:hover, :focus-visible) .fact-n {
+  color: var(--on-ink);
+}
+.fact:is(:hover, :focus-visible) .fact-detail {
+  grid-template-rows: 1fr;
+}
+.fact:is(:hover, :focus-visible) .fact-detail span {
+  padding-top: 10px;
+  opacity: 0.86;
+  translate: 0 0;
+}
+@media (hover: none) {
+  .fact-detail {
+    grid-template-rows: 1fr;
+  }
+  .fact-detail span {
+    padding-top: 10px;
+    opacity: 1;
+    translate: 0 0;
+    color: var(--ink-2);
+  }
+  .fact:is(:hover, :focus-visible) .fact-detail span {
+    color: inherit;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fact,
+  .fact-detail,
+  .fact-detail span {
+    transition: none;
+  }
+}
+.medical {
+  max-width: 44em;
+  margin-top: clamp(24px, 4vw, 40px);
+  padding: 14px 18px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
   color: var(--ink-2);
   line-height: 1.55;
 }
