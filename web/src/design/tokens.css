@@ -202,3 +202,12 @@
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+
+/* Material Symbols (icons.ts): one size with the text around it, in its color */
+.icon {
+  flex: none;
+  width: 1.25em;
+  height: 1.25em;
+  fill: currentColor;
+  vertical-align: -0.25em;
+}
