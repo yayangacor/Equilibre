@@ -14,8 +14,8 @@ import {
 } from "./authCopy.ts";
 
 // Sign up / sign in (NOTES D-78), as the auth research recommended: one form for both modes, errors by
-// Supabase code under the field or in a summary, the password never cleared except after a wrong password,
-// and a "what we keep" panel next to the button. The visual on the right is a synthetic loop, never the camera.
+// Supabase code under the field or in a summary, and the password never cleared except after a wrong password.
+// What is stored is explained on the landing page. The visual on the right is a synthetic loop, never the camera.
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -291,7 +291,7 @@ function startVisual() {
   const history: number[] = [];
   let scene = 0;
   let sceneStart = performance.now();
-  let lastBlink = 0;
+  let lastBlink = -Infinity; // the first frame starts a blink at t = 0, eyes open (the only frame with reduced motion)
   let lastSample = 0;
 
   const setScene = (i: number) => {

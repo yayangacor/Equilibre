@@ -220,12 +220,6 @@ body.auth-body {
   background: var(--paper-sunk);
 }
 
-.consent {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--ink-2);
-}
-
 .btn-ink {
   display: inline-flex;
   align-items: center;
@@ -386,70 +380,6 @@ body.auth-body {
   text-underline-offset: 3px;
 }
 
-.keep {
-  margin-top: 40px;
-  padding-top: 18px;
-  border-top: 1px solid var(--rule);
-}
-
-.keep-list {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-  display: grid;
-}
-
-.keep-list li {
-  display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--rule);
-  font-size: 0.875rem;
-  color: var(--ink-2);
-}
-
-.keep-tag {
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  letter-spacing: var(--track-micro);
-  text-transform: uppercase;
-  color: var(--ink);
-}
-
-.keep-tag::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 7px;
-  border: 1px solid var(--ink);
-  vertical-align: 1px;
-}
-
-.keep-tag.never::before {
-  background: var(--ink);
-}
-
-.keep-tag.local::before {
-  border-radius: 50%;
-}
-
-.keep-more {
-  margin-top: 10px;
-  font-size: 0.8125rem;
-  color: var(--ink-2);
-}
-
-.keep-more summary {
-  cursor: pointer;
-  font-family: var(--mono);
-  font-size: var(--t-micro);
-  letter-spacing: var(--track-micro);
-  text-transform: uppercase;
-  color: var(--ink);
-}
-
 /* ── The synthetic readout ── */
 
 .auth-visual {
@@ -575,13 +505,6 @@ body.auth-body {
 .demo-why {
   margin: 12px 0 0;
   font-family: var(--mono);
-  font-size: 0.8125rem;
-  color: var(--ink-2);
-}
-
-.visual-caption {
-  width: min(460px, 100%);
-  margin: 0 auto;
   font-size: 0.8125rem;
   color: var(--ink-2);
 }

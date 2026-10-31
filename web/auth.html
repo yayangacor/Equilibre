@@ -74,10 +74,6 @@
             </p>
           </div>
 
-          <p class="consent" data-for="signup">
-            Equilibre will ask to use your camera on the next step. Video is processed in this browser and never sent. We store
-            only your name and email.
-          </p>
 
           <button id="auth-submit" type="submit" class="btn-ink block">
             <span class="spinner" aria-hidden="true"></span><span id="auth-submit-text">Create account</span>
@@ -89,22 +85,6 @@
           <a id="auth-cross-link" href="#signin">Sign in</a>
         </p>
 
-        <section class="keep" aria-labelledby="keep-title">
-          <h2 id="keep-title" class="eyebrow">What we keep</h2>
-          <ul class="keep-list">
-            <li><span class="keep-tag never">Never sent</span><span>Video and images of your face.</span></li>
-            <li><span class="keep-tag local">This device</span><span>Your fatigue history and calibration (30 days).</span></li>
-            <li><span class="keep-tag cloud">Stored by us</span><span>Your name and email, to sign you in (Supabase).</span></li>
-          </ul>
-          <details class="keep-more">
-            <summary>What Supabase records</summary>
-            <p>
-              Your name, email and a password hash, plus sign-in times, IP address and browser in its sign-in logs. With
-              Google, no password: Google shares your name, email and profile picture link instead. Never your video, your
-              face, your states or your history.
-            </p>
-          </details>
-        </section>
       </section>
 
       <aside class="auth-visual" aria-hidden="true">
@@ -126,10 +106,6 @@
           </div>
           <p id="demo-why" class="demo-why">No signs of tiredness in the last minute.</p>
         </div>
-        <p class="visual-caption">
-          Your camera is read in this browser. Only numbers like <span class="mono">eyes closed 18%</span> are kept, on this
-          device.
-        </p>
       </aside>
     </main>
     <script type="module" src="/src/authPage.ts"></script>
