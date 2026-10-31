@@ -301,7 +301,8 @@ input:focus-visible {
 
 .page {
   gap: 20px;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden makes the page a scroll box and the Insights graphic stops sticking (NOTES G-99) */
+  overflow-x: clip;
 }
 
 .dock {
