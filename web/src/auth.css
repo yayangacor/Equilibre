@@ -454,19 +454,23 @@ body.auth-body {
   background: var(--s-mild-tint);
 }
 
-.demo-face {
-  display: block;
-  width: 100%;
-  height: auto;
+.demo-face-wrap {
+  position: relative;
   margin: 8px 0;
 }
 
-.demo-face .pt {
-  fill: var(--ink-3);
+.demo-face {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.demo-face .pt.eye {
-  fill: var(--ink);
+.demo-face-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .demo-face .leader {

@@ -1,6 +1,8 @@
 import "./design/tokens.css";
 import "./auth.css";
 import { ACCOUNTS, accountOf, googleEnabled, supabase } from "./auth.ts";
+import { drawFace, fitCanvas, palette, project, type Fitted } from "./landing/draw.ts";
+import { posePoints, sharedFace } from "./landing/faceModel.ts";
 import {
   authFailure,
   MIN_PASSWORD,
@@ -219,20 +221,16 @@ forgot.addEventListener("click", () => (forgotNote.hidden = !forgotNote.hidden))
 window.addEventListener("online", renderOnline);
 window.addEventListener("offline", renderOnline);
 
-// ── The synthetic readout on the right: a face of dots, an EAR trace, a state that changes and says why ──
+// ── The synthetic readout on the right: a face mesh, an EAR trace, a state that changes and says why ──
 
 type Pt = { x: number; y: number };
 const SVG = "http://www.w3.org/2000/svg";
-
-function ellipse(cx: number, cy: number, rx: number, ry: number, n: number, from = 0, to = Math.PI * 2): Pt[] {
-  return Array.from({ length: n }, (_, i) => {
-    const a = from + ((to - from) * i) / (to - from >= Math.PI * 2 ? n : n - 1);
-    return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) };
-  });
-}
+/** The face in the SVG's 320 × 300 units: 235 tall, forehead at y = 34. */
+const FACE_VIEW = { cx: 160, cy: 34 + 0.98 * 115, s: 115 };
 
 function startVisual() {
   const face = byId("demo-face") as unknown as SVGSVGElement;
+  const canvas = byId<HTMLCanvasElement>("demo-face-canvas");
   const tracePath = byId("demo-trace-path") as unknown as SVGPathElement;
   const chip = byId("demo-chip");
   const chipText = byId("demo-chip-text");
@@ -240,35 +238,34 @@ function startVisual() {
   const why = byId("demo-why");
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const groups = {
-    outline: ellipse(160, 150, 92, 118, 46),
-    browL: ellipse(122, 104, 26, 10, 8, Math.PI * 1.1, Math.PI * 1.9),
-    browR: ellipse(198, 104, 26, 10, 8, Math.PI * 1.1, Math.PI * 1.9),
-    eyeL: ellipse(122, 126, 18, 8, 14),
-    eyeR: ellipse(198, 126, 18, 8, 14),
-    nose: Array.from({ length: 6 }, (_, i) => ({ x: 160, y: 128 + i * 9 })),
-    lips: ellipse(160, 206, 30, 9, 18),
+  const mesh = sharedFace();
+  const n = mesh.points.length;
+  const pos = new Float32Array(n * 2);
+  const px = new Float32Array(n * 2);
+  const colors = palette();
+  let fitted: Fitted | null = null;
+  let blink = 0;
+  const drawMesh = () => {
+    if (!fitted) return;
+    const { ctx, w, h } = fitted;
+    const k = w / 320;
+    posePoints(mesh.points, { blink, jaw: 0.05 }, pos);
+    project(pos, { cx: FACE_VIEW.cx * k, cy: FACE_VIEW.cy * k, s: FACE_VIEW.s * k }, px);
+    ctx.clearRect(0, 0, w, h);
+    drawFace(ctx, mesh, px, { ink: colors.ink, dot: Math.max(0.9, (FACE_VIEW.s * k) / 120) });
   };
-  const dots = new Map<string, SVGCircleElement[]>();
-  for (const [name, points] of Object.entries(groups)) {
-    dots.set(
-      name,
-      points.map((p) => {
-        const c = document.createElementNS(SVG, "circle");
-        c.setAttribute("cx", String(p.x));
-        c.setAttribute("cy", String(p.y));
-        c.setAttribute("r", name.startsWith("eye") ? "2.1" : "1.6");
-        c.setAttribute("class", name.startsWith("eye") ? "pt eye" : "pt");
-        face.append(c);
-        return c;
-      }),
-    );
-  }
-  // Leader lines from the features to their readouts.
+  new ResizeObserver(() => {
+    fitted = fitCanvas(canvas);
+    drawMesh();
+  }).observe(canvas);
+
+  // Leader lines from the features to their readouts: the outer eye corners and the right mouth corner.
+  const rest = project(posePoints(mesh.points, { blink: 0, jaw: 0.05 }, pos), FACE_VIEW, new Float32Array(n * 2));
+  const anchor = (i: number): Pt => ({ x: rest[2 * i], y: rest[2 * i + 1] });
   const leaders: [Pt, Pt, string, string][] = [
-    [{ x: 104, y: 126 }, { x: 12, y: 60 }, "EAR L", "l"],
-    [{ x: 216, y: 126 }, { x: 236, y: 60 }, "EAR R", "r"],
-    [{ x: 190, y: 206 }, { x: 236, y: 262 }, "JAW", "j"],
+    [anchor(mesh.eyeL.loop[0]), { x: 12, y: 60 }, "EAR L", "l"],
+    [anchor(mesh.eyeR.loop[0]), { x: 236, y: 60 }, "EAR R", "r"],
+    [anchor(mesh.mouthCorners[1]), { x: 236, y: 262 }, "JAW", "j"],
   ];
   const labels = new Map<string, SVGTextElement>();
   for (const [from, to, name, key] of leaders) {
@@ -279,7 +276,7 @@ function startVisual() {
     text.setAttribute("x", String(to.x));
     text.setAttribute("y", String(to.y - 6));
     text.setAttribute("class", "leader-text");
-    text.textContent = `${name} 0.29`;
+    text.textContent = `${name} ${key === "j" ? "0.05" : "0.29"}`;
     face.append(line, text);
     labels.set(key, text);
   }
@@ -313,11 +310,8 @@ function startVisual() {
     const t = (now - lastBlink) / s.blinkMs;
     const closed = t < 1 ? Math.sin(Math.PI * t) : 0; // 0 open → 1 shut → 0
     const open = s.ear * (1 - 0.82 * closed) + Math.sin(now / 900) * 0.004;
-    for (const name of ["eyeL", "eyeR"] as const) {
-      groups[name].forEach((p, i) => {
-        dots.get(name)![i].setAttribute("cy", String(126 + (p.y - 126) * (1 - closed * 0.92)));
-      });
-    }
+    blink = closed * 0.92;
+    drawMesh();
     if (now - lastSample > 100) {
       lastSample = now;
       history.push(open);
