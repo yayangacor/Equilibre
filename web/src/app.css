@@ -296,10 +296,12 @@ input:focus-visible {
   grid-template-columns: minmax(0, 1fr);
   max-width: 1240px;
   padding: 28px var(--gutter) 64px;
+  /* overflow-x: hidden; */
 }
 
 .page {
   gap: 20px;
+  overflow-x: hidden;
 }
 
 .dock {
@@ -347,6 +349,10 @@ input:focus-visible {
 }
 
 /* ── Dashboard ────────────────────────────────────────────────────────────── */
+
+.dashboard {
+  overflow-x: hidden;
+}
 
 .greeting {
   display: grid;
