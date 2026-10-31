@@ -170,20 +170,11 @@ input:focus-visible {
   letter-spacing: -0.02em;
 }
 
-.brand-mark {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  border: 1.5px solid var(--ink);
-  border-radius: 50%;
-}
-
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  background: var(--s-normal);
+/* The logo mark (public/logo-mark.svg): the E with the eye, without the horizon dashes. */
+.brand img.brand-mark {
+  width: auto;
+  height: 24px;
+  border-radius: 0;
 }
 
 .tabs {

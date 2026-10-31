@@ -188,9 +188,16 @@ h3 {
   height: var(--nav-h);
 }
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font: 600 1.25rem/1 var(--sans);
   letter-spacing: -0.035em;
   text-decoration: none;
+}
+.wordmark img {
+  height: 24px;
+  width: auto;
 }
 .nav-links {
   display: flex;
@@ -1143,7 +1150,19 @@ h3 {
   color: var(--ink-2);
 }
 .foot-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
   padding-block: 28px 36px;
+}
+.foot-inner p {
+  margin: 0;
+}
+/* The full logo, with the horizon dashes. */
+.foot-logo {
+  height: 28px;
+  width: auto;
 }
 .foot a {
   color: var(--ink);

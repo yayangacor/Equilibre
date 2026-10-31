@@ -22,11 +22,19 @@ body.auth-body {
   position: absolute;
   top: 24px;
   left: var(--gutter);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 600;
   font-size: 1.125rem;
   letter-spacing: -0.02em;
   color: var(--ink);
   text-decoration: none;
+}
+
+.auth-wordmark img {
+  height: 22px;
+  width: auto;
 }
 
 .auth {

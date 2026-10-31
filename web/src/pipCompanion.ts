@@ -46,7 +46,8 @@ ${fontFaces()}
 body { margin: 0; height: 100vh; display: flex; flex-direction: column; padding: 12px 14px; gap: 8px;
   overflow: hidden; user-select: none; }
 .head { display: flex; justify-content: space-between; align-items: center; }
-.brand { font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
+.brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
+.brand img { height: 15px; width: auto; }
 .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 10px; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .state { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--rule);
@@ -220,7 +221,12 @@ export class PipCompanion {
 
     const head = make("div", "head");
     const fps = make("span", "mono", "On-device");
-    head.append(make("span", "brand", "Equilibre"), fps);
+    const brand = make("span", "brand", "Equilibre");
+    const mark = make("img");
+    mark.src = new URL("/logo-mark.svg", location.href).href; // absolute: the PiP document has no URL of its own
+    mark.alt = "";
+    brand.prepend(mark);
+    head.append(brand, fps);
 
     const state = make("div", "state");
     const dot = make("span", "dot");

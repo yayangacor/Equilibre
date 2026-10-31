@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <rect width="48" height="48" rx="6" fill="#f3f2ed"/>
-  <circle cx="24" cy="24" r="15" fill="none" stroke="#121518" stroke-width="4"/>
-  <circle cx="24" cy="24" r="7" fill="#1f9d8a"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><!-- Equilibre logo (user, 31 Oct 2026), vectorised from the PNG: Bezier fit to the measured edges, mirrored about the horizon axis. Colours: ink and s-normal tokens in src/design/tokens.css. --><rect width="48" height="48" rx="6" fill="#f3f2ed"/><svg x="7" y="6" width="34" height="36" viewBox="536 240 462 480"><path fill="#121518" d="M536 468 L536 401 C536 360.8 568.2 240 722 240 L991 240 L991 314 Q991 320 985 320 L722 320 C652.7 320 600 368 600 430 C624 398.6 688.2 362.5 768.5 362.5 C805.7 362.5 893.9 367.5 997 480 C893.9 592.5 805.7 597.5 768.5 597.5 C688.2 597.5 624 561.4 600 530 C600 592 652.7 640 722 640 L985 640 Q991 640 991 646 L991 720 L722 720 C568.2 720 536 599.2 536 559 L536 492 L600 492 C642.6 528 690.7 568.5 768.5 568.5 C801.1 568.5 871.9 559.5 946 480 C871.9 400.5 801.1 391.5 768.5 391.5 C690.7 391.5 642.6 432 600 468 Z"/><path fill="#1f9d8a" fill-rule="evenodd" d="M702.5 480.5a65 65 0 1 0 130 0a65 65 0 1 0 -130 0ZM769 457.6a22 22 0 1 0 44 0a22 22 0 1 0 -44 0Z"/></svg></svg>
