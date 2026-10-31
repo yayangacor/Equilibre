@@ -453,6 +453,8 @@ function maybeAutoSend() {
 // ── Local history + what the user tells back ────────────────────────────────────
 
 const panel = new HistoryPanel(EVAL_INTERVAL_MS);
+// A user test shows the sleepiness scale with every label, as its earlier testers saw it (selfReport.ts).
+if (TEST_MODE) byId("kss-panel").dataset.full = "";
 const selfReport = new SelfReport({
   panel,
   session: SESSION,
@@ -515,7 +517,7 @@ panel.onToday = (summary) => {
 function renderToday() {
   const s = todaySummary;
   byId("today-monitored").textContent = s ? formatDuration(monitoredMinutes(s)) : "–";
-  byId("today-breaks").textContent = s ? `${s.jeda.jumlah}×` : "–";
+  byId("today-breaks").textContent = s ? String(s.jeda.jumlah) : "–";
   renderTodayStrip(byId("today-strip"), byId("today-legend"), s);
 }
 
@@ -526,7 +528,8 @@ function renderSinceBreak() {
     return;
   }
   const since = formatDuration(minutesSinceBreak(breakState, performance.now()));
-  sinceBreakValue.textContent = lastCameraBreak === null && !breakMarked ? `${since} (since start)` : since;
+  sinceBreakValue.textContent = since;
+  sinceBreakValue.title = lastCameraBreak === null && !breakMarked ? "No break yet: counted from the start" : "";
 }
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
@@ -1791,8 +1794,7 @@ function maybeAskToCalibrate() {
   if (baselineIsStale(baseline)) {
     calibStale.hidden = false;
     calibStale.textContent =
-      `Your last calibration was ${ageText(baseline.createdAt)}. Light and seating change through the day, so a ` +
-      "fresh one keeps readings accurate. Cancel to keep using the old one.";
+      `Last calibrated ${ageText(baseline.createdAt)}. Start a new one for accurate readings, or cancel to keep it.`;
     showCalibScreen("intro");
   }
 }

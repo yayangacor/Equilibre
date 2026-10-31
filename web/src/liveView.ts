@@ -1,5 +1,6 @@
 import { FaceLandmarker, type NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { EarChart } from "./earChart.ts";
+import { icon } from "./icons.ts";
 import type { EyeState, LiveTile } from "./live.ts";
 
 // Live view on the Insight page (NOTES D-63): the plain camera beside the camera with the face mesh
@@ -49,7 +50,7 @@ export function drawFaceMesh(
 
 export class LiveView {
   readonly chart: EarChart;
-  private readonly tiles = new Map<string, { value: HTMLElement; sub: HTMLElement }>();
+  private readonly tiles = new Map<string, { box: HTMLElement; value: HTMLElement; sub: HTMLElement }>();
   private readonly tileBox: HTMLElement;
   private readonly raw: HTMLVideoElement;
 
@@ -75,16 +76,17 @@ export class LiveView {
         box.dataset.tile = t.key;
         const label = document.createElement("p");
         label.className = "tile-label";
-        label.textContent = t.label;
+        label.append(icon(t.icon), t.label);
         const value = document.createElement("p");
         value.className = "tile-value";
         const sub = document.createElement("p");
         sub.className = "tile-sub";
         box.append(label, value, sub);
         this.tileBox.append(box);
-        tile = { value, sub };
+        tile = { box, value, sub };
         this.tiles.set(t.key, tile);
       }
+      tile.box.title = t.hint; // the baseline's numbers arrive after calibration
       tile.value.textContent = t.value;
       tile.sub.textContent = t.sub;
       if (t.eye) tile.value.dataset.eye = t.eye; // the eye state key the CSS matches, not the shown text

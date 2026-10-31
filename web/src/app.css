@@ -576,10 +576,6 @@ input:focus-visible {
   border-bottom: 1px solid var(--rule);
 }
 
-.readout .live-tiles {
-  margin: 0;
-}
-
 .live-chart-head {
   display: flex;
   flex-wrap: wrap;
@@ -597,24 +593,155 @@ input:focus-visible {
   color: var(--ink-2);
 }
 
-/* Ask Equilibre */
+/* What we see, right now: six tiles in one row on wide screens, icon + label, the number, one short line */
+.readout .live-tiles {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  background: var(--paper-raised);
+}
+
+.readout .live-tiles .tile {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  background: none;
+  cursor: help;
+}
+
+.readout .live-tiles .tile:first-child {
+  border-left: 0;
+}
+
+.readout .live-tiles .tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.readout .live-tiles .tile-label .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-2);
+}
+
+.readout .live-tiles .tile-value {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.readout .live-tiles .tile-sub {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--ink-3);
+}
+
+@media (max-width: 1100px) {
+  .readout .live-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .readout .live-tiles .tile:nth-child(4) {
+    border-left: 0;
+  }
+
+  .readout .live-tiles .tile:nth-child(n + 4) {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 560px) {
+  .readout .live-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .readout .live-tiles .tile:nth-child(even) {
+    border-left: 1px solid var(--rule);
+  }
+
+  .readout .live-tiles .tile:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .readout .live-tiles .tile:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+/* Ask Equilibre: a title, suggestions as a list, one field (after a plain chat panel, user 31 Oct) */
 .ask {
   display: grid;
   gap: 14px;
+  padding: 24px clamp(20px, 3vw, 32px);
+}
+
+.ask-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .ask-title {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: var(--t-h2);
   font-weight: 600;
   letter-spacing: -0.02em;
-  max-width: 28ch;
 }
 
-.ask-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.ask-head .pill {
+  border-color: var(--rule);
+  text-decoration: none;
+}
+
+.ask-list {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+
+.ask-chips {
+  display: contents;
+}
+
+.ask-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 8px 4px 2px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ask-item .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-3);
+}
+
+.ask-item:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--paper-sunk);
+}
+
+.ask-item:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .ask .why {
@@ -627,25 +754,221 @@ input:focus-visible {
 .ask .chat {
   display: grid;
   gap: 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--rule);
+}
+
+.ask .composer {
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  background: var(--paper);
+}
+
+.ask .composer:focus-within {
+  border-color: var(--ink);
+  box-shadow: none;
 }
 
 .ask .composer textarea {
-  border-radius: var(--r);
-  border: 1px solid var(--rule-strong);
-  background: var(--paper);
+  min-height: 36px;
+  padding: 7px 0;
+  border: 0;
+  background: none;
   font: inherit;
+  resize: none;
 }
 
-.chips button,
-.chip {
+.ask .composer textarea:focus-visible {
+  outline: none;
+}
+
+.ask .send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: var(--r);
+  background: var(--ink);
+  color: var(--on-ink);
+  cursor: pointer;
+}
+
+.ask .send:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .fine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
   font-size: 0.75rem;
   color: var(--ink-3);
+}
+
+.fine .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Today: three numbers with their icons, the day as one bar, the break button */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+}
+
+.link::after {
+  content: none;
+}
+
+.link .icon {
+  width: 16px;
+  height: 16px;
+  transition: translate 0.2s var(--ease-out);
+}
+
+.link:hover .icon {
+  translate: 2px 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.stat {
+  display: grid;
+  gap: 4px;
+}
+
+.stat dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.stat dt .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.stat dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sleepiness check: 1–9 in a row; a step's label under it on hover or focus. A user test lists every label. */
+.kss-prompt {
+  margin: 0 0 12px;
+}
+
+.kss .kss-scale {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-rows: none;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.kss .kss-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  justify-content: stretch;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.kss .kss-option:hover,
+.kss .kss-option:focus-visible {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.kss .kss-n {
+  width: auto;
+  height: auto;
+  color: inherit;
+  background: none;
+}
+
+.kss .kss-t {
+  display: none;
+}
+
+.kss-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--ink-3);
+}
+
+.kss-hint {
+  min-height: 1.5em;
+  margin: 8px 0 0;
+  font-weight: 500;
+}
+
+.kss[data-full] .kss-scale {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.kss[data-full] .kss-option {
+  grid-template-columns: 28px minmax(0, 1fr);
+  justify-content: start;
+  justify-items: start;
+  gap: 12px;
+  padding: 6px 12px 6px 6px;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+}
+
+.kss[data-full] .kss-t {
+  display: inline;
+}
+
+.kss[data-full] :is(.kss-ends, .kss-hint) {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .kss[data-full] .kss-scale {
+    grid-auto-flow: column;
+    grid-template-rows: repeat(5, auto);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+abbr.eyebrow {
+  text-decoration: none;
+  cursor: help;
 }
 
 /* ── Insights: the day detail under the new charts ─────────────────────────── */

@@ -24,7 +24,7 @@ export class EarChart {
       li.append(swatch, label);
       return li;
     };
-    legend.replaceChildren(item("line-key", "Average EAR of both eyes"), item("dash-key", "Personal limits from calibration"));
+    legend.replaceChildren(item("line-key", "Both eyes"), item("dash-key", "Your limits"));
   }
 
   push(t: number, ear: number | null) {
@@ -52,8 +52,18 @@ export class EarChart {
     ctx.clearRect(0, 0, width, height);
 
     const color = (name: string) => css.getPropertyValue(name).trim();
+    ctx.font = `11px ${css.fontFamily}`;
+    const refs: [number, string][] = baseline
+      ? [
+          [baseline.earOpen, "open"],
+          [blinkThreshold(baseline), "blink"],
+          [perclosThreshold(baseline), "closed"],
+        ]
+      : [];
+    const refText = ([v, name]: [number, string]) => `${name} ${v.toFixed(2)}`;
     const left = 40;
-    const right = 132; // room for the reference labels
+    // Room for the longest reference label, measured in the chart's font so it never runs off the canvas.
+    const right = Math.ceil(Math.max(24, ...refs.map((r) => ctx.measureText(refText(r)).width))) + 16;
     const top = 8;
     const bottom = 20;
     const plotW = width - left - right;
@@ -63,7 +73,6 @@ export class EarChart {
     const now = samples.at(-1)?.t ?? 0;
     const x = (t: number) => left + plotW - ((now - t) / WINDOW_MS) * plotW;
 
-    ctx.font = `11px ${css.fontFamily}`;
     ctx.textBaseline = "middle";
     ctx.lineWidth = 1;
     for (const v of [0, 0.1, 0.2, 0.3, 0.4, 0.5].filter((v) => v <= maxY)) {
@@ -81,22 +90,18 @@ export class EarChart {
     ctx.textAlign = "right";
     ctx.fillText("now", left + plotW, height - 8);
 
-    if (baseline) {
-      const refs: [number, string][] = [
-        [baseline.earOpen, "open (baseline)"],
-        [blinkThreshold(baseline), "blink limit"],
-        [perclosThreshold(baseline), "closed limit"],
-      ];
+    if (refs.length > 0) {
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = color("--on-surface-variant");
       ctx.textAlign = "left";
-      for (const [v, name] of refs) {
+      for (const ref of refs) {
+        const [v] = ref;
         ctx.beginPath();
         ctx.moveTo(left, y(v));
         ctx.lineTo(left + plotW, y(v));
         ctx.stroke();
         ctx.fillStyle = color("--on-surface-variant");
-        ctx.fillText(`${name} ${v.toFixed(2)}`, left + plotW + 8, y(v));
+        ctx.fillText(refText(ref), left + plotW + 8, y(v));
       }
       ctx.setLineDash([]);
     }

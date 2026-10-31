@@ -20,7 +20,7 @@ import { stateName } from "./stateCopy.ts";
 // reminder every 15 minutes in a user test or when switched on, D-67), and a break the camera missed (D-42).
 // Text goes in via textContent.
 
-const KSS_PROMPT = "How sleepy have you felt in the last 5 min? Pick one.";
+const KSS_PROMPT = "How sleepy were you in the last 5 min?";
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -77,6 +77,10 @@ export class SelfReport {
     byId("break-options").replaceChildren(
       ...MANUAL_BREAK_MINUTES.map((m) => button(`±${m} min`, "btn outline small", () => void this.markBreak(m))),
     );
+    // Nine numbered steps in a row; a step's label shows under the row on hover or focus, and every step carries
+    // it as its accessible name. A user test keeps every label on screen (data-full, set by main.ts), as the
+    // testers before this layout saw it.
+    const hint = byId("kss-hint");
     byId("kss-scale").replaceChildren(
       ...KSS_SCALE.map((step) => {
         const option = button("", "kss-option", () => void this.rate(step.nilai));
@@ -84,9 +88,17 @@ export class SelfReport {
         number.className = "kss-n";
         number.textContent = String(step.nilai);
         const text = document.createElement("span");
+        text.className = "kss-t";
         text.textContent = step.teks;
         option.append(number, text);
+        option.setAttribute("aria-label", `${step.nilai}: ${step.teks}`);
         option.title = step.asli; // the original English label
+        const show = () => (hint.textContent = `${step.nilai} · ${step.teks}`);
+        const hide = () => (hint.textContent = "");
+        option.addEventListener("pointerenter", show);
+        option.addEventListener("focus", show);
+        option.addEventListener("pointerleave", hide);
+        option.addEventListener("blur", hide);
         return option;
       }),
     );
@@ -177,7 +189,7 @@ export class SelfReport {
     if (!this.deps.reminders() || this.kssDueNow || !kssDue(this.lastKss, now)) return;
     this.kssDueNow = true;
     this.kssPanel.dataset.due = "1";
-    this.kssPrompt.textContent = "Time for the sleepiness check (KSS), every 15 min: how sleepy have you felt in the last 5 min?";
+    this.kssPrompt.textContent = "Time for a sleepiness check: how sleepy were you in the last 5 min?";
     this.deps.beep();
   }
 

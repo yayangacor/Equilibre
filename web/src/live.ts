@@ -1,13 +1,14 @@
 import { blinkThreshold, CLOSED_BLINK, type Baseline } from "./calibration.ts";
 import { HEAD_DOWN_DEG, type WindowFeatures } from "./features.ts";
 import { LOCALE } from "./format.ts";
+import type { IconName } from "./icons.ts";
 import type { Label } from "./rules.ts";
 import type { FrameSignal } from "./signals.ts";
 import { stateName } from "./stateCopy.ts";
 import { YAWN_JAW_OPEN, YAWN_MIN_MS } from "./yawn.ts";
 
 // Numbers of the live view on the dashboard (NOTES D-63, D-65), pure so they can be tested: the eye
-// state the mesh is colored by, and the tiles with one line on how to read each. They are the
+// state the mesh is colored by, and the tiles: a label with its icon, the number, and a short line. They are the
 // numbers the rules read (features.ts); nothing here changes a label.
 
 export type EyeState = "terbuka" | "tertutup" | "tidak terlihat";
@@ -23,7 +24,8 @@ export function eyeState(s: FrameSignal, baseline: Baseline | null): EyeState {
 export const yawning = (s: FrameSignal) => s.face && s.jawOpen >= YAWN_JAW_OPEN;
 
 // eye: the eye state behind the "mata" tile, for the CSS data attribute (the value is the English text).
-export type LiveTile = { key: string; label: string; value: string; sub: string; eye?: EyeState };
+// icon: the Material Symbol beside the label; the sub line stays short, the tile's title explains it.
+export type LiveTile = { key: string; label: string; value: string; sub: string; icon: IconName; hint: string; eye?: EyeState };
 
 const EYE_NAME: Record<EyeState, string> = { terbuka: "Open", tertutup: "Closed", "tidak terlihat": "Not seen" };
 
@@ -40,44 +42,59 @@ export function liveTiles(
 ): LiveTile[] {
   const eye = s ? eyeState(s, baseline) : "tidak terlihat";
   const ear = s?.face && Number.isFinite(s.ear) ? fmt3.format(s.ear) : "–";
-  const later = "Appears after calibration.";
+  const later = "After calibration";
+  const last = `Last ${windowSeconds} s`;
   return [
     {
       key: "mata",
-      label: "Eyes now",
+      label: "Eyes",
       value: EYE_NAME[eye],
-      sub: baseline ? `EAR ${ear}; closed below ${fmt3.format(blinkThreshold(baseline))}.` : `EAR ${ear}.`,
+      sub: `EAR ${ear}`,
+      icon: "visibility",
+      hint: baseline
+        ? `Eye openness (EAR). Closed below ${fmt3.format(blinkThreshold(baseline))}, from your calibration.`
+        : "Eye openness (EAR).",
       eye,
     },
     {
       key: "kedip",
-      label: "Blinks per minute",
+      label: "Blinks/min",
       value: f?.kedip_per_menit === null || f?.kedip_per_menit === undefined ? "–" : fmt.format(f.kedip_per_menit),
-      sub: baseline ? `Your normal: ${fmt.format(baseline.blinkPerMin)}; much more often can mean tired eyes.` : later,
+      sub: baseline ? `Normal ${fmt.format(baseline.blinkPerMin)}` : later,
+      icon: "eye_tracking",
+      hint: "Blinking much more often than your normal can mean tired eyes.",
     },
     {
       key: "perclos",
-      label: "Eyes closed (PERCLOS)",
+      label: "Eyes closed",
       value: f ? pct(f.perclos) : "–",
-      sub: f ? `Share of time with eyes closed, last ${windowSeconds} s.` : later,
+      sub: f ? last : later,
+      icon: "visibility_off",
+      hint: `PERCLOS: share of time with the eyes closed, last ${windowSeconds} s.`,
     },
     {
       key: "menguap",
       label: "Yawns",
-      value: f ? `${f.menguap}×` : "–",
-      sub: f ? `Mouth wide open ≥ ${fmt.format(YAWN_MIN_MS / 1000)} s, last ${windowSeconds} s.` : later,
+      value: f ? String(f.menguap) : "–",
+      sub: f ? last : later,
+      icon: "bedtime",
+      hint: `A yawn: mouth wide open for ${fmt.format(YAWN_MIN_MS / 1000)} s or longer.`,
     },
     {
       key: "menunduk",
       label: "Head down",
       value: f ? pct(f.pct_kepala_menunduk) : "–",
-      sub: f ? `Head > ${Math.abs(HEAD_DOWN_DEG)}° below the calibration position.` : later,
+      sub: f ? last : later,
+      icon: "arrow_downward",
+      hint: `Share of time with the head more than ${Math.abs(HEAD_DOWN_DEG)}° below its calibration position.`,
     },
     {
       key: "label",
-      label: "State now",
+      label: "State",
       value: label ? stateName(label) : "–",
-      sub: label ? "Judged every 10 s from the signs above." : "Appears after calibration and the first reading.",
+      sub: label ? "Every 10 s" : later,
+      icon: "monitor_heart",
+      hint: "Judged every 10 s from the signs on the other tiles.",
     },
   ];
 }

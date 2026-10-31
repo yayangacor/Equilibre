@@ -1,9 +1,10 @@
 import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
 import type { DaySummary } from "./history.ts";
+import { icon } from "./icons.ts";
 import type { Label } from "./rules.ts";
 import { PERTANYAAN_MAX, PERTANYAAN_MIN, toTanyaBody, toTanyaView, type TanyaResponse } from "./tanya.ts";
 
-// "Ask Equilibre" page (plan P07, laid out as a conversation in plan P14): a question → POST
+// "Ask Equilibre" (plan P07): suggestions as a list above one field (D-78): a question → POST
 // /api/tanya → IBM Bob answers through the Langflow flows over MCP. Each question is still answered
 // on its own (no multi-turn, NOTES D-08); the thread only keeps this page load's questions in view.
 // Every text from the answer goes in via textContent.
@@ -18,12 +19,7 @@ function el(tag: string, text: string, className?: string): HTMLElement {
 }
 
 // One per flow Bob can pick (ringkasan_harian, cari_panduan), so a first try shows both.
-export const SUGGESTIONS = [
-  "How am I doing today?",
-  "Why was I advised to take a break?",
-  "Why do my eyes feel tired after a long time at the screen?",
-  "What is the 20-20-20 rule?",
-] as const;
+export const SUGGESTIONS = ["How am I doing today?", "What is the 20-20-20 rule?"] as const;
 
 export type TanyaDeps = {
   context: () => { label: Label | null; menitLelah60: number | null }; // the shown label right now
@@ -50,8 +46,9 @@ export class TanyaPanel {
       }
     });
     this.chips = SUGGESTIONS.map((text) => {
-      const chip = el("button", text, "btn chip") as HTMLButtonElement;
+      const chip = el("button", text, "ask-item") as HTMLButtonElement;
       chip.type = "button";
+      chip.prepend(icon("subdirectory_arrow_right"));
       chip.addEventListener("click", () => {
         this.input.value = text;
         void this.ask();

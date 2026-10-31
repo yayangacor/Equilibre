@@ -1740,49 +1740,22 @@ select {
   font-weight: 600;
 }
 
+/* Material Symbols in a ruled circle (app.html): never sent, sent when asked, kept on this device. */
 .flow-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--rule-strong);
   border-radius: 50%;
+  color: var(--ink);
+  background: var(--paper);
 }
 
-.flow-icon::before {
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.flow-icon.never {
-  color: var(--on-st-normal-container);
-  background: var(--st-normal-container);
-}
-
-.flow-icon.never::before {
-  content: "✕";
-}
-
-.flow-icon.sent {
-  color: var(--on-primary-container);
-  background: var(--primary-container);
-}
-
-.flow-icon.sent::before {
-  content: "↑";
-}
-
-.flow-icon.local {
-  color: var(--on-st-pergi-container);
-  background: var(--st-pergi-container);
-}
-
-/* A small device outline: kept on this device. */
-.flow-icon.local::before {
-  content: "";
-  width: 12px;
-  height: 9px;
-  border: 2px solid currentColor;
-  border-radius: 2px;
+.flow-icon .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .steps {

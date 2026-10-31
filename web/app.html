@@ -101,32 +101,17 @@
 
           <p id="long-rest" class="callout danger" role="status" hidden></p>
 
-          <section class="readout" aria-labelledby="h-readout">
-            <div class="readout-head">
-              <h2 id="h-readout" class="eyebrow">What we see, right now</h2>
-              <p class="eyebrow muted">478 face points · ±10×/s · in this browser</p>
-            </div>
-            <div id="live-tiles" class="tiles live-tiles"></div>
-            <div class="live-chart">
-              <div class="live-chart-head">
-                <h3 class="live-chart-title">Eye openness (EAR), last 20 s</h3>
-                <ul id="live-ear-legend" class="legend"></ul>
-              </div>
-              <canvas id="live-ear-chart" class="ear-chart" role="img" aria-label="Eye openness over the last 20 seconds"></canvas>
-            </div>
-          </section>
-
+          <!-- Ask: suggestions as a list, one field to type in (plan P07; layout after a plain chat panel, user 31 Oct). -->
           <section id="ask" class="card ask" aria-labelledby="h-ask">
-            <div class="card-head">
-              <div>
-                <p class="eyebrow">Ask Equilibre</p>
-                <h2 id="h-ask" class="ask-title">Why do I feel like this, and what should I do?</h2>
-              </div>
+            <div class="ask-head">
+              <h2 id="h-ask" class="ask-title">Ask <em class="serif-accent">Equilibre</em>.</h2>
               <a id="auto-pill" class="pill" href="#settings">Auto advice off</a>
             </div>
-            <div class="ask-actions">
-              <button id="ask-why" type="button" class="btn outline">Why this state?</button>
-              <button id="send-status" type="button" class="btn outline" disabled>What should I do?</button>
+
+            <div id="ask-list" class="ask-list" role="group" aria-label="Suggested questions">
+              <button id="ask-why" type="button" class="ask-item"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="m566-120-43-43 162-162H200v-475h60v415h426L524-547l43-43 233 233-234 237Z" /></svg>Why this state?</button>
+              <button id="send-status" type="button" class="ask-item" disabled><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="m566-120-43-43 162-162H200v-475h60v415h426L524-547l43-43 233 233-234 237Z" /></svg>What should I do now?</button>
+              <span id="tanya-chips" class="ask-chips"></span>
             </div>
 
             <details id="why" class="why">
@@ -154,18 +139,29 @@
             </div>
 
             <div id="tanya-panel" class="chat">
-              <div id="tanya-chips" class="chips" aria-label="Example questions"></div>
               <ol id="tanya-thread" class="thread" aria-live="polite"></ol>
               <p id="tanya-status" class="helper" aria-live="polite"></p>
               <div class="composer">
                 <label class="visually-hidden" for="tanya-input">Your question</label>
-                <textarea id="tanya-input" rows="2" placeholder="Ask why you feel this way, or what to do about it…"></textarea>
-                <button id="tanya-send" type="button" class="btn primary">Ask</button>
+                <textarea id="tanya-input" rows="1" placeholder="Ask about your tiredness…"></textarea>
+                <button id="tanya-send" type="button" class="send" aria-label="Ask"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-160v-526L202-438l-42-42 320-320 320 320-42 42-248-248v526h-60Z" /></svg></button>
               </div>
-              <p class="fine">
-                "Why this state?" is answered on this laptop. Advice and questions send only your state, a few numbers and your
-                question text (emails and long numbers masked). Never your video or face.
-              </p>
+              <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Sends your state and your question. Never your video.</p>
+            </div>
+          </section>
+
+          <section class="readout" aria-labelledby="h-readout">
+            <div class="readout-head">
+              <h2 id="h-readout" class="eyebrow">What we see, right now</h2>
+              <p class="eyebrow muted">Read in this browser</p>
+            </div>
+            <div id="live-tiles" class="tiles live-tiles"></div>
+            <div class="live-chart">
+              <div class="live-chart-head">
+                <h3 class="live-chart-title">Eye openness (EAR), last 20 s</h3>
+                <ul id="live-ear-legend" class="legend"></ul>
+              </div>
+              <canvas id="live-ear-chart" class="ear-chart" role="img" aria-label="Eye openness over the last 20 seconds"></canvas>
             </div>
           </section>
 
@@ -173,44 +169,45 @@
             <section class="card today" aria-labelledby="h-today">
               <div class="card-head">
                 <h2 id="h-today">Today</h2>
-                <a class="link" href="#insights">See insights</a>
+                <a class="link" href="#insights">See insights<svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M686-450H160v-60h526L438-758l42-42 320 320-320 320-42-42 248-248Z" /></svg></a>
               </div>
-              <div class="tiles three">
-                <div class="tile">
-                  <p class="tile-label">Since last break</p>
-                  <p id="since-break" class="tile-value">–</p>
+              <dl class="stats">
+                <div class="stat">
+                  <dt><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="m627-287 45-45-159-160v-201h-60v225l174 181ZM480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-82 31.5-155t86-127.5Q252-817 325-848.5T480-880q82 0 155 31.5t127.5 86Q817-708 848.5-635T880-480q0 82-31.5 155t-86 127.5Q708-143 635-111.5T480-80Zm0-400Zm0 340q140 0 240-100t100-240q0-140-100-240T480-820q-140 0-240 100T140-480q0 140 100 240t240 100Z" /></svg>Since last break</dt>
+                  <dd id="since-break">–</dd>
                 </div>
-                <div class="tile">
-                  <p class="tile-label">Watched today</p>
-                  <p id="today-monitored" class="tile-value">–</p>
+                <div class="stat">
+                  <dt><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-200-41Q368-453 368-500t32.5-79.5Q433-612 480-612t79.5 32.5Q592-547 592-500t-32.5 79.5Q527-388 480-388t-79.5-32.5ZM216-283Q98-366 40-500q58-134 176-217t264-83q146 0 264 83t176 217q-58 134-176 217t-264 83q-146 0-264-83Zm264-217Zm222.5 174.5Q804-391 857-500q-53-109-154.5-174.5T480-740q-121 0-222.5 65.5T102-500q54 109 155.5 174.5T480-260q121 0 222.5-65.5Z" /></svg>Watched today</dt>
+                  <dd id="today-monitored">–</dd>
                 </div>
-                <div class="tile">
-                  <p class="tile-label">Breaks today</p>
-                  <p id="today-breaks" class="tile-value">–</p>
+                <div class="stat">
+                  <dt><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M442-242q-116 0-199-80t-83-195v-263q0-25 17.5-42.5T220-840h529q54 0 92.5 37t38.5 91q0 60-37 106t-94 46h-25v43q0 115-83 195t-199 80ZM220-620h444v-160H220v160Zm222 318q91 0 156.5-62T664-517v-43H220v43q0 91 65.5 153T442-302Zm282-318h25q33 0 52-28.5t19-63.5q0-29-21-48.5T749-780h-25v160ZM160-120v-60h640v60H160Zm282-440Z" /></svg>Breaks</dt>
+                  <dd id="today-breaks">–</dd>
                 </div>
-              </div>
+              </dl>
               <div id="today-strip" class="strip" role="img" aria-label="No time at the screen has been assessed today yet."></div>
               <ul id="today-legend" class="legend compact"></ul>
               <div class="inline-action">
-                <button id="break-done" type="button" class="btn outline">I took a break</button>
+                <button id="break-done" type="button" class="btn outline" title="Breaks of 2 minutes or more are counted by themselves.">I took a break</button>
                 <div id="break-choices" class="choices" hidden>
                   <span class="choices-label">About how long?</span>
                   <span id="break-options" class="choice-row"></span>
                   <button id="break-cancel" type="button" class="btn text">Cancel</button>
                 </div>
-                <p id="break-note" class="helper" aria-live="polite">Breaks of 2 minutes or more are counted by themselves.</p>
+                <p id="break-note" class="helper" aria-live="polite"></p>
               </div>
             </section>
 
             <section id="kss-panel" class="card kss" aria-labelledby="h-kss">
               <div class="card-head">
                 <h2 id="h-kss">Sleepiness check</h2>
-                <span class="eyebrow">KSS · 1–9</span>
+                <abbr class="eyebrow" title="Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990; labels: Miley et al., 2016)">KSS</abbr>
               </div>
-              <p id="kss-prompt" class="kss-prompt">How sleepy have you felt in the last 5 minutes? Pick one.</p>
+              <p id="kss-prompt" class="kss-prompt">How sleepy were you in the last 5 min?</p>
               <div id="kss-scale" class="kss-scale" role="group" aria-labelledby="kss-prompt"></div>
+              <div class="kss-ends" aria-hidden="true"><span>Extremely alert</span><span>Fighting sleep</span></div>
+              <p id="kss-hint" class="kss-hint" aria-hidden="true"></p>
               <p id="kss-note" class="helper" aria-live="polite"></p>
-              <p class="fine">Karolinska Sleepiness Scale (Åkerstedt &amp; Gillberg, 1990; labels: Miley et al., 2016).</p>
             </section>
           </div>
         </section>
@@ -314,10 +311,6 @@
                 <h2 id="h-calib">Calibration</h2>
                 <span id="baseline-age" class="eyebrow"></span>
               </div>
-              <ol class="steps">
-                <li>When the countdown ends, close your eyes fully (don't squint) for about 3 seconds, until the long beep.</li>
-                <li>Open your eyes and work as usual for about 5 minutes, in front of the camera.</li>
-              </ol>
               <p id="calib-status" class="calib-status" aria-live="polite"></p>
               <div id="calib-progress" class="bar progress" hidden><span></span></div>
               <button id="calib-button" type="button" class="btn primary" disabled>Start calibration</button>
@@ -359,42 +352,42 @@
               <div class="card-head"><h2 id="h-keluar">What leaves this laptop</h2></div>
               <ul class="data-flow">
                 <li>
-                  <span class="flow-icon never" aria-hidden="true"></span>
+                  <span class="flow-icon never" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M880-275 720-435v111l-60-60v-356H304l-60-60h416q24 0 42 18t18 42v215l160-160v410ZM848-27 39-836l42-42L890-69l-42 42ZM484-560Zm-87 82ZM159-800l60 60h-79v520h520v-79l60 60v19q0 24-18 42t-42 18H140q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h19Z" /></svg></span>
                   <div>
-                    <p class="flow-title">Video and face images: never</p>
+                    <p class="flow-title">Video and face images: never sent</p>
                     <p class="muted">MediaPipe reads the camera in this browser. Only numbers remain, like how long your eyes were closed.</p>
                   </div>
                 </li>
                 <li>
-                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">When you ask for advice → IBM Langflow</p>
+                    <p class="flow-title">Advice requests go to IBM Langflow</p>
                     <p class="muted">Your state, a few numbers from the last minute, and the names of the signs read (e.g. "yawn").</p>
                   </div>
                 </li>
                 <li>
-                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">When you ask a question → IBM Bob and Langflow</p>
+                    <p class="flow-title">Questions go to IBM Bob and Langflow</p>
                     <p class="muted">Your question (emails and long numbers masked), your last state and today's summary numbers.</p>
                   </div>
                 </li>
                 <li>
-                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">Your account → Supabase</p>
+                    <p class="flow-title">Your account is kept by Supabase</p>
                     <p class="muted">Name, email, a password hash (or, with Google, your Google name and picture link), and sign-in times and logs.</p>
                   </div>
                 </li>
                 <li id="flow-uji" hidden>
-                  <span class="flow-icon sent" aria-hidden="true"></span>
+                  <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">User test, after you press Send → the developer's Google Sheet</p>
+                    <p class="flow-title">User test results go to the developer's Google Sheet when you press Send</p>
                     <p class="muted">The history during the test (state and numbers every 10 s, sleepiness checks, corrections, breaks), calibration numbers, browser type, your starting answers and feedback. No video, no name.</p>
                   </div>
                 </li>
                 <li>
-                  <span class="flow-icon local" aria-hidden="true"></span>
+                  <span class="flow-icon local" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" /></svg></span>
                   <div>
                     <p class="flow-title">History, calibration and sleepiness checks: this device only</p>
                     <p class="muted">Kept in this browser for 30 days, separately for each account.</p>
@@ -533,10 +526,10 @@
             <h2 class="cs-title">Let's learn your normal.</h2>
             <p id="calib-stale" class="cs-note" hidden></p>
             <ol class="cs-steps">
-              <li><span class="mono">01</span>Sit as you usually do, face in view.</li>
-              <li><span class="mono">02</span>When the countdown ends, <strong>close your eyes fully</strong>. Don't peek or squint.</li>
-              <li><span class="mono">03</span>Keep them closed until the <strong>beep</strong>.</li>
-              <li><span class="mono">04</span>Open your eyes and work as usual for about 5 minutes.</li>
+              <li><span class="mono">01</span><span>Sit as you usually do. Make sure your face is in view.</span></li>
+              <li><span class="mono">02</span><span>When the countdown ends, <strong>close your eyes fully</strong>.</span></li>
+              <li><span class="mono">03</span><span>Keep them closed until the <strong>beep</strong>.</span></li>
+              <li><span class="mono">04</span><span>Open your eyes and work as usual for 5 minutes.</span></li>
             </ol>
             <div class="cs-actions">
               <button id="calib-go" type="button" class="btn primary cs-go">Start</button>
@@ -561,7 +554,7 @@
           <section class="cs" data-for="progress" hidden>
             <p class="eyebrow">Step 2 of 2</p>
             <h2 class="cs-title">Open your eyes and keep working.</h2>
-            <p class="cs-lead">Work as usual, but stay in front of the camera until calibration is done.</p>
+            <p class="cs-lead">Work as usual and stay in front of the camera.</p>
             <div class="cs-progress">
               <div id="calib-bar" class="cs-bar"><span></span></div>
               <p id="calib-left" class="cs-left mono"></p>
@@ -607,21 +600,21 @@
         <p class="cs-lead">Equilibre reads signs of tiredness from your face, then tells you when to take a break.</p>
         <ul class="data-flow welcome-flow">
           <li>
-            <span class="flow-icon never" aria-hidden="true"></span>
+            <span class="flow-icon never" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M880-275 720-435v111l-60-60v-356H304l-60-60h416q24 0 42 18t18 42v215l160-160v410ZM848-27 39-836l42-42L890-69l-42 42ZM484-560Zm-87 82ZM159-800l60 60h-79v520h520v-79l60 60v19q0 24-18 42t-42 18H140q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h19Z" /></svg></span>
             <div>
               <p class="flow-title">Video never leaves this laptop</p>
               <p class="muted">Your face is read in this browser. Only numbers remain.</p>
             </div>
           </li>
           <li>
-            <span class="flow-icon sent" aria-hidden="true"></span>
+            <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
             <div>
               <p class="flow-title">Data is sent only when you ask</p>
               <p class="muted">Advice: your state and a few numbers. Questions: your question text too.</p>
             </div>
           </li>
           <li>
-            <span class="flow-icon local" aria-hidden="true"></span>
+            <span class="flow-icon local" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" /></svg></span>
             <div>
               <p class="flow-title">History stays on this device</p>
               <p class="muted">Kept in this browser for 30 days.</p>
