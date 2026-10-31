@@ -68,7 +68,7 @@
           class="hero-visual intro"
           style="--i: 2"
           role="img"
-          aria-label="Illustration: a face drawn as tracking points, with readouts for eye openness (EAR 0.29), blinks (15 per minute) and jaw opening (0.06), and the state Normal. When the eyes blink, the EAR readout dips."
+          aria-label="Illustration: a face mesh of lines and points, with readouts for eye openness (EAR 0.29), blinks (15 per minute) and jaw opening (0.06), and the state Normal. When the eyes blink, the EAR readout dips."
         >
           <div class="panel-head"><span>Readout</span><span>Illustration</span></div>
           <div class="hero-stage dotgrid">
@@ -247,34 +247,16 @@
               <figure class="see-panel">
                 <figcaption><strong>What you see:</strong> just your camera.</figcaption>
                 <div class="frame cam">
-                  <svg
-                    class="figure-svg"
-                    viewBox="0 0 400 225"
-                    role="img"
-                    aria-label="Line drawing of a person at a laptop, as the webcam sees them"
-                  >
-                    <path data-sample d="M40,36 H100 V112 H40 Z" />
-                    <path data-sample d="M70,36 V112 M40,74 H100" />
-                    <path data-sample d="M282,62 H372" />
-                    <path data-sample d="M292,62 V42 M300,62 V46 M308,62 V40 M318,62 L328,44" />
-                    <ellipse data-sample cx="200" cy="88" rx="33" ry="42" />
-                    <path data-sample d="M167,84 C163,52 180,36 202,36 C226,36 241,53 234,86" />
-                    <path data-sample d="M171,70 C186,58 214,56 232,68" />
-                    <path data-sample d="M167,84 c-7,-2 -9,11 -1,14 M233,84 c7,-2 9,11 1,14" />
-                    <path data-sample d="M180,78 q8,-4 15,-1 M205,77 q8,-3 15,1" />
-                    <path data-sample d="M181,89 q7,-4 13,0 M206,89 q7,-4 13,0" />
-                    <path data-sample d="M200,93 l-4,15 l7,1" />
-                    <path data-sample d="M190,117 q10,5 20,0" />
-                    <path data-sample d="M188,128 V146 M212,128 V146" />
-                    <path data-sample d="M188,146 L200,162 L212,146" />
-                    <path data-sample d="M188,146 C160,150 132,160 122,182 L118,206" />
-                    <path data-sample d="M212,146 C240,150 268,160 278,182 L282,206" />
-                    <path data-sample d="M24,206 H376" />
-                    <path data-sample d="M318,206 V178 H342 V206 M342,184 c10,0 10,16 0,16" />
-                  </svg>
-                  <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span
-                  ><span class="corner br"></span>
-                  <span class="frame-tag">Camera</span>
+                  <img
+                    class="cam-img"
+                    src="/src/landing/assets/what-you-see-1200.webp"
+                    srcset="/src/landing/assets/what-you-see-640.webp 640w, /src/landing/assets/what-you-see-1200.webp 1200w"
+                    sizes="(max-width: 760px) 92vw, 560px"
+                    width="1657"
+                    height="949"
+                    decoding="async"
+                    alt="Illustration of a smiling person at a desk with a window, a bookshelf and a mug, framed like a webcam picture"
+                  />
                 </div>
               </figure>
               <figure class="see-panel">

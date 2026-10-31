@@ -1,9 +1,11 @@
-// Synthetic face point cloud for the landing page (NOTES D-78). It imitates the shape of MediaPipe's face mesh
-// (478 points: contours, two irises and a fill of surface points) but is generated from a seed: no photo, no camera.
-// Normalized coordinates: x to the right, y down; the face spans about x in [-0.8, 0.8] and y in [-0.98, 1.06].
+// Face model for the landing visuals (NOTES D-78): MediaPipe's canonical face mesh, the 468-vertex surface the face
+// landmarker fits to every face, drawn as a wireframe of lines and points, plus five iris points per eye (478 points,
+// as MediaPipe reports). It is the fixed model that ships inside face_landmarker.task: no photo, no camera.
+// Normalized coordinates: x to the right, y down; the face spans about x in [-0.84, 0.84] and y in [-0.98, 1.06].
+import { CANONICAL_TRIANGLES, CANONICAL_VERTICES } from "./faceMeshData.ts";
 
 export const FACE_POINTS = 478;
-/** The eye aspect ratio (EAR) the open eyes of the synthetic face read as. */
+/** The eye aspect ratio (EAR) the open eyes of the model read as. */
 export const OPEN_EAR = 0.29;
 
 export type PointKind = "outline" | "brow" | "lid" | "iris" | "nose" | "lip" | "fill";
@@ -11,15 +13,17 @@ export type PointKind = "outline" | "brow" | "lid" | "iris" | "nose" | "lip" | "
 export interface FacePoint {
   readonly x: number;
   readonly y: number;
+  /** Depth towards the viewer, centred on the face; used when the head turns (yaw). */
+  readonly z: number;
   readonly kind: PointKind;
   /** How far down the point moves per unit of jaw opening (0 = it does not follow the jaw). */
   readonly jaw: number;
-  /** Upper-lid and iris points: the y they collapse to when the eye closes. */
+  /** Upper-lid, lid-fold and iris points: the y they move to when the eye closes. */
   readonly closeY?: number;
 }
 
 export interface EyeIndices {
-  /** Closed loop of lid points: outer corner, upper lid, other corner, lower lid. */
+  /** Closed loop of lid points: outer corner, upper lid, inner corner, lower lid. */
   readonly loop: readonly number[];
   /** The six landmarks of the EAR formula: corner, upper, upper, corner, lower, lower. */
   readonly ear: readonly [number, number, number, number, number, number];
@@ -29,15 +33,17 @@ export interface EyeIndices {
 
 export interface Face {
   readonly points: readonly FacePoint[];
-  /** Polylines through feature points (closed when the first index is repeated at the end). */
+  /** Feature polylines (closed when the first index is repeated at the end), drawn heavier than the mesh. */
   readonly contours: readonly (readonly number[])[];
-  /** Faint neighbour links that make the fill read as a mesh. */
+  /** Wireframe edges of the surface. */
   readonly mesh: readonly (readonly [number, number])[];
   /** Viewer's left eye (L) and right eye (R). */
   readonly eyeL: EyeIndices;
   readonly eyeR: EyeIndices;
   /** Outer lip loop. */
   readonly mouth: readonly number[];
+  /** Mouth corners, viewer's left then right. */
+  readonly mouthCorners: readonly [number, number];
   /** Mean raw eye aspect of the open eyes, used to scale readings to OPEN_EAR. */
   readonly openAspect: number;
 }
@@ -47,9 +53,11 @@ export interface Pose {
   readonly blink: number;
   /** Jaw opening, on the same 0..1 scale as the "Jaw open" readout. */
   readonly jaw: number;
+  /** Head turn in radians, positive towards the viewer's right. */
+  readonly yaw?: number;
 }
 
-/** Small seeded PRNG (mulberry32), so the face is identical on every load. */
+/** Small seeded PRNG (mulberry32), so the same sequence comes out on every load. */
 export function seeded(seed: number): () => number {
   let s = seed | 0;
   return () => {
@@ -60,167 +68,204 @@ export function seeded(seed: number): () => number {
   };
 }
 
-const EYE_Y = -0.17;
-const EYE_HALF_W = 0.16;
-const LID_UP = 0.085;
-const LID_DOWN = 0.055;
-const MOUTH_Y = 0.5;
+// Landmark indices from MediaPipe's connection lists (FaceLandmarker.FACE_LANDMARKS_*, FACEMESH_NOSE). The viewer's
+// left eye is MediaPipe's RIGHT_EYE: the subject's right is on the left of a camera image. The EAR sixes are the
+// ones the app measures (signals.ts RIGHT_EYE, LEFT_EYE).
+const OVAL = [
+  10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
+  172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109,
+];
+const BROWS = [
+  [46, 53, 52, 65, 55],
+  [70, 63, 105, 66, 107],
+  [276, 283, 282, 295, 285],
+  [300, 293, 334, 296, 336],
+];
+const EYES = {
+  L: {
+    upper: [33, 246, 161, 160, 159, 158, 157, 173, 133],
+    lower: [33, 7, 163, 144, 145, 153, 154, 155, 133],
+    ear: [33, 160, 158, 133, 153, 144],
+    iris: 468,
+  },
+  R: {
+    upper: [263, 466, 388, 387, 386, 385, 384, 398, 362],
+    lower: [263, 249, 390, 373, 374, 380, 381, 382, 362],
+    ear: [362, 385, 387, 263, 373, 380],
+    iris: 473,
+  },
+} as const;
+const LIPS = {
+  outerUpper: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291],
+  outerLower: [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291],
+  innerUpper: [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308],
+  innerLower: [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308],
+};
+const NOSE = [
+  [168, 6, 197, 195, 5, 4, 1, 19, 94, 2],
+  [98, 97, 2, 326, 327],
+  [327, 294, 278, 344, 440, 275, 4, 45, 220, 115, 48, 64, 98],
+];
 
-/** Half-width of the face outline at height y (same shape as the outline loop). */
-function outlineHalfWidth(y: number): number {
-  const s = y >= 0 ? y / 1.06 : y / 0.98;
-  if (Math.abs(s) >= 1) return 0;
-  return 0.8 * Math.sqrt(1 - s * s) * (1 - 0.24 * Math.max(0, s) ** 2);
+/** Above the eyes the head narrows a little and the whole face is stretched slightly: the canonical mesh stops at
+ * mid-forehead with nearly straight sides, and this gives it the egg shape of a classic face wireframe. */
+const TOP_TAPER = 0.2;
+const STRETCH_Y = 1.07;
+/** Normalized face height, top of the forehead to the chin (the old point-cloud face had the same). */
+const HEIGHT = 2.04;
+const TOP = -0.98;
+/** Where a closing upper lid ends, from the corner line (0) to the lower lid (1). */
+const LID_CLOSE = 0.65;
+
+/** y of a polyline at x, by linear interpolation (x clamped to the polyline's ends). */
+function yAlong(chain: readonly { x: number; y: number }[], x: number): number {
+  const pts = [...chain].sort((a, b) => a.x - b.x);
+  if (x <= pts[0].x) return pts[0].y;
+  for (let k = 1; k < pts.length; k++) {
+    if (x <= pts[k].x) {
+      const a = pts[k - 1];
+      const b = pts[k];
+      return a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x || 1);
+    }
+  }
+  return pts[pts.length - 1].y;
 }
 
-export function buildFace(seed = 478): Face {
-  const points: FacePoint[] = [];
-  const contours: number[][] = [];
-  const add = (x: number, y: number, kind: PointKind, jaw = 0, closeY?: number): number => {
-    points.push(closeY === undefined ? { x, y, kind, jaw } : { x, y, kind, jaw, closeY });
-    return points.length - 1;
-  };
+const smoothstep = (a: number, b: number, v: number): number => {
+  const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
-  // Face outline: 36 points, a closed loop from the top of the forehead; the chin follows the jaw a little.
-  const outline: number[] = [];
-  for (let k = 0; k < 36; k++) {
-    const th = -Math.PI / 2 + (k / 36) * Math.PI * 2;
-    const s = Math.sin(th);
-    const down = Math.max(0, s);
-    outline.push(add(0.8 * Math.cos(th) * (1 - 0.24 * down * down), s >= 0 ? 1.06 * s : 0.98 * s, "outline", 0.5 * down ** 4));
+export function buildFace(): Face {
+  // Canonical vertices: y flipped to point down, warped, then scaled so the face is HEIGHT tall with its top at TOP.
+  const raw: [number, number, number][] = [];
+  for (let i = 0; i < CANONICAL_VERTICES.length; i += 3) {
+    const x = CANONICAL_VERTICES[i];
+    const y = -CANONICAL_VERTICES[i + 1];
+    const t = Math.max(0, Math.min(1, (-y - 2) / 6.26));
+    raw.push([x * (1 - TOP_TAPER * t * t), y * STRETCH_Y, CANONICAL_VERTICES[i + 2]]);
   }
-  contours.push([...outline, outline[0]]);
+  const minY = Math.min(...raw.map((p) => p[1]));
+  const maxY = Math.max(...raw.map((p) => p[1]));
+  const meanZ = raw.reduce((a, p) => a + p[2], 0) / raw.length;
+  const k = HEIGHT / (maxY - minY);
+  const xs = raw.map((p) => p[0] * k);
+  const ys = raw.map((p) => (p[1] - minY) * k + TOP);
+  const zs = raw.map((p) => (p[2] - meanZ) * k);
+  const at = (i: number) => ({ x: xs[i], y: ys[i] });
 
-  // Brows: 10 points each, inner end to outer end.
-  for (const side of [-1, 1]) {
-    const brow: number[] = [];
-    for (let k = 0; k < 10; k++) {
-      const u = k / 9;
-      brow.push(add(side * (0.1 + 0.48 * u), -0.4 - 0.07 * Math.sin(Math.PI * u ** 0.8) + 0.04 * u, "brow"));
+  const kind: PointKind[] = raw.map(() => "fill");
+  const mark = (indices: readonly number[], as: PointKind) => indices.forEach((i) => (kind[i] = as));
+  mark(OVAL, "outline");
+  BROWS.forEach((b) => mark(b, "brow"));
+  NOSE.forEach((n) => mark(n, "nose"));
+  mark([...LIPS.outerUpper, ...LIPS.outerLower, ...LIPS.innerUpper, ...LIPS.innerLower], "lip");
+  for (const eye of Object.values(EYES)) mark([...eye.upper, ...eye.lower], "lid");
+
+  const closeY: (number | undefined)[] = raw.map(() => undefined);
+  const iris: { x: number; y: number; z: number; closeY: number }[] = [];
+  for (const eye of [EYES.L, EYES.R]) {
+    const upper = eye.upper.map(at);
+    const lower = eye.lower.map(at);
+    const c0 = upper[0];
+    const c1 = upper[upper.length - 1];
+    const cornerY = (x: number) => c0.y + ((c1.y - c0.y) * (x - c0.x)) / (c1.x - c0.x);
+    const closedY = (x: number) => cornerY(x) + LID_CLOSE * (yAlong(lower, x) - cornerY(x));
+    const cx = (c0.x + c1.x) / 2;
+    const opening = yAlong(lower, cx) - yAlong(upper, cx);
+    for (const i of eye.upper.slice(1, -1)) closeY[i] = closedY(xs[i]);
+    // The skin between the lid and the brow folds down with it, less the further up it sits.
+    const x0 = Math.min(c0.x, c1.x);
+    const x1 = Math.max(c0.x, c1.x);
+    for (let i = 0; i < xs.length; i++) {
+      if (kind[i] !== "fill" || xs[i] <= x0 || xs[i] >= x1) continue;
+      const gap = yAlong(upper, xs[i]) - ys[i];
+      if (gap <= 0 || gap > 2 * opening) continue;
+      closeY[i] = ys[i] + 0.5 * (1 - gap / (2 * opening)) * (closedY(xs[i]) - yAlong(upper, xs[i]));
     }
-    contours.push(brow);
-  }
-
-  // Eyes: 16 lid points and 5 iris points each (MediaPipe also has 5 iris points per eye).
-  const eye = (side: -1 | 1): EyeIndices => {
-    const cx = side * 0.33;
-    const lower = (t: number) => EYE_Y + LID_DOWN * (1 - t * t);
-    const closed = (t: number) => EYE_Y + LID_DOWN * (1 - t * t) * 0.55;
-    const ts = [-0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75];
-    const c0 = add(cx - EYE_HALF_W, EYE_Y, "lid");
-    const upper = ts.map((t) => add(cx + EYE_HALF_W * t, EYE_Y - LID_UP * (1 - t * t), "lid", 0, closed(t)));
-    const c1 = add(cx + EYE_HALF_W, EYE_Y, "lid");
-    const low = ts.map((t) => add(cx + EYE_HALF_W * t, lower(t), "lid"));
-    const loop = [c0, ...upper, c1, ...[...low].reverse(), c0];
-    contours.push(loop);
-    const r = 0.042;
-    const irisAt = (dx: number, dy: number) => {
-      const t = dx / EYE_HALF_W;
-      return add(cx + dx, EYE_Y - 0.01 + dy, "iris", 0, closed(t));
-    };
-    const iris = [irisAt(0, 0), irisAt(0, -r), irisAt(r, 0), irisAt(0, r), irisAt(-r, 0)];
-    return { loop, ear: [c0, upper[1], upper[5], c1, low[5], low[1]], iris };
-  };
-  const eyeL = eye(-1);
-  const eyeR = eye(1);
-
-  // Nose: a bridge of 7 points and a base of 11 (wing, tip, wing).
-  const bridge: number[] = [];
-  for (let k = 0; k < 7; k++) bridge.push(add(0, -0.2 + (0.34 * k) / 6, "nose"));
-  contours.push(bridge);
-  const base: number[] = [add(-0.16, 0.13, "nose")];
-  for (let k = 0; k < 9; k++) {
-    const u = -1 + (2 * k) / 8;
-    base.push(add(0.13 * u, 0.19 + 0.07 * (1 - u * u), "nose"));
-  }
-  base.push(add(0.16, 0.13, "nose"));
-  contours.push(base);
-
-  // Lips: outer upper 13 (corner to corner), outer lower 11, inner upper 9, inner lower 7.
-  const outerUpper: number[] = [];
-  for (let k = 0; k < 13; k++) {
-    const u = -1 + (2 * k) / 12;
-    const bow = 1 - 0.45 * Math.exp(-((u / 0.16) ** 2));
-    outerUpper.push(add(0.25 * u, MOUTH_Y - 0.07 * (1 - u * u) * bow, "lip", 0.05));
-  }
-  const outerLower: number[] = [];
-  for (let k = 0; k < 11; k++) {
-    const u = 5 / 6 - (k * 10) / 66;
-    outerLower.push(add(0.25 * u, MOUTH_Y + 0.09 * (1 - u * u), "lip", 0.6 * (1 - u * u) + 0.1));
-  }
-  const mouth = [...outerUpper, ...outerLower, outerUpper[0]];
-  contours.push(mouth);
-  const innerUpper: number[] = [];
-  for (let k = 0; k < 9; k++) {
-    const u = -1 + (2 * k) / 8;
-    innerUpper.push(add(0.2 * u, MOUTH_Y - 0.012 * (1 - u * u), "lip", 0.05));
-  }
-  const innerLower: number[] = [];
-  for (let k = 0; k < 7; k++) {
-    const u = 0.75 - (k * 1.5) / 6;
-    innerLower.push(add(0.2 * u, MOUTH_Y + 0.012 * (1 - u * u), "lip", 0.6 * (1 - u * u) + 0.1));
-  }
-  contours.push([...innerUpper, ...innerLower, innerUpper[0]]);
-
-  // Fill: the remaining points spread over the face surface (random sequential addition with a minimum gap).
-  const rand = seeded(seed);
-  const features = points.length;
-  let minGap = 0.058;
-  let attempts = 0;
-  while (points.length < FACE_POINTS) {
-    if (++attempts > 6000) {
-      minGap *= 0.94;
-      attempts = 0;
-    }
-    const x = (rand() * 2 - 1) * 0.8;
-    const y = -0.98 + rand() * 2.04;
-    if (Math.abs(x) > 0.92 * outlineHalfWidth(y)) continue;
-    const inEye = (cx: number) => ((x - cx) / 0.23) ** 2 + ((y - EYE_Y) / 0.13) ** 2 < 1;
-    if (inEye(-0.33) || inEye(0.33)) continue;
-    if (Math.abs(x) < 0.27 && Math.abs(y - MOUTH_Y) < 0.11) continue;
-    let ok = true;
-    for (let i = 0; i < points.length; i++) {
-      const p = points[i];
-      const gap = i < features ? 0.045 : minGap;
-      if ((p.x - x) ** 2 + (p.y - y) ** 2 < gap * gap) {
-        ok = false;
-        break;
-      }
-    }
-    if (!ok) continue;
-    const below = Math.max(0, Math.min(1, (y - 0.58) / 0.3));
-    add(x, y, "fill", 0.35 * below);
-  }
-
-  // Mesh: every point links to its three nearest neighbours that are close enough.
-  const seen = new Set<number>();
-  const mesh: [number, number][] = [];
-  for (let i = 0; i < points.length; i++) {
-    const near = points
-      .map((p, j) => [j, (p.x - points[i].x) ** 2 + (p.y - points[i].y) ** 2] as const)
-      .filter(([j, d]) => j !== i && d < 0.15 * 0.15)
-      .sort((a, b) => a[1] - b[1])
-      .slice(0, 3);
-    for (const [j] of near) {
-      const key = Math.min(i, j) * 1000 + Math.max(i, j);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      mesh.push([Math.min(i, j), Math.max(i, j)]);
+    // Iris: centred in the opening, as wide as fits inside it.
+    const cy = (yAlong(upper, cx) + yAlong(lower, cx)) / 2;
+    const r = Math.min(0.15 * Math.abs(c1.x - c0.x), 0.85 * (opening / 2));
+    const z = eye.upper.reduce((a, i) => a + zs[i], 0) / eye.upper.length;
+    for (const [dx, dy] of [[0, 0], [0, -r], [r, 0], [0, r], [-r, 0]]) {
+      iris.push({ x: cx + dx, y: cy + dy, z, closeY: closedY(cx + dx) });
     }
   }
+
+  // Jaw: below the line where the lips meet, the lower lip, chin and jaw move down together, less towards the
+  // ears; outside the mouth the boundary runs from the mouth corners down to the jaw angles. The upper lip stays.
+  const upperLip = new Set([...LIPS.outerUpper, ...LIPS.innerUpper]);
+  const corners = new Set([61, 291, 78, 308]);
+  const meet = LIPS.innerUpper.map((i, n) => ({ x: xs[i], y: (ys[i] + ys[LIPS.innerLower[n]]) / 2 }));
+  const mouthHalf = xs[291];
+  const cornerLevel = ys[291];
+  const jawAngle = { x: Math.abs(xs[288]), y: ys[288] };
+  const halfWidth = Math.max(...xs);
+  const jaw = xs.map((x, i) => {
+    const reach = 0.6 * (1 - 0.6 * (x / halfWidth) ** 2);
+    if (corners.has(i)) return 0.25 * reach;
+    if (upperLip.has(i)) return 0;
+    const ax = Math.abs(x);
+    if (ax <= mouthHalf) return ys[i] > yAlong(meet, x) ? reach : 0;
+    const edge = cornerLevel + ((ax - mouthHalf) * (jawAngle.y - cornerLevel)) / (jawAngle.x - mouthHalf);
+    return reach * smoothstep(edge - 0.01, edge + 0.08, ys[i]);
+  });
+
+  const points: FacePoint[] = xs.map((x, i) => {
+    const base = { x, y: ys[i], z: zs[i], kind: kind[i], jaw: jaw[i] };
+    return closeY[i] === undefined ? base : { ...base, closeY: closeY[i] };
+  });
+  for (const p of iris) points.push({ ...p, kind: "iris", jaw: 0 });
+
+  // Wireframe: the triangle edges, minus each diagonal that is the longest edge of both triangles sharing it.
+  // What is left is mostly quads that follow the face's edge loops (around the eyes, nose and mouth).
+  const len = (a: number, b: number) => Math.hypot(xs[a] - xs[b], ys[a] - ys[b], zs[a] - zs[b]);
+  const key = (a: number, b: number) => (a < b ? a * 1024 + b : b * 1024 + a);
+  const longestIn = new Map<number, number>();
+  const edges = new Map<number, [number, number]>();
+  for (let t = 0; t < CANONICAL_TRIANGLES.length; t += 3) {
+    const [a, b, c] = CANONICAL_TRIANGLES.slice(t, t + 3);
+    const sides: [number, number][] = [[a, b], [b, c], [c, a]];
+    for (const [p, q] of sides) edges.set(key(p, q), p < q ? [p, q] : [q, p]);
+    const [p, q] = sides.reduce((m, s) => (len(s[0], s[1]) > len(m[0], m[1]) ? s : m));
+    longestIn.set(key(p, q), (longestIn.get(key(p, q)) ?? 0) + 1);
+  }
+  const mesh = [...edges].filter(([k]) => longestIn.get(k) !== 2).map(([, e]) => e);
+
+  const loop = (eye: (typeof EYES)["L" | "R"]) => [...eye.upper, ...[...eye.lower].reverse().slice(1)];
+  const eyeOf = (eye: (typeof EYES)["L" | "R"]): EyeIndices => ({
+    loop: loop(eye),
+    ear: eye.ear,
+    iris: [0, 1, 2, 3, 4].map((n) => eye.iris + n),
+  });
+  const eyeL = eyeOf(EYES.L);
+  const eyeR = eyeOf(EYES.R);
+  const mouth = [...LIPS.outerUpper, ...[...LIPS.outerLower].reverse().slice(1)];
+  const contours = [
+    [...OVAL, OVAL[0]],
+    ...BROWS,
+    eyeL.loop,
+    eyeR.loop,
+    mouth,
+    [...LIPS.innerUpper, ...[...LIPS.innerLower].reverse().slice(1)],
+    ...NOSE,
+  ];
 
   const neutral = posePoints(points, { blink: 0, jaw: 0 }, new Float32Array(points.length * 2));
   const openAspect = (rawAspect(neutral, eyeL.ear) + rawAspect(neutral, eyeR.ear)) / 2;
-  return { points, contours, mesh, eyeL, eyeR, mouth, openAspect };
+  return { points, contours, mesh, eyeL, eyeR, mouth, mouthCorners: [61, 291], openAspect };
 }
 
 /** Writes the posed x, y of every point into `out` (x0, y0, x1, y1, ...) and returns it. */
 export function posePoints(points: readonly FacePoint[], pose: Pose, out: Float32Array): Float32Array {
+  const yaw = pose.yaw ?? 0;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
     let y = p.y;
     if (p.closeY !== undefined) y += (p.closeY - p.y) * pose.blink;
-    out[2 * i] = p.x;
+    out[2 * i] = p.x * cos + p.z * sin;
     out[2 * i + 1] = y + p.jaw * pose.jaw;
   }
   return out;
@@ -238,7 +283,7 @@ export function earReading(face: Face, pos: Float32Array, eye: EyeIndices): numb
 }
 
 let shared: Face | undefined;
-/** One face for the whole page (the hero and the "Watch" step draw the same one). */
+/** One face for the whole page (the hero, the "Watch" step and "What we see" draw the same one). */
 export function sharedFace(): Face {
   shared ??= buildFace();
   return shared;

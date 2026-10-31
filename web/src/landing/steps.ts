@@ -1,7 +1,7 @@
-// The four "How it works" mini visuals: a baseline band forming, points flowing into a face, a state chip
+// The four "How it works" mini visuals: a baseline band forming, points flowing into a face mesh, a state chip
 // changing every cycle, and advice cards with their sources sliding in. Loops run only while the visual is on screen.
 import { posePoints, seeded, sharedFace } from "./faceModel.ts";
-import { clamp01, drawFace, fitCanvas, formatReading, palette, project, type Fitted } from "./draw.ts";
+import { CONTOUR_ALPHA, MESH_ALPHA, clamp01, drawFace, fitCanvas, formatReading, palette, project, type Fitted } from "./draw.ts";
 import { CONDITIONS, gsap, ScrollTrigger, type Conditions } from "./gsap.ts";
 
 /** A calibration trace: eyes closed for a moment (low EAR), then a normal level with a few blinks. */
@@ -67,6 +67,7 @@ function watch(vis: HTMLElement, motion: boolean): void {
   const jitter = Array.from({ length: n }, () => [rand(), rand(), rand()] as const);
   const colors = palette();
   const state = { p: motion ? 0 : 1, scan: -1 };
+  const land = new Float32Array(n);
   let fitted: Fitted | null = null;
 
   const draw = () => {
@@ -75,24 +76,28 @@ function watch(vis: HTMLElement, motion: boolean): void {
     const s = Math.min(w / 2.2, h / 2.5);
     project(pos, { cx: w * 0.5, cy: h * 0.5, s }, px);
     ctx.clearRect(0, 0, w, h);
-    const settled = clamp01((state.p - 0.85) / 0.15);
-    drawFace(ctx, face, px, { ink: colors.ink, mesh: 0.08 * settled, contour: 0.3 * settled, pointAlpha: () => 0 });
-    const scanY = state.scan >= 0 ? (h * 0.5 - s * 1.1) + state.scan * s * 2.25 : -1e4;
-    ctx.fillStyle = colors.ink;
     const minX = w * 0.5 - s * 0.8;
     for (let i = 0; i < n; i++) {
-      const [r1, r2, r3] = jitter[i];
+      const delay = 0.55 * clamp01((px[2 * i] - minX) / (s * 1.6)) + 0.1 * jitter[i][2];
+      land[i] = clamp01((state.p - delay) / 0.35);
+    }
+    // The mesh lines join two points once both have arrived.
+    drawFace(ctx, face, px, { ink: colors.ink, reveal: (i) => land[i] ** 3, mesh: MESH_ALPHA * 0.8, contour: CONTOUR_ALPHA, dots: 0, dot: 0.9 });
+    const scanY = state.scan >= 0 ? (h * 0.5 - s * 1.1) + state.scan * s * 2.25 : -1e4;
+    ctx.fillStyle = colors.ink;
+    for (let i = 0; i < n; i++) {
+      const [r1, r2] = jitter[i];
       const tx = px[2 * i];
       const ty = px[2 * i + 1];
-      const delay = 0.55 * clamp01((tx - minX) / (s * 1.6)) + 0.1 * r3;
-      const t = clamp01((state.p - delay) / 0.35);
+      const t = land[i];
       const e = 1 - (1 - t) ** 3;
       const sx = -12 - r1 * 30;
       const sy = ty + (r2 - 0.5) * 50;
       const near = Math.max(0, 1 - Math.abs(ty - scanY) / 10);
-      ctx.globalAlpha = t <= 0 ? 0 : (face.points[i].kind === "fill" ? 0.5 : 0.9) + 0.4 * near;
+      const fill = face.points[i].kind === "fill";
+      ctx.globalAlpha = t <= 0 ? 0 : (fill ? 0.5 : 0.9) + 0.4 * near;
       ctx.beginPath();
-      ctx.arc(sx + (tx - sx) * e, sy + (ty - sy) * e, 1 + 0.9 * near, 0, Math.PI * 2);
+      ctx.arc(sx + (tx - sx) * e, sy + (ty - sy) * e, (fill ? 0.7 : 0.9) + 0.9 * near, 0, Math.PI * 2);
       ctx.fill();
     }
     if (state.scan >= 0) {

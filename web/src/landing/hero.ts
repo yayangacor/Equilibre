@@ -1,8 +1,8 @@
-// Hero readout: a synthetic face drawn as tracking points, with three annotated readouts and an EAR trace.
+// Hero readout: MediaPipe's face mesh drawn as a wireframe, with three annotated readouts and an EAR trace.
 // The eyes blink every 3–5 s (about 15 a minute) and the EAR readout and trace dip with them, computed from the
-// drawn lid points. Nothing here touches the camera.
+// drawn lid points; the head turns a little from side to side. Nothing here touches the camera.
 import { OPEN_EAR, earReading, posePoints, seeded, sharedFace } from "./faceModel.ts";
-import { clamp01, drawFace, fitCanvas, formatReading, palette, project, type Fitted } from "./draw.ts";
+import { CONTOUR_ALPHA, MESH_ALPHA, clamp01, drawFace, fitCanvas, formatReading, palette, project, type Fitted } from "./draw.ts";
 import { prefersReducedMotion } from "./gsap.ts";
 
 const BLINK_MS = 280;
@@ -47,7 +47,7 @@ export function initHero(root: HTMLElement): void {
   const anchorOf: Record<ReadoutName, number> = {
     ear: face.eyeL.loop[0],
     blinks: face.eyeR.ear[2],
-    jaw: face.mouth[12],
+    jaw: face.mouthCorners[1],
   };
 
   let fitted: Fitted | null = null;
@@ -81,7 +81,7 @@ export function initHero(root: HTMLElement): void {
     }
     const blink = reduced ? 0 : blinkCurve((t - blinkStart) / BLINK_MS);
     const jaw = reduced ? 0.06 : 0.06 + 0.012 * Math.sin(t / 5200);
-    posePoints(face.points, { blink, jaw }, pos);
+    posePoints(face.points, { blink, jaw, yaw: reduced ? 0 : 0.12 * Math.sin(t / 5600) }, pos);
     const s = Math.min(w * (w > 460 ? 0.28 : 0.25), (h * 0.72) / 2.3);
     const still = reduced ? 0 : 1;
     project(pos, { cx: w / 2 + 3 * Math.sin(t / 4300) * still, cy: h * 0.41 + 2 * Math.sin(t / 3700) * still, s, rot: 0.012 * Math.sin(t / 3100) * still }, px);
@@ -153,13 +153,13 @@ export function initHero(root: HTMLElement): void {
     }
     ctx.globalAlpha = 1;
 
-    // The face, assembling from the centre outwards on load.
+    // The face, weaving itself from the centre outwards on load.
     drawFace(ctx, face, px, {
       ink: colors.ink,
-      pointAlpha: (i) => clamp01((intro - introDelay[i]) / 0.35),
-      mesh: 0.09 * clamp01((intro - 0.5) / 0.6),
-      contour: 0.36 * clamp01((intro - 0.4) / 0.6),
-      dot: Math.max(1, s / 110),
+      reveal: (i) => clamp01((intro - introDelay[i]) / 0.35),
+      mesh: MESH_ALPHA,
+      contour: CONTOUR_ALPHA,
+      dot: Math.max(0.9, s / 120),
     });
 
     // Leader lines from each landmark to its readout.
