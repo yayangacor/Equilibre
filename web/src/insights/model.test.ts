@@ -206,16 +206,17 @@ describe("heatmap and daily totals", () => {
     EVAL_MS,
   );
 
-  it("shares the tired minutes of the time at the screen, hours contiguous", () => {
+  it("shares the tired minutes of the time at the screen, hours contiguous over at least 8–17", () => {
     const hm = buildHeatmap(slice);
-    expect(hm.hours).toEqual([9, 10, 11, 12, 13, 14]);
+    expect(hm.hours).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     expect(hm.rows.map((r) => r.day)).toEqual(["2026-10-27", "2026-10-28", "2026-10-29"]);
-    const cell = hm.rows[0].cells[5];
+    const cell = hm.rows[0].cells[6];
     expect(cell.share).toBeCloseTo(0.25); // 10 tired of 40 at the screen; the 20 away are left out
     expect(cell.away).toBeCloseTo(20);
     expect(cell.bin).toBe(3);
     expect(hm.rows[1].cells.every((c) => c.share === null)).toBe(true); // a day with no data is empty, not 0%
-    expect(hm.rows[2].cells[0].bin).toBe(0);
+    expect(hm.rows[2].cells[1].bin).toBe(0); // 09:00
+    expect(hm.rows[2].cells[0].share).toBeNull(); // 08:00, only padding
   });
 
   it("bins shares into the legend steps", () => {
@@ -273,7 +274,7 @@ describe("negative control: Away and not-judged time never count as tired", () =
     expect(ids).not.toContain("timeOfDay");
     expect(ids).not.toContain("heaviestDay");
     expect(stepText(steps.find((s) => s.id === "share")!)).toBe(
-      "Most of your screen time — 100% — was Normal. Another 2 h 00 min was time away from the screen.",
+      "Normal for most of your screen time: 100%. Another 2 h 00 min was time away from the screen.",
     );
   });
 });
@@ -311,14 +312,14 @@ describe("essay", () => {
       "In the last 7 days, Equilibre watched 14 h 48 min of your time, on 4 days. " +
         "Each bubble is a 15-minute stretch; the more of it was read, the bigger the bubble.",
     );
-    expect(text("share")).toBe("Most of your screen time — 86% — was Normal. Mildly tired 9% and Tired 5% made up the rest.");
+    expect(text("share")).toBe("Normal for most of your screen time: 86%. Mildly tired 9% and Tired 5% made up the rest.");
     expect(text("timeOfDay")).toBe(
       "Tired moments show up most in the afternoon (14:00–17:00): 44% of your screen time then, 2 h 08 min in all. " +
         "In the morning there were none.",
     );
     expect(text("heaviestDay")).toBe("Your heaviest day was Tuesday 27 Oct, with 30 min Tired or Asleep. The other days averaged 6 min.");
     expect(text("breaks")).toBe("You took 8 breaks, about 1 h 30 min apart on average.");
-    expect(text("closing")).toBe("This is a pattern, not a diagnosis. It was computed on this device from 4 days of your own readings.");
+    expect(text("closing")).toBe("Computed on this device from 4 days of your own readings. It is not a medical diagnosis.");
   });
 
   it("marks numbers in the color of their state", () => {
@@ -337,7 +338,7 @@ describe("essay", () => {
     expect(stepText(few[0])).toBe(
       "Today, Equilibre has watched 20 min of your time so far. Each bubble is a 15-minute stretch; the more of it was read, the bigger the bubble.",
     );
-    expect(stepText(few[1])).toBe("Most of your screen time — 75% — was Normal. Tired 25% was the rest.");
+    expect(stepText(few[1])).toBe("Normal for most of your screen time: 75%. Tired 25% was the rest.");
   });
 
   it("says plainly when no break was seen after an hour at the screen", () => {

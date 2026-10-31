@@ -178,7 +178,7 @@
   }
   .ins-essay {
     grid-area: essay;
-    padding: 22vh 0 36vh;
+    padding: 12vh 0 28vh;
   }
 }
 
@@ -197,7 +197,7 @@
 }
 
 .ins-step + .ins-step {
-  margin-top: 46vh;
+  margin-top: 30vh;
 }
 
 .ins-step.is-active {

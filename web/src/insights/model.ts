@@ -356,6 +356,8 @@ export function chartDays(slice: RangeSlice): string[] {
   return first === -1 ? [] : slice.days.slice(first);
 }
 
+const HEAT_DAY = { from: 8, to: 17 }; // hours always on the heatmap's axis
+
 export function buildHeatmap(slice: RangeSlice): Heatmap {
   if (slice.judged.length === 0) return { hours: [], rows: [] };
   const cells = new Map<string, HeatCell>();
@@ -374,6 +376,9 @@ export function buildHeatmap(slice: RangeSlice): Heatmap {
       if (FATIGUE.includes(r.label)) c.fatigue += slice.each;
     }
   }
+  // At least an office day, so a few hours of data still read as a time of day instead of filling the width.
+  lo = Math.min(lo, HEAT_DAY.from);
+  hi = Math.max(hi, HEAT_DAY.to);
   const hours = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
   return {
     hours,
@@ -525,7 +530,7 @@ export function essaySteps(f: EssayFacts): EssayStep[] {
     const [top, ...rest] = shares;
     const spans: Span[] =
       top.share >= 0.5
-        ? ["Most of your screen time — ", n(formatShare(top.share), top.l), ` — was ${STATE_NAME[top.l]}.`]
+        ? [`${STATE_NAME[top.l]} for most of your screen time: `, n(formatShare(top.share), top.l), "."]
         : ["The biggest share of your screen time, ", n(formatShare(top.share), top.l), `, was ${STATE_NAME[top.l]}.`];
     if (rest.length > 0) {
       const items = rest.map((s) => [`${STATE_NAME[s.l]} `, n(formatShare(s.share), s.l)]);
@@ -606,9 +611,9 @@ export function essaySteps(f: EssayFacts): EssayStep[] {
     mode: "state",
     highlight: null,
     spans: [
-      "This is a pattern, not a diagnosis. It was computed on this device from ",
+      "Computed on this device from ",
       n(plural(f.daysWithData, "day", "days")),
-      " of your own readings.",
+      " of your own readings. It is not a medical diagnosis.",
     ],
   });
   return steps;

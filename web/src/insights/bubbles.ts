@@ -31,7 +31,7 @@ type Layout = { pos: Float64Array; clusters: ClusterGeom[] };
 const LABEL_H = 34; // room above a cluster for its two label lines
 const PAD = 6;
 const DENSITY = 0.6; // share of a cluster circle the bubbles fill once collided
-const MAX_R = 30; // a full block never draws bigger than this
+const MAX_R_SHARE = 0.2; // a full block never draws bigger than this share of the stage's shorter side
 const MIN_R = 1.5;
 const TICKS = 160;
 const DURATION = 900;
@@ -100,8 +100,9 @@ export function createBubbles(): BubbleChart {
   const canAnimate = () => visible && onScreen && !document.hidden && !reducedMotion();
 
   // ── Geometry ──
+  // As big as every mode's cells allow, so a few hours of data fill the stage instead of sitting small in its middle.
   function scaleK(): number {
-    let k = MAX_R / Math.sqrt(blockSize);
+    let k = (MAX_R_SHARE * Math.min(W, H)) / Math.sqrt(blockSize);
     for (const m of GROUP_MODES) {
       const clusters = groupBlocks(blocks, m.key);
       const cells = clusterCells(clusters.length, W, H);
