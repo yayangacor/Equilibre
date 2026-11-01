@@ -1,0 +1,56 @@
+{
+  "model": "mistralai/mistral-small-3-1-24b-instruct-2503",
+  "waktu_utc": "2026-11-01T05:30:44.752Z",
+  "prompt_sha256": "c0fd4ec73d02",
+  "dipanggil": 1,
+  "berhasil": 1,
+  "hasil": [
+    {
+      "id": "S22",
+      "judul": "lelah ringan dari pola kedip saja (?label=gabungan, D-72)",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 200,
+      "latency_ms": 10865,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "success",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.4396307170391083
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.45329952239990234
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.46671193838119507
+        }
+      ],
+      "usage": {
+        "input_tokens": 2530,
+        "output_tokens": 91,
+        "total_tokens": 2621
+      },
+      "error": null,
+      "teks": "```json\n{\n  \"rekomendasi\": \"Ayo istirahat 5 menit dengan melihat benda jauh dan peregangan.\",\n  \"alasan\": \"Pola kedipanmu mirip orang mengantuk.\",\n  \"sumber\": [\"permenkes-48-2016-k3-perkantoran.md\", \"aao-20-20-20.md\"]\n}\n```",
+      "cek": {
+        "json": true,
+        "dibungkus_fence": true,
+        "format_lengkap": true,
+        "field_lain": [],
+        "sumber_di_luar_kb": [],
+        "sumber_di_luar_konteks": [],
+        "kalimat_rekomendasi": 1,
+        "kalimat_alasan": 1,
+        "menyebut_durasi": true,
+        "pola_dilarang": []
+      },
+      "wajib": [
+        "alasan menyebut pola kedipan yang mirip orang mengantuk (dari tanda), tanpa angka skor",
+        "tidak mengarang tanda lain seperti menguap atau mata sering tertutup"
+      ]
+    }
+  ]
+}
