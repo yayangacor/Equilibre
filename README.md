@@ -13,8 +13,8 @@ dibayar perusahaan sebagai program kesejahteraan dan K3: pekerja memilih sendiri
 perusahaan hanya melihat ringkasan kelompok minimal 10 orang. Yang sudah dibangun adalah app untuk pekerja; ringkasan untuk
 perusahaan masih rencana (lihat "Langkah lanjut").
 
-> Status: prototipe untuk IBM × Hacktiv8 National Hackathon 2026. Demo online (frontend saja): https://equilibre-orcin.vercel.app;
-> versi lengkap dengan Langflow dan IBM Bob berjalan lokal.
+> Status: prototipe untuk IBM × Hacktiv8 National Hackathon 2026. Demo online: https://equilibre-orcin.vercel.app; saran Langflow
+> dan Ask Equilibre (IBM Bob) di demo itu dilayani laptop pengembang lewat tunnel, jadi hanya aktif saat laptop menyala.
 > Equilibre memberikan **indikator risiko**, bukan diagnosis medis.
 
 ## Arsitektur
@@ -289,9 +289,25 @@ Parameter URL untuk pengembangan dan uji coba:
 | `?kamera=0` | halaman tanpa kamera dan model (pemeriksaan otomatis, tangkapan layar riwayat) |
 | `?label=gabungan` | label dari rules + skor pola kedip (dalam uji): skor ≥ 71% menaikkan `normal` ke `lelah ringan`, tanda `pola_kedip` ikut terkirim; butuh baseline dengan data kedipan |
 
-**Demo online (frontend saja).** `cd web && npm run build:demo` menghasilkan `web/dist/` untuk hosting statis tanpa backend.
-Deteksi, riwayat, Insights, akun, dan jendela PiP sama persis dengan versi lokal karena semuanya berjalan di browser. Saran Langflow dan
-Ask Equilibre (Bob) dinonaktifkan dengan keterangan, karena keduanya butuh backend, Langflow, dan Bob Shell yang berjalan lokal.
+**Demo online.** `cd web && npm run build:demo` menghasilkan `web/dist/` untuk Vercel. Deteksi, riwayat, Insights, akun, dan jendela
+PiP sama persis dengan versi lokal karena semuanya berjalan di browser. Saran Langflow dan Ask Equilibre (Bob) butuh backend, Langflow,
+dan Bob Shell, yang tetap berjalan di laptop pengembang:
+
+```
+browser → Vercel Function web/api/proxy.ts → tunnel ngrok (domain tetap) → server :8788 (pintu demo) → Langflow / Bob
+```
+
+- Fungsi Vercel menambahkan rahasia bersama (`BACKEND_SECRET` di Vercel = `PROXY_SECRET` di `.env`) dan hash pengunjung. Kunci Langflow,
+  watsonx, Gemini, dan Bob tidak pernah ada di Vercel. Server membuka pintu `:8788` hanya kalau `PROXY_SECRET` terisi; permintaan tanpa
+  rahasia mendapat 403. Port lokal `:8787` tidak berubah.
+- Batas di pintu demo: 40 saran dan 15 pertanyaan per hari (WIB) untuk semua pengunjung, satu permintaan per menit per pengunjung.
+  Kirim otomatis tetap mati di demo.
+- Halaman demo bertanya `/api/health` dulu (tanpa LLM) dan hanya menawarkan saran/Ask yang bisa dijawab saat itu; saat laptop mati
+  muncul keterangan, bukan error.
+- Menyalakan: `npm --prefix server start` (Langflow sudah jalan), lalu di terminal lain `npm --prefix server run tunnel`. Sekali saja:
+  isi `NGROK_DOMAIN` di `.env`, lalu di Vercel isi `BACKEND_URL=https://<domain>` dan `BACKEND_SECRET` (`npm --prefix server run
+  tunnel -- --salin-rahasia` menyalinnya ke clipboard tanpa mencetak).
+
 Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dari `main`, tidak pernah berisi kode sendiri.
 
 ## Testing dan validasi
@@ -346,14 +362,15 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
   dan kuota penyedia model; "Tanya Equilibre" melayani satu pertanyaan sekaligus.
 - Uji pengguna baru 4 orang dengan 7 isian KSS (1 isian ≥ 7, diragukan), jadi akurasi terhadap kantuk yang dirasakan belum bisa
   dinyatakan sebagai persen.
-- Demo online hanya frontend; saran Langflow dan "Tanya Equilibre" butuh backend lokal dengan Langflow dan Bob Shell.
+- Saran Langflow dan Ask Equilibre di demo online hanya jalan saat laptop pengembang menyala (tunnel); di luar itu demo online
+  hanya bagian browser.
 
 ## Langkah lanjut
 
 - Uji pengguna gelombang kedua (≥ 6 orang baru; dengan dan tanpa kacamata, cahaya dan kamera berbeda, sesi segar dan rawan kantuk),
   lalu memutuskan penentu label dari hasilnya.
 - Tren harian dan indikator risiko stres dari riwayat; rujukan ke tenaga kesehatan bila tren tinggi.
-- Backend dan Langflow terkelola untuk demo online (frontend statis sudah), akun opsional dengan data agregat.
+- Backend dan Langflow terkelola (bukan laptop pengembang) untuk demo online, akun opsional dengan data agregat.
 - Dashboard tim dengan data agregat anonim untuk perusahaan; jeda otomatis saat video call.
 - Validasi pada lebih banyak pengguna perempuan dan pengguna Asia Tenggara.
 
