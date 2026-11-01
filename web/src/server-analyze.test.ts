@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { analyze, FALLBACK_MODEL, LLM_NODE_ID, type Tweaks } from "../../server/src/analyze.ts";
+import { analyze, FALLBACK_MAX_TOKENS, FALLBACK_MODEL, LLM_NODE_ID, type Tweaks } from "../../server/src/analyze.ts";
+import { PROFILES } from "../../langflow-flows/profil.mts";
 import { KNOWLEDGE_NODE_ID, toFlowInput } from "../../server/src/features.ts";
 import { LangflowError } from "../../server/src/reply.ts";
 
@@ -37,8 +38,15 @@ describe("analyze: primary model, fallback on failure (D-11, 26 Sep)", () => {
     expect(out.cadangan).toBe(true);
     expect(out.result).toMatchObject({ status: "perlu jeda aktif" });
     expect(calls).toHaveLength(2);
-    expect(calls[1][LLM_NODE_ID]).toEqual({ model: [FALLBACK_MODEL] });
+    expect(calls[1][LLM_NODE_ID]).toEqual({ model: [FALLBACK_MODEL], max_tokens: FALLBACK_MAX_TOKENS });
     expect(calls[1][KNOWLEDGE_NODE_ID]).toEqual(calls[0][KNOWLEDGE_NODE_ID]); // same knowledge base query
+  });
+
+  it("falls back to the Gemini setup of profil.mts, model and token cap (user, 1 Nov)", () => {
+    expect(FALLBACK_MODEL).toEqual(PROFILES.gemini.model);
+    expect(FALLBACK_MAX_TOKENS).toBe(PROFILES.gemini.maxTokens);
+    // Negative control: the fallback is not the primary watsonx model.
+    expect(FALLBACK_MODEL.name).not.toBe(PROFILES.watsonx.model.name);
   });
 
   it("falls back when the primary reply is empty or not JSON", async () => {

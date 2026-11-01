@@ -33,20 +33,23 @@ function selection(name: string, provider: string, icon: string): ModelSelection
 }
 
 export const MODELS: Record<string, ModelSelection> = {
-  // watsonx Dallas (NOTES D-39, D-40, G-41)
+  // watsonx: Dallas until 26 Oct (NOTES D-39, D-40, G-41), Tokyo from 1 Nov (D-80)
   mistral: selection("mistralai/mistral-small-3-1-24b-instruct-2503", "IBM WatsonX", "IBM"),
   granite: selection("ibm/granite-4-h-small", "IBM WatsonX", "IBM"),
   // Google AI Studio (NOTES D-76)
   gemini: selection("gemini-2.5-flash", "Google Generative AI", "GoogleGenerativeAI"),
 };
 
-// The knowledge base goes with the model provider: v2 holds watsonx e5 vectors, so it cannot be
-// searched without a working watsonx key, and v3 holds the same 9 notes with Gemini vectors.
+// v3 holds the 9 notes with Gemini vectors (GOOGLE_API_KEY), so search needs the Google key in both setups.
 // gemini-2.5-flash thinks before it answers and the thinking counts against max_output_tokens, so at
 // 512 the reply can come back empty (NOTES G-84). The Language Model node has no thinking budget
 // field, so the cap is raised instead; it is a ceiling, not the expected length.
+// watsonx = the new IBM account in Tokyo from 1 Nov (NOTES D-80). Its LLM is the same Mistral Small 3.1
+// (listed in jp-tok), but it keeps the Gemini knowledge base v3: Langflow 1.12.2 embeds a knowledge base
+// through watsonx Dallas whatever the region (NOTES G-40), so e5 vectors cannot be built or searched with
+// a Tokyo project. v2 (Dallas e5, 26 Sep) died with the old account (G-81).
 export const PROFILES = {
-  watsonx: { model: MODELS.mistral, maxTokens: 512, knowledgeBase: "equilibre_panduan_v2" },
+  watsonx: { model: MODELS.mistral, maxTokens: 512, knowledgeBase: "equilibre_panduan_v3" },
   gemini: { model: MODELS.gemini, maxTokens: 4096, knowledgeBase: "equilibre_panduan_v3" },
 };
 export type ProfileName = keyof typeof PROFILES;
