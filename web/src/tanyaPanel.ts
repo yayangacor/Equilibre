@@ -34,9 +34,13 @@ export class TanyaPanel {
   private readonly thread = byId("tanya-thread");
   private readonly chips: HTMLButtonElement[];
   private asking = false;
+  private available = true;
+  private demoNote: HTMLElement | null = null;
+  private readonly placeholder: string;
 
   constructor(deps: TanyaDeps) {
     this.deps = deps;
+    this.placeholder = this.input.placeholder;
     this.input.maxLength = PERTANYAAN_MAX;
     this.button.addEventListener("click", () => void this.ask());
     this.input.addEventListener("keydown", (e) => {
@@ -56,23 +60,31 @@ export class TanyaPanel {
       return chip;
     });
     byId("tanya-chips").replaceChildren(...this.chips);
-    if (DEMO) {
-      this.setBusy(true); // nothing to answer with: the demo build has no backend
-      this.input.disabled = true;
-      this.input.placeholder = "Not available in the online demo";
-      this.thread.before(demoCallout(DEMO_NOTE.tanya));
-    }
+    // The online demo waits for /api/health before offering questions (NOTES D-80).
+    if (DEMO) this.setAvailable(false, DEMO_NOTE.checking);
+  }
+
+  /** Online demo: whether the developer's laptop can answer (Bob key + Langflow), with the note when not. */
+  setAvailable(on: boolean, note: string = DEMO_NOTE.tanya) {
+    this.available = on;
+    this.demoNote?.remove();
+    this.demoNote = on ? null : demoCallout(note);
+    if (this.demoNote) this.thread.before(this.demoNote);
+    this.input.disabled = !on;
+    this.input.placeholder = on ? this.placeholder : "Not available in the online demo right now";
+    this.setBusy(this.asking);
   }
 
   private setBusy(busy: boolean) {
     this.asking = busy;
-    this.button.disabled = busy;
-    for (const chip of this.chips) chip.disabled = busy;
+    const off = busy || !this.available;
+    this.button.disabled = off;
+    for (const chip of this.chips) chip.disabled = off;
   }
 
   private async ask() {
     const pertanyaan = this.input.value.trim();
-    if (this.asking) return;
+    if (this.asking || !this.available) return;
     if (pertanyaan.length < PERTANYAAN_MIN) {
       this.status.textContent = `Type at least ${PERTANYAAN_MIN} characters.`;
       return;

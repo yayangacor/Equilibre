@@ -3,7 +3,8 @@ import { config } from "./config.ts";
 import { analyze } from "./analyze.ts";
 import { runBob } from "./bob.ts";
 import { parseFeatures, toFlowInput } from "./features.ts";
-import { assertLangflowUp, runFlow } from "./langflow.ts";
+import { assertLangflowUp, langflowUp, runFlow } from "./langflow.ts";
+import { DailyLimits, PROXY_SECRET_MIN, secretMatches, type PublicRoute } from "./limits.ts";
 import { LangflowError } from "./reply.ts";
 import { parseTanya, tanya } from "./tanya.ts";
 
@@ -86,12 +87,55 @@ const onError: ErrorRequestHandler = (err, _req, res, _next) => {
 };
 app.use(onError);
 
+// Online demo (NOTES D-80): the tunnel (ngrok) forwards to this second app, never to `app`'s own port.
+// Only the Vercel Function knows the secret; it also sends a hashed id per visitor for the per-minute
+// gap. Health tells the demo page what it can offer right now, without any LLM call.
+const limits = new DailyLimits();
+const publicApp = express();
+publicApp.disable("x-powered-by");
+publicApp.use((req, res, next) => {
+  if (secretMatches(req.get("x-equilibre-proxy"), config.proxySecret)) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Forbidden." });
+});
+publicApp.get("/api/health", async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, langflow: await langflowUp(), bob: Boolean(config.bobApiKey), sisa: limits.remaining() });
+});
+publicApp.post(["/api/analyze", "/api/tanya"], (req, res, next) => {
+  const route: PublicRoute = req.path === "/api/analyze" ? "analyze" : "tanya";
+  if (route === "tanya" && bobBusy) {
+    // Checked here as well so a busy Bob does not use up a visitor's turn.
+    res.status(429).json({ error: "Bob is still answering another question. Try again in a moment." });
+    return;
+  }
+  const verdict = limits.take(route, req.get("x-equilibre-client") || "unknown");
+  if (!verdict.ok) {
+    res.set("Retry-After", String(verdict.retryAfterS));
+    res.status(429).json({ error: verdict.error });
+    return;
+  }
+  next();
+});
+publicApp.use(app);
+
 // Bind to localhost only: this process holds the Langflow and Bob API keys and drives Bob.
 // Express 5 passes listen errors (e.g. EADDRINUSE) to this callback instead of throwing.
-app.listen(config.port, "127.0.0.1", (err?: Error) => {
-  if (err) {
-    console.error(`Gagal menjalankan server di port ${config.port}: ${err.message}`);
-    process.exit(1);
-  }
-  console.log(`Equilibre server: http://localhost:${config.port}`);
-});
+function listen(server: express.Express, port: number, what: string) {
+  server.listen(port, "127.0.0.1", (err?: Error) => {
+    if (err) {
+      console.error(`Gagal menjalankan ${what} di port ${port}: ${err.message}`);
+      process.exit(1);
+    }
+    console.log(`${what}: http://localhost:${port}`);
+  });
+}
+
+listen(app, config.port, "Equilibre server");
+if (config.proxySecret.length >= PROXY_SECRET_MIN) {
+  listen(publicApp, config.publicPort, "Pintu demo online (untuk tunnel)");
+} else if (config.proxySecret) {
+  console.error(`PROXY_SECRET kurang dari ${PROXY_SECRET_MIN} karakter: pintu demo online tidak dibuka.`);
+}

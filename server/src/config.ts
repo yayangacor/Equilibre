@@ -16,4 +16,8 @@ export const config = {
   bobApiKey: process.env.BOB_API_KEY ?? "",
   bobWorkspace: process.env.BOB_WORKSPACE || fileURLToPath(new URL("../../../bob-workspace", import.meta.url)),
   bobJs: process.env.BOB_JS || `${process.env.APPDATA ?? ""}/npm/node_modules/bobshell/dist/bob.js`,
+  // Online demo (NOTES D-80): a second listener for the tunnel, opened only when PROXY_SECRET is set.
+  // The Vercel Function sends the same secret in a header; anything else reaching the tunnel is refused.
+  publicPort: Number(process.env.PUBLIC_PORT) || 8788,
+  proxySecret: process.env.PROXY_SECRET ?? "",
 };

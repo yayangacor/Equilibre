@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/proxy?route=health" },
+    { "source": "/api/analyze", "destination": "/api/proxy?route=analyze" },
+    { "source": "/api/tanya", "destination": "/api/proxy?route=tanya" }
+  ],
+  "functions": {
+    "api/proxy.ts": { "maxDuration": 120 }
+  }
+}

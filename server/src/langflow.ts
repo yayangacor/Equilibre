@@ -5,17 +5,22 @@ type RunResponse = {
   outputs?: { outputs?: { results?: { message?: { text?: unknown } } }[] }[];
 };
 
+/** Whether Langflow answers GET /health within 3 s. */
+export async function langflowUp(): Promise<boolean> {
+  try {
+    const res = await fetch(`${config.langflowUrl}/health`, { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Throws when Langflow does not answer GET /health. Checked before a Bob run: without Langflow, Bob
  * starts with no MCP tools, writes tool calls as text and makes up an answer (NOTES G-48).
  */
 export async function assertLangflowUp(): Promise<void> {
-  try {
-    const res = await fetch(`${config.langflowUrl}/health`, { signal: AbortSignal.timeout(3000) });
-    if (res.ok) return;
-  } catch {
-    // unreachable: same message as below
-  }
+  if (await langflowUp()) return;
   throw new LangflowError(
     `Langflow tidak berjalan di ${config.langflowUrl}, jadi Bob tidak punya flow untuk dipanggil. Jalankan Langflow lalu coba lagi.`,
     503,

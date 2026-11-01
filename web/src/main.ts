@@ -25,7 +25,7 @@ import {
   type KeyValueStore,
 } from "./calibration.ts";
 import { ACCOUNTS, currentAccount, scopeKey, signOut, type Account } from "./auth.ts";
-import { DEMO, DEMO_NOTE, demoCallout } from "./demo.ts";
+import { DEMO, DEMO_NOTE, demoCallout, LOCAL_BACKEND, NO_BACKEND, onlineNote, probeBackend, type Backend } from "./demo.ts";
 import { loadDevMode, saveDevMode, showDebugLink } from "./devMode.ts";
 import { downloadFile, fileStamp } from "./download.ts";
 import { EarChart } from "./earChart.ts";
@@ -376,6 +376,8 @@ const wallClock = (t: number) => Math.round(performance.timeOrigin + t);
 const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
 let sending = false;
+// What the backend can answer (NOTES D-80): always both locally; in the online demo, after /api/health.
+let backend: Backend = DEMO ? NO_BACKEND : LOCAL_BACKEND;
 
 // Automatic sending (NOTES D-37): off unless switched on, remembered on this device. Never in the demo build.
 let autoSendOn = !DEMO && store ? loadAutoSend(store) : false;
@@ -538,7 +540,7 @@ function renderSinceBreak() {
 }
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
-new TanyaPanel({
+const tanyaPanel = new TanyaPanel({
   context: () => {
     const shown = calibration ? null : (monitor?.labelState.shown ?? null);
     return { label: shown?.label ?? null, menitLelah60: shown ? menitLelah : null };
@@ -833,8 +835,8 @@ const notSent = (payload: AnalyzePayload | null) => payload?.label === "tidak di
 function renderPayload() {
   const payload = currentPayload();
   payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "No state yet.";
-  sendButton.disabled = DEMO || payload === null || sending || notSent(payload);
-  sendNote.hidden = DEMO || !notSent(payload);
+  sendButton.disabled = !backend.saran || payload === null || sending || notSent(payload);
+  sendNote.hidden = !backend.saran || !notSent(payload);
 }
 
 function renderBaseline() {
@@ -1691,6 +1693,14 @@ async function sendStatus(pemicu: "manual" | "otomatis") {
 }
 sendButton.addEventListener("click", () => void sendStatus("manual"));
 
+// Online demo (NOTES D-80): offer advice and Ask only while the developer's laptop can answer them.
+function applyBackend(next: Backend) {
+  backend = next;
+  if (!sending) answer.replaceChildren(next.saran ? el("p", onlineNote(next.sisa), "muted") : demoCallout(DEMO_NOTE.saran));
+  tanyaPanel.setAvailable(next.tanya);
+  renderPayload();
+}
+
 // ── Pause (D-78): the camera off, nothing read or stored, until Resume ─────────
 
 async function setPaused(on: boolean) {
@@ -1863,7 +1873,10 @@ async function main() {
   renderAutoSend();
   renderKssReminder();
   renderDevMode();
-  if (DEMO) answer.replaceChildren(demoCallout(DEMO_NOTE.saran));
+  if (DEMO) {
+    answer.replaceChildren(demoCallout(DEMO_NOTE.checking));
+    void probeBackend().then(applyBackend);
+  }
   renderPipButton();
   void watchBattery();
   // The history shows even when the camera or the model fails below.
