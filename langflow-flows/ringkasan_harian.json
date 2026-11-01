@@ -878,7 +878,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "str",
-                "value": "https://us-south.ml.cloud.ibm.com"
+                "value": "https://jp-tok.ml.cloud.ibm.com"
               },
               "code": {
                 "advanced": true,

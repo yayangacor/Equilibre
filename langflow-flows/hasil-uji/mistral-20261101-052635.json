@@ -1,0 +1,41 @@
+{
+  "model": "mistralai/mistral-small-3-1-24b-instruct-2503",
+  "waktu_utc": "2026-11-01T05:26:59.871Z",
+  "prompt_sha256": "c0fd4ec73d02",
+  "dipanggil": 1,
+  "berhasil": 0,
+  "hasil": [
+    {
+      "id": "S22",
+      "judul": "lelah ringan dari pola kedip saja (?label=gabungan, D-72)",
+      "status": "perlu jeda singkat",
+      "durasi_jeda_menit": 5,
+      "http": 500,
+      "latency_ms": 24030,
+      "model_dipakai": "mistralai/mistral-small-3-1-24b-instruct-2503",
+      "status_llm": "error",
+      "konteks": [
+        {
+          "file": "permenkes-48-2016-k3-perkantoran.md",
+          "skor": -0.4396307170391083
+        },
+        {
+          "file": "albulescu-2022-micro-break.md",
+          "skor": -0.45329952239990234
+        },
+        {
+          "file": "aao-20-20-20.md",
+          "skor": -0.46671193838119507
+        }
+      ],
+      "usage": null,
+      "error": "{\"detail\":\"{\\\"message\\\":\\\"Error running graph: Error building Component Language Model: \\\\n\\\\nFailed to initialize IBM WatsonX model: Cannot set Project or Space\\\\nReason: {\\\\\\\"id\\\\\\\":\\\\\\\"WSCPA0000E\\\\\\\",\\\\\\\"code\\\\\\\":401,\\\\\\\"error\\\\\\\":\\\\\\\"Unauthorized\\\\\\\",\\\\\\\"reason\\\\\\\":\\\\\\\"Failed to retrieve user info. Error message ( Failed to verify user profile existance: yayan.g4nteng@gmail.com: Unexpected status: 404 ).\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"The request requires user authentication.\\\\\\\",\\\\\\\"description\\\\\\",
+      "teks": "",
+      "cek": null,
+      "wajib": [
+        "alasan menyebut pola kedipan yang mirip orang mengantuk (dari tanda), tanpa angka skor",
+        "tidak mengarang tanda lain seperti menguap atau mata sering tertutup"
+      ]
+    }
+  ]
+}

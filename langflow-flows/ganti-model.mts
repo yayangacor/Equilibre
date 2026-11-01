@@ -33,6 +33,7 @@ function setup(flow: Flow) {
   return {
     model: model ? `${model.name} (${model.provider})` : null,
     maxTokens: llm?.max_tokens?.value ?? null,
+    watsonxUrl: llm?.base_url_ibm_watsonx?.value ?? null,
     knowledgeBase: template(flow, KNOWLEDGE_NODE_ID)?.knowledge_base?.value ?? null,
   };
 }
@@ -42,6 +43,7 @@ function matches(flow: Flow) {
   return (
     s.model === `${profile.model.name} (${profile.model.provider})` &&
     s.maxTokens === profile.maxTokens &&
+    (profile.watsonxUrl === undefined || s.watsonxUrl === profile.watsonxUrl) &&
     (template(flow, KNOWLEDGE_NODE_ID) === undefined || s.knowledgeBase === profile.knowledgeBase)
   );
 }
@@ -56,6 +58,10 @@ function apply(flow: Flow) {
     llm.model.options = [...options, profile.model];
   }
   llm.max_tokens.value = profile.maxTokens;
+  if (profile.watsonxUrl !== undefined) {
+    if (!llm.base_url_ibm_watsonx) throw new Error(`node ${LLM_NODE_ID} tidak punya base_url_ibm_watsonx`);
+    llm.base_url_ibm_watsonx.value = profile.watsonxUrl;
+  }
   const kb = template(flow, KNOWLEDGE_NODE_ID)?.knowledge_base;
   if (kb) {
     kb.value = profile.knowledgeBase;
@@ -77,7 +83,7 @@ for (const name of FLOWS) {
   }
   const flow = (await res.json()) as Flow;
   const before = setup(flow);
-  console.log(`${name}: ${before.model}, max_tokens ${before.maxTokens}, knowledge base ${before.knowledgeBase ?? "-"}`);
+  console.log(`${name}: ${before.model}, max_tokens ${before.maxTokens}, URL watsonx ${before.watsonxUrl ?? "-"}, knowledge base ${before.knowledgeBase ?? "-"}`);
   if (matches(flow)) {
     console.log(`${name}: sudah setelan ${target}`);
     continue;
@@ -92,7 +98,7 @@ for (const name of FLOWS) {
   const after = (await (await fetch(`${base}/api/v1/flows/${id}`, { headers: auth })).json()) as Flow;
   const ok = patch.ok && matches(after);
   const s = setup(after);
-  console.log(`${name}: PATCH ${patch.status}, dibaca balik ${ok ? "sesuai" : "BERBEDA"}: ${s.model}, max_tokens ${s.maxTokens}, knowledge base ${s.knowledgeBase ?? "-"}`);
+  console.log(`${name}: PATCH ${patch.status}, dibaca balik ${ok ? "sesuai" : "BERBEDA"}: ${s.model}, max_tokens ${s.maxTokens}, URL watsonx ${s.watsonxUrl ?? "-"}, knowledge base ${s.knowledgeBase ?? "-"}`);
   if (!ok) failed++;
 }
 if (!checkOnly && failed === 0) console.log("Berikutnya: export.mjs <flowId> untuk tiap flow, lalu cek-flow.mjs.");

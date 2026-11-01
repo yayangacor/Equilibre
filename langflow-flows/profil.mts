@@ -48,8 +48,17 @@ export const MODELS: Record<string, ModelSelection> = {
 // (listed in jp-tok), but it keeps the Gemini knowledge base v3: Langflow 1.12.2 embeds a knowledge base
 // through watsonx Dallas whatever the region (NOTES G-40), so e5 vectors cannot be built or searched with
 // a Tokyo project. v2 (Dallas e5, 26 Sep) died with the old account (G-81).
-export const PROFILES = {
-  watsonx: { model: MODELS.mistral, maxTokens: 512, knowledgeBase: "equilibre_panduan_v3" },
+// watsonxUrl: the Language Model node calls the region in its own field base_url_ibm_watsonx (default
+// us-south), not the Global Variable WATSONX_URL; Dallas with a Tokyo key = 401 "user profile … 404"
+// (NOTES G-41, G-102). Left as it is in a profile without one.
+export type Profile = { model: ModelSelection; maxTokens: number; knowledgeBase: string; watsonxUrl?: string };
+export const PROFILES: Record<"watsonx" | "gemini", Profile> = {
+  watsonx: {
+    model: MODELS.mistral,
+    maxTokens: 512,
+    knowledgeBase: "equilibre_panduan_v3",
+    watsonxUrl: "https://jp-tok.ml.cloud.ibm.com",
+  },
   gemini: { model: MODELS.gemini, maxTokens: 4096, knowledgeBase: "equilibre_panduan_v3" },
 };
 export type ProfileName = keyof typeof PROFILES;
