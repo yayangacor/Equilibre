@@ -73,6 +73,7 @@ export class Monitor {
       blinkThreshold(this.baseline),
       eyesReadable(s, this.baseline),
       closureConfirmThreshold(this.baseline),
+      { left: s.earLeft, right: s.earRight, yawDeg: s.yawDeg },
     );
     this.blinkState = blink.state;
     if (blink.event) this.closures.push(blink.event);
