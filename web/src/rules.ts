@@ -201,15 +201,22 @@ export function qualityNote(f: WindowFeatures, quality: WindowQuality | null): s
     );
   }
   if (quality.reason === "cahaya") {
-    return `Too dark or too much glare to read your face over ${spanOf(f)}. The last state is kept until it can be read.`;
+    return `Too dark to read your face over ${spanOf(f)}. The last state is kept until it can be read.`;
+  }
+  if (quality.reason === "silau") {
+    return `Too much glare on your face over ${spanOf(f)} to read it. The last state is kept until it can be read.`;
   }
   return null;
 }
 
 export function holdCause(f: WindowFeatures, quality: WindowQuality | null): HoldCause | null {
   if (lowFpsNote(f) !== null || f.n_frame === 0) return "fps";
+  if (quality?.level === "tidak-dinilai" && (quality.reason === "cahaya" || quality.reason === "silau")) return "cahaya";
   if (hiddenFaceNote(f) !== null) return "mata";
-  if (quality?.level === "tidak-dinilai") return quality.reason === "wajah" || quality.reason === "cahaya" ? quality.reason : "fps";
+  if (quality?.level === "tidak-dinilai") {
+    if (quality.reason === "cahaya" || quality.reason === "silau") return "cahaya";
+    return quality.reason === "wajah" ? "wajah" : "fps";
+  }
   return null;
 }
 
@@ -223,6 +230,8 @@ export function classify(
   quality: WindowQuality | null = null,
 ): Evaluation | null {
   if (!baseline || f.n_frame === 0 || lowFpsNote(f)) return null;
+  // Too dark or glaring: nothing can be read, not even whether the person left (light.ts).
+  if (quality?.level === "tidak-dinilai" && (quality.reason === "cahaya" || quality.reason === "silau")) return null;
   const span = spanOf(f);
 
   const asleep = sleepReasons(f, lookback);
@@ -302,7 +311,9 @@ function yawnsOnly(f: WindowFeatures, quality: WindowQuality): Evaluation {
   const why =
     quality.reason === "kacamata"
       ? "Your calibration could not tell open from closed eyes apart (often glasses), so eye signs are left out."
-      : `Your eyes were readable only ${pct(quality.mata ?? 0)} of ${spanOf(f)}, so eye signs are left out.`;
+      : quality.reason === "silau"
+        ? "Glare on your glasses hides your eyelids, so eye signs are left out."
+        : `Your eyes were readable only ${pct(quality.mata ?? 0)} of ${spanOf(f)}, so eye signs are left out.`;
   const yawned = f.menguap >= RULES.yawns;
   return {
     label: yawned ? "lelah ringan" : "normal",
@@ -394,7 +405,10 @@ export function evaluate(
   const latest = withBlinkPattern(classify(features, baseline, lookback, quality), fullyJudged ? pattern : null);
   const held = latest === null && baseline !== null && features.n_frame > 0;
   const hold = held
-    ? (lowFpsNote(features) ?? hiddenFaceNote(features, lookback?.eyesHiddenMinutes) ?? qualityNote(features, quality))
+    ? (lowFpsNote(features) ??
+      (quality?.reason === "cahaya" || quality?.reason === "silau" ? qualityNote(features, quality) : null) ??
+      hiddenFaceNote(features, lookback?.eyesHiddenMinutes) ??
+      qualityNote(features, quality))
     : null;
   return {
     state: latest ? applyHysteresis(prev, latest) : prev,

@@ -44,6 +44,7 @@ import {
 } from "./features.ts";
 import { initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { LOCALE } from "./format.ts";
+import { brightness, faceBoxes, frameMiddle, LIGHT, toLightSample, type Box, type LightSample } from "./light.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME, openHistory } from "./historyDb.ts";
 import { DEMO_ACCOUNTS, demoHistory, demoNote, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
@@ -283,6 +284,13 @@ const signalRows = {
   eyes: metricTile(signalsList, "Eyes assessed?", "Not while the face is missing or the head is down."),
   bodyArea: metricTile(signalsList, "Body (mask area)", "Share of the frame that is body.", true),
   bodyMotion: metricTile(signalsList, "Body motion", "Mask change between samples."),
+  light: metricTile(
+    signalsList,
+    "Light",
+    `Brightness 0–255 (< ${LIGHT.darkLuma} = too dark) · face glare (≥ ${Math.round(LIGHT.glareShare * 100)}%) · ` +
+      `eyes ÷ face (< ${LIGHT.coveredEyes} = covered) · lens glare (≥ ${Math.round(LIGHT.eyeGlare * 100)}%). Once a second.`,
+    true,
+  ),
 };
 
 const featuresList = byId("features");
@@ -662,6 +670,33 @@ function recordEvaluation(step: EvaluationStep, t: number) {
       hematDaya: powerReason(power) !== null,
     }),
   );
+}
+
+// Light on the face (plan P20 W1.5), once a second: a few pixels of the video, scaled down and read here, then
+// dropped; only the numbers go on (LightSample). Without a face, the middle of the frame.
+const lightCanvas = document.createElement("canvas");
+lightCanvas.width = 32;
+lightCanvas.height = 16;
+const lightContext = lightCanvas.getContext("2d", { willReadFrequently: true });
+
+function measureLight(result: FaceLandmarkerResult, t: number): LightSample | null {
+  const ctx = lightContext;
+  if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) return null;
+  const read = (b: Box, w: number, h: number) => {
+    ctx.drawImage(video, b.x, b.y, b.w, b.h, 0, 0, w, h);
+    return brightness(ctx.getImageData(0, 0, w, h).data);
+  };
+  const landmarks = result.faceLandmarks[0];
+  const boxes = landmarks ? faceBoxes(landmarks, video.videoWidth, video.videoHeight) : null;
+  // Eye crops 32 × 16 (research report §2.4): a lens reflection is a few pixels, so they are not scaled down further.
+  if (boxes) return toLightSample(t, read(boxes.face, 16, 16), boxes.eyes.map((b) => read(b, 32, 16)));
+  const middle = frameMiddle(video.videoWidth, video.videoHeight);
+  return middle ? toLightSample(t, read(middle, 16, 16), null) : null;
+}
+
+function renderLight(l: LightSample) {
+  const eyes = l.face ? ` · eyes ${show(l.eyes, (v) => fmt2.format(v))}× · lens glare ${asPct(l.eyeGlare)}` : " · no face, frame middle";
+  signalRows.light(`${Math.round(l.luma)} · glare ${asPct(l.clipped)}${eyes}`, l.luma / 255);
 }
 
 // Runs in the same tick as onFrame for that frame, just before it.
@@ -1126,6 +1161,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
     pending = (pip ? [window, pip] : [window]).map((win) => [win, win.setTimeout(fire, delay)]);
   };
 
+  let lastLightT = -Infinity;
   const tick = () => {
     const now = performance.now();
     if (!paused && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
@@ -1142,6 +1178,14 @@ function runDetection({ landmarker, segmenter }: Detectors) {
           grid = next;
           onBody(body);
           renderBody(body);
+        }
+      }
+      if (now - lastLightT >= LIGHT.intervalMs) {
+        const light = measureLight(result, now);
+        if (light) {
+          lastLightT = now;
+          if (!calibration) monitor?.pushLight(light);
+          renderLight(light);
         }
       }
       const signal = toFrameSignal(result, video.videoWidth, video.videoHeight, now);

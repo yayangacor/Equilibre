@@ -1,6 +1,7 @@
 import { LOW_FPS } from "./blink.ts";
 import type { Baseline } from "./calibration.ts";
 import { eyesReadable, frameWeights, samplingFps, windowFrames } from "./features.ts";
+import { LIGHT, type LightWindow } from "./light.ts";
 import type { FrameSignal } from "./signals.ts";
 
 // Can this window be judged, and how far (plan P20 W1.4, research report §2.7)? FaceLandmarker gives no
@@ -11,10 +12,10 @@ import type { FrameSignal } from "./signals.ts";
 //   nilai          every sign
 //   terbatas-fps   below LOW_FPS: time-based signs only (features.ts leaves blink length and rate out)
 //   terbatas-mata  the eyes are readable less than half of the time: yawns only, at most "lelah ringan"
-//   tidak-dinilai  too few frames, the face turned away or too far, the eyes out of view, too dark (light.ts):
+//   tidak-dinilai  too few frames, the face turned away or too far, the eyes out of view, too dark or glaring (light.ts):
 //                  no label, no advice, no automatic sending; the last label shows as stale
 export type QualityLevel = "nilai" | "terbatas-fps" | "terbatas-mata" | "tidak-dinilai";
-export type QualityReason = "fps" | "mata" | "wajah" | "cahaya" | "kacamata";
+export type QualityReason = "fps" | "mata" | "wajah" | "cahaya" | "silau" | "kacamata";
 
 // ⚠️ Proposals from the research report §2.7, not yet tuned on a camera (plan P20 W1.9, R-05).
 export const QUALITY = {
@@ -77,8 +78,14 @@ export function windowQuality(
   now: number,
   windowMs: number,
   checkRange = false,
+  light: LightWindow | null = null,
 ): WindowQuality {
   const all = windowFrames(frames, now, windowMs);
+  // Light first (W1.5): in a dark room the landmarker loses the face, which would otherwise read as leaving.
+  const lit = light !== null && light.n >= LIGHT.minSamples ? light : null;
+  const problem = (share: number) => lit !== null && share >= LIGHT.minShare;
+  if (lit && problem(lit.dark)) return { level: "tidak-dinilai", reason: "cahaya", wajah: null, mata: null, fps: samplingFps(all) };
+  if (lit && problem(lit.glare)) return { level: "tidak-dinilai", reason: "silau", wajah: null, mata: null, fps: samplingFps(all) };
   if (all.length === 0) return { level: "tidak-dinilai", reason: "fps", wajah: null, mata: null, fps: null };
   const weights = frameWeights(all);
   const seenMs = weights.reduce((a, b) => a + b, 0);
@@ -97,6 +104,9 @@ export function windowQuality(
   if (facesSeen >= QUALITY.minFaceShare && mata < QUALITY.minEyeShare) {
     return result("terbatas-mata", checkRange && glassesLikely(baseline) ? "kacamata" : "mata");
   }
+  // Glare on the lenses (W1.6c) or eye areas far darker than the face (dark glasses): the lids are not readable.
+  if (lit && problem(lit.eyeGlare)) return result("terbatas-mata", "silau");
+  if (lit && problem(lit.covered)) return result("terbatas-mata", "mata");
   if (fps !== null && fps < LOW_FPS) return result("terbatas-fps", "fps");
   return result("nilai", null);
 }

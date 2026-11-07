@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { LightSample } from "./light.ts";
+import { lightWindow } from "./light.ts";
 import { Monitor } from "./monitor.ts";
 import {
   eyeReliability,
@@ -88,6 +90,48 @@ describe("window quality (plan P20 W1.4)", () => {
   });
 });
 
+describe("light in the window (plan P20 W1.5, W1.6c)", () => {
+  const lights = (make: (t: number) => Partial<LightSample>) =>
+    lightWindow(
+      Array.from({ length: 60 }, (_, i) => {
+        const t = NOW - WINDOW + (i + 1) * 1000;
+        return { t, face: true, luma: 120, clipped: 0, eyes: 0.8, eyeGlare: 0, ...make(t) };
+      }),
+      NOW,
+      WINDOW,
+    );
+  const steady = window(100, (t) => frame(t));
+
+  it("does not judge a dark window, even when the face was lost in it", () => {
+    const dark = lights(() => ({ luma: 25 }));
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, dark)).toMatchObject({ level: "tidak-dinilai", reason: "cahaya" });
+    const lost = window(100, (t) => noFace(t));
+    const room = lights(() => ({ face: false, luma: 15, eyes: NaN, eyeGlare: NaN }));
+    expect(windowQuality(lost, CLEAR, NOW, WINDOW, true, room).reason).toBe("cahaya");
+  });
+
+  it("does not judge a face washed out by glare", () => {
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, lights(() => ({ clipped: 0.4 }))).reason).toBe("silau");
+  });
+
+  it("leaves the eye signs out with glare on the lenses or dark glasses", () => {
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, lights(() => ({ eyeGlare: 0.12 })))).toMatchObject({
+      level: "terbatas-mata",
+      reason: "silau",
+    });
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, lights(() => ({ eyes: 0.2 })))).toMatchObject({
+      level: "terbatas-mata",
+      reason: "mata",
+    });
+  });
+
+  it("ignores a light problem in fewer than half of the samples, and too few samples", () => {
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, lights((t) => ({ luma: t % 3000 === 0 ? 20 : 120 }))).level).toBe("nilai");
+    const few = lightWindow([{ t: NOW, face: true, luma: 10, clipped: 0, eyes: 0.8, eyeGlare: 0 }], NOW, WINDOW);
+    expect(windowQuality(steady, CLEAR, NOW, WINDOW, true, few).level).toBe("nilai");
+  });
+});
+
 describe("rules with window quality", () => {
   const features = (overrides = {}) => ({
     perclos: 0.2,
@@ -129,6 +173,14 @@ describe("rules with window quality", () => {
     expect(step.latest).toBeNull();
     expect(step.cause).toBe("wajah");
     expect(step.hold).toMatch(/turned away or too far/);
+  });
+
+  it("says too dark instead of away when the room is dark", () => {
+    const gone = features({ pct_wajah_hilang: 0.9, pct_tubuh_ada: 0 });
+    const step = evaluate(gone, CLEAR, initialLabelState(), null, null, limited("tidak-dinilai", "cahaya"));
+    expect(step.latest).toBeNull();
+    expect(step.cause).toBe("cahaya");
+    expect(step.hold).toMatch(/Too dark/);
   });
 
   it("still says away when the face is gone, whatever the quality", () => {

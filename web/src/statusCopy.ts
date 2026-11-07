@@ -94,6 +94,7 @@ export const UNASSESSED: Readonly<Record<QualityReason, { title: string; text: s
   },
   wajah: { title: "Can't read your face", text: "Face the screen, about an arm's length from the camera." },
   cahaya: { title: "Too dark to read your face", text: "Turn on a light in front of you, or face a window." },
+  silau: { title: "Too much glare on your face", text: "Move out of direct light, or turn the lamp or screen away a little." },
   kacamata: {
     title: "Can't read your eyes",
     text: "Your calibration couldn't tell open from closed eyes. Recalibrate with light from the front.",
@@ -112,9 +113,14 @@ export function limitedNote(level: QualityLevel | null, reason: QualityReason | 
     );
   }
   if (level === "terbatas-mata") {
-    return reason === "kacamata"
-      ? "Limited check: your calibration couldn't tell open from closed eyes (often glasses), so only yawning counts. " +
-          "Recalibrating with light from the front can help."
+    if (reason === "kacamata") {
+      return (
+        "Limited check: your calibration couldn't tell open from closed eyes (often glasses), so only yawning counts. " +
+        "Recalibrating with light from the front can help."
+      );
+    }
+    return reason === "silau"
+      ? "Limited check: glare on your glasses hides your eyelids, so only yawning counts. Tilting them slightly can help."
       : "Limited check: your eyes were hard to read, so only yawning counts.";
   }
   return null;

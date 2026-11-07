@@ -3,6 +3,7 @@ import { BLINK_SEQUENCE, blinkScore, blinkShape, type BlinkShape } from "./blink
 import type { BodySample } from "./body.ts";
 import { blinkThreshold, closureConfirmThreshold, type Baseline } from "./calibration.ts";
 import { computeWindowFeatures, eyesReadable, samplingFps, windowFrames, type WindowFeatures } from "./features.ts";
+import { lightWindow, type LightSample } from "./light.ts";
 import {
   initialQualityState,
   stepQuality,
@@ -66,6 +67,7 @@ export class Monitor {
   private closures: EyeClosure[] = [];
   private blinkShapes: BlinkShape[] = []; // the last BLINK_SEQUENCE blinks within keepMs, for blinkScore
   private yawns: YawnEvent[] = [];
+  private lights: LightSample[] = []; // light.ts, ±1 per second; none in replays of session CSVs
   // Shown label after each evaluation that judged the face (no hold).
   private history: { t: number; label: Label }[] = [];
   private blinkState = initialBlinkState();
@@ -120,6 +122,11 @@ export class Monitor {
     this.bodies.push(b);
   }
 
+  pushLight(l: LightSample) {
+    this.lights.push(l);
+    dropBefore(this.lights, l.t - this.options.windowMs, (s) => s.t);
+  }
+
   // Blink-pattern score (blinkScore.ts, NOTES D-49): information only, unless options.blinkPattern (D-72).
   // null when the baseline has no blink norm (calibrated before the score existed). It was trained on 10 fps
   // blinks, so below LOW_FPS there is no score (lowFps; plan P20 W1.3).
@@ -157,7 +164,8 @@ export class Monitor {
     const features = this.features(now);
     const lookback = this.lookback(now);
     const checkRange = this.options.eyesClosedStage ?? false;
-    const quality = windowQuality(this.frames, this.baseline, now, this.options.windowMs, checkRange);
+    const light = this.lights.length > 0 ? lightWindow(this.lights, now, this.options.windowMs) : null;
+    const quality = windowQuality(this.frames, this.baseline, now, this.options.windowMs, checkRange, light);
     const score = this.options.blinkPattern ? this.blinkScore(now) : null;
     const pattern = score && score.chance !== null ? { chance: score.chance, n: score.n } : null;
     const result = evaluate(features, this.baseline, this.labelState, lookback, pattern, quality);
