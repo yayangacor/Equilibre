@@ -304,6 +304,16 @@ export const SUBMISSION_KEYS = [
   "jeda",
 ] as const;
 
+// sebab_ditahan values sent with a test, as before 7 Nov. The causes added since (plan P20 W1.4: "wajah", "cahaya")
+// stay on the device until the user decides whether they may go out (NOTES Q-20, D-01): sent as null, which the
+// receiver already gets for a window not judged for another reason.
+export const SENT_HOLD_CAUSES = ["fps", "mata"] as const;
+
+function sentCause<T extends { sebab_ditahan: string | null }>(record: T): T {
+  const known = (SENT_HOLD_CAUSES as readonly string[]).includes(record.sebab_ditahan ?? "");
+  return known ? record : { ...record, sebab_ditahan: null };
+}
+
 function pick<T extends object, K extends keyof T>(record: T, keys: readonly K[]): Pick<T, K> {
   const out = {} as Pick<T, K>;
   for (const key of keys) if (record[key] !== undefined) out[key] = record[key];
@@ -396,7 +406,7 @@ export function toSubmission(
     feedback,
     perangkat: context.perangkat,
     baseline: context.baseline ? summarizeBaseline(context.baseline) : null,
-    evaluasi: records.evaluasi.filter((r) => inside(r.t)).map((r) => pick(r, EVALUATION_KEYS)),
+    evaluasi: records.evaluasi.filter((r) => inside(r.t)).map((r) => sentCause(pick(r, EVALUATION_KEYS))),
     kss: records.kss.filter((r) => inside(r.t)).map((r) => pick(r, KSS_KEYS)),
     koreksi_label: records.koreksi_label.filter((r) => inside(r.t)).map((r) => pick(r, CORRECTION_KEYS)),
     jeda: records.jeda.filter((r) => r.selesai >= from && r.mulai <= to).map((r) => pick(r, BREAK_KEYS)),
