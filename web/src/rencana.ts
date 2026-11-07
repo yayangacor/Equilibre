@@ -107,7 +107,9 @@ const titleOrNull = (judul: ReadonlyMap<string, string>, id: string | null) => (
 
 function stepText(step: MatchStep, title: string | null): string {
   if (step.jenis === "jalan") return `Walk for ${step.menit} minutes.`;
-  if (step.jenis === "jeda") return `Take an active break: walk for ${step.menit} minutes, or nap for 10–20 minutes if you can.`;
+  // No nap, not even a short one: the same rule as the advice flow (prompt-analisis_status.txt; user 22 Sep for "tertidur":
+  // get up, then a break). Research §3.4's "tidur siang bila mungkin" is overruled by that rule.
+  if (step.jenis === "jeda") return `Take an active break: stand up and walk for ${step.menit} minutes.`;
   const what = title ? `“${title}”` : "the next task";
   return step.menit === null ? `Work on ${what}.` : `Work on ${what} for ${step.menit} minutes.`;
 }
