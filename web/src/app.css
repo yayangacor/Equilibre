@@ -1040,6 +1040,30 @@ abbr.eyebrow {
   overflow-wrap: anywhere;
 }
 
+/* Settings: preview of the imported Google Tasks (plan P20 W2.1) */
+.tasks-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.tasks-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+
+.tasks-list .due,
+.tasks-list .more {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
 /* ── Calibration screen: the camera with its scan on the left, the step on the right ── */
 
 dialog.calib-screen {

@@ -6,8 +6,16 @@ import { UJI_URL } from "./userTest.ts";
 
 // Each page's Content-Security-Policy decides what it may connect to (NOTES D-01, G-90, D-77): its own origin (assets,
 // models, /api), the Apps Script receiver of the user test (it answers through a redirect to googleusercontent), and
-// Supabase Auth for the account (D-78). Every page carries the same policy.
-const POLICY = ["'self'", "https://script.google.com", "https://script.googleusercontent.com", "https://*.supabase.co"];
+// Supabase Auth for the account (D-78), and the Google Tasks import (plan P20 W2.1): the Google Identity Services
+// endpoints under accounts.google.com/gsi/ and the Tasks API. Every page carries the same policy.
+const POLICY = [
+  "'self'",
+  "https://script.google.com",
+  "https://script.googleusercontent.com",
+  "https://*.supabase.co",
+  "https://accounts.google.com/gsi/",
+  "https://tasks.googleapis.com",
+];
 
 const PAGE = "https://equilibre.example";
 
@@ -21,12 +29,15 @@ function policyOf(html: string) {
       .map(([name, ...sources]) => [name, sources] as const),
   );
   const connectSrc = directives.get("connect-src") ?? [];
-  // Exact origins plus one "https://*.host" wildcard: a wildcard matches subdomains only, over https.
+  // Exact origins, one "https://*.host" wildcard (subdomains only, over https), and a source ending in "/" that allows
+  // only paths under it.
   const allows = (url: string) => {
-    const { origin, protocol, host } = new URL(url, PAGE);
+    const { origin, protocol, host, pathname } = new URL(url, PAGE);
     return connectSrc.some((source) => {
       if (source === "'self'") return origin === PAGE;
       if (source.startsWith("https://*.")) return protocol === "https:" && host.endsWith(source.slice("https://*".length));
+      const at = new URL(source);
+      if (at.pathname !== "/") return origin === at.origin && pathname.startsWith(at.pathname);
       return origin === source;
     });
   };
@@ -51,6 +62,15 @@ describe.each([
   it("covers the user-test receiver and the host it redirects to", () => {
     expect(allows(UJI_URL)).toBe(true);
     expect(allows("https://script.googleusercontent.com/macros/echo?user_content_key=x")).toBe(true);
+  });
+
+  it("covers the Google Tasks import: the Identity Services endpoints and the Tasks API only", () => {
+    expect(allows("https://accounts.google.com/gsi/status?client_id=x")).toBe(true);
+    expect(allows("https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=20")).toBe(true);
+    expect(allows("https://accounts.google.com/o/oauth2/v2/auth")).toBe(false);
+    expect(allows("https://accounts.google.com/")).toBe(false);
+    expect(allows("https://www.googleapis.com/tasks/v1/users/@me/lists")).toBe(false);
+    expect(allows("https://tasks.googleapis.com.evil.example/")).toBe(false);
   });
 
   it("blocks MediaPipe's usage metrics and any other host (negative control)", () => {

@@ -82,6 +82,7 @@ import { stateName } from "./stateCopy.ts";
 import type { QualityState } from "./quality.ts";
 import { heroCopy, lastAssessedNote, limitedNote, UNASSESSED, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
+import { TasksPanel } from "./tasksPanel.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
@@ -559,6 +560,9 @@ function renderSinceBreak() {
 }
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
+// Google Tasks import in Settings (plan P20 W2.1); the planner (W2.4) will read tasksPanel.current.
+export const tasksPanel = new TasksPanel();
+
 const tanyaPanel = new TanyaPanel({
   context: () => {
     const shown = calibration || unassessed() ? null : (monitor?.labelState.shown ?? null);
