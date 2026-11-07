@@ -4,6 +4,7 @@ import { analyze } from "./analyze.ts";
 import { runBob } from "./bob.ts";
 import { parseFeatures, toFlowInput } from "./features.ts";
 import { assertLangflowUp, langflowUp, runFlow } from "./langflow.ts";
+import { askUp, forwardTanya } from "./forward.ts";
 import { DailyLimits, PROXY_SECRET_MIN, secretMatches, type PublicRoute } from "./limits.ts";
 import { FALLBACK_LABEL, readPrimaryModel } from "./model.ts";
 import { LangflowError } from "./reply.ts";
@@ -61,6 +62,16 @@ app.post("/api/tanya", async (req, res) => {
     res.status(400).json({ error: parsed.error });
     return;
   }
+  // On the VPS: Bob runs on the laptop (NOTES D-98), which checks the key, Langflow and its own busy flag. The body
+  // goes on as it came (checked above): the laptop validates it again with the same whitelist.
+  if (config.askForwardUrl) {
+    const out = await forwardTanya(req.body, req.get("x-equilibre-client") || "local", {
+      url: config.askForwardUrl,
+      secret: config.proxySecret,
+    });
+    res.status(out.status).json(out.body);
+    return;
+  }
   if (!config.bobApiKey) {
     res.status(503).json({ error: "The server is not configured: set BOB_API_KEY in .env." });
     return;
@@ -109,7 +120,10 @@ publicApp.use((req, res, next) => {
 });
 publicApp.get("/api/health", async (_req, res) => {
   res.set("Cache-Control", "no-store");
-  res.json({ ok: true, langflow: await langflowUp(), bob: Boolean(config.bobApiKey), sisa: limits.remaining() });
+  const bob = config.askForwardUrl
+    ? await askUp({ url: config.askForwardUrl, secret: config.proxySecret })
+    : Boolean(config.bobApiKey);
+  res.json({ ok: true, langflow: await langflowUp(), bob, sisa: limits.remaining() });
 });
 publicApp.post(["/api/analyze", "/api/tanya"], (req, res, next) => {
   const route: PublicRoute = req.path === "/api/analyze" ? "analyze" : "tanya";

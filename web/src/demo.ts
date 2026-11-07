@@ -13,9 +13,8 @@ export const DEMO_NOTE = {
     "Advice is written by a Langflow flow with an LLM, through a backend on the developer's laptop. The laptop is " +
     "offline right now, so the online demo cannot request advice.",
   autoSend: "Not available in the online demo: each advice is an LLM call from a shared daily limit, so it is requested by hand.",
-  tanya:
-    "Ask Equilibre runs IBM Bob and the Langflow flows on the developer's laptop, which is offline right now or has " +
-    "no Bob key.",
+  // Bob stays on the laptop when the server and Langflow move to the VPS (NOTES D-98), so this can be off alone.
+  tanya: "Ask Equi runs IBM Bob on the developer's laptop, which is offline right now or has no Bob key.",
 } as const;
 
 // What the backend can answer right now. A local run always offers both and lets a failure say why.

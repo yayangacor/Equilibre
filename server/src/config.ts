@@ -20,4 +20,10 @@ export const config = {
   // The Vercel Function sends the same secret in a header; anything else reaching the tunnel is refused.
   publicPort: Number(process.env.PUBLIC_PORT) || 8788,
   proxySecret: process.env.PROXY_SECRET ?? "",
+  // On the VPS (NOTES D-98): where the reverse SSH tunnel from the laptop ends. Set → /api/tanya is answered by the
+  // laptop's server (forward.ts), not by a Bob on this machine. Empty on the laptop itself.
+  askForwardUrl: (process.env.ASK_FORWARD_URL ?? "").trim().replace(/\/+$/, ""),
+  // On the laptop: the VPS's SSH alias and the port the tunnel opens there (npm run ask-tunnel).
+  vpsSshHost: process.env.VPS_SSH_HOST || "equilibre-vps",
+  askTunnelPort: Number(process.env.ASK_TUNNEL_PORT) || 18788,
 };
