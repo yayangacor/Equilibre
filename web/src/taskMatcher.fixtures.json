@@ -1,0 +1,337 @@
+{
+  "keterangan": [
+    "Task Matcher reference cases (plan P20 W2.4, research report 3.4). web/src/taskMatcher.ts matchTasks(masukan) must give keluaran exactly, and so must the Langflow component Task Matcher (Python, part b).",
+    "Written by hand from the rules, not generated from the code.",
+    "Ranking: integer key K = d*(3*C + 2*U) + 10*(d - posisi), d = max(1, n - 1), C = cocok in tenths, U = urgensi in tenths; larger K first, ties to the lower posisi.",
+    "Shown numbers are single divisions of integers: cocok = C/10, urgensi = U/10, urutan = (d - posisi)/d, skor = K/(10*d). Compare exactly, or with a tolerance of 1e-9."
+  ],
+  "kasus": [
+    {
+      "nama": "segar pagi: siap fokus, tugas aktif berat dipilih",
+      "masukan": {
+        "fase": "siap fokus",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 20,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": 2, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 0, "posisi": 2 },
+          { "id": "t4", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": 1, "posisi": 3 },
+          { "id": "t5", "sifat": "belum dinilai", "beban": "belum dinilai", "hari_ke_tenggat": null, "posisi": 4 }
+        ]
+      },
+      "keluaran": {
+        "baris": "siap fokus",
+        "langkah": [{ "jenis": "tugas", "menit": null, "tugas_id": "t2", "kode": ["SIAP_FOKUS", "TENGGAT_DEKAT"] }],
+        "tugas_id": "t2",
+        "kode": ["SIAP_FOKUS", "TENGGAT_DEKAT"],
+        "skor": [
+          { "id": "t2", "cocok": 1, "urgensi": 0.3, "urutan": 0.75, "skor": 4.35 },
+          { "id": "t3", "cocok": 0.5, "urgensi": 1, "urutan": 0.5, "skor": 4 },
+          { "id": "t4", "cocok": 0.6, "urgensi": 0.6, "urutan": 0.25, "skor": 3.25 },
+          { "id": "t1", "cocok": 0.2, "urgensi": 0, "urutan": 1, "skor": 1.6 },
+          { "id": "t5", "cocok": 0.5, "urgensi": 0, "urutan": 0, "skor": 1.5 }
+        ]
+      }
+    },
+    {
+      "nama": "biasa: tenggat hari ini mengalahkan urutan pengguna",
+      "masukan": {
+        "fase": "biasa",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 40,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": 2, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 0, "posisi": 2 },
+          { "id": "t4", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": 1, "posisi": 3 },
+          { "id": "t5", "sifat": "belum dinilai", "beban": "belum dinilai", "hari_ke_tenggat": null, "posisi": 4 }
+        ]
+      },
+      "keluaran": {
+        "baris": "biasa",
+        "langkah": [{ "jenis": "tugas", "menit": null, "tugas_id": "t3", "kode": ["TENGGAT_HARI_INI"] }],
+        "tugas_id": "t3",
+        "kode": ["TENGGAT_HARI_INI"],
+        "skor": [
+          { "id": "t3", "cocok": 0.5, "urgensi": 1, "urutan": 0.5, "skor": 4 },
+          { "id": "t4", "cocok": 0.5, "urgensi": 0.6, "urutan": 0.25, "skor": 2.95 },
+          { "id": "t2", "cocok": 0.5, "urgensi": 0.3, "urutan": 0.75, "skor": 2.85 },
+          { "id": "t1", "cocok": 0.5, "urgensi": 0, "urutan": 1, "skor": 2.5 },
+          { "id": "t5", "cocok": 0.5, "urgensi": 0, "urutan": 0, "skor": 1.5 }
+        ]
+      }
+    },
+    {
+      "nama": "rendah ringan 14.10: jalan dulu, lalu tugas aktif, tugas monoton dihindari",
+      "masukan": {
+        "fase": "rendah ringan",
+        "jam_rawan": true,
+        "menit_sejak_jeda": 45,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": 2, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 0, "posisi": 2 },
+          { "id": "t4", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": 1, "posisi": 3 },
+          { "id": "t5", "sifat": "belum dinilai", "beban": "belum dinilai", "hari_ke_tenggat": null, "posisi": 4 }
+        ]
+      },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [
+          { "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] },
+          { "jenis": "tugas", "menit": 25, "tugas_id": "t2", "kode": ["AKTIF_SAAT_RAWAN", "HINDARI_MONOTON", "TENGGAT_DEKAT"] }
+        ],
+        "tugas_id": "t2",
+        "kode": ["JALAN_DULU", "AKTIF_SAAT_RAWAN", "HINDARI_MONOTON", "TENGGAT_DEKAT"],
+        "skor": [
+          { "id": "t2", "cocok": 1, "urgensi": 0.3, "urutan": 0.75, "skor": 4.35 },
+          { "id": "t4", "cocok": 0.9, "urgensi": 0.6, "urutan": 0.25, "skor": 4.15 },
+          { "id": "t3", "cocok": 0.1, "urgensi": 1, "urutan": 0.5, "skor": 2.8 },
+          { "id": "t1", "cocok": 0.2, "urgensi": 0, "urutan": 1, "skor": 1.6 },
+          { "id": "t5", "cocok": 0.5, "urgensi": 0, "urutan": 0, "skor": 1.5 }
+        ]
+      }
+    },
+    {
+      "nama": "rendah berat di jam rawan: jeda aktif, tanpa tugas",
+      "masukan": {
+        "fase": "rendah berat",
+        "jam_rawan": true,
+        "menit_sejak_jeda": 70,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": 2, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 0, "posisi": 2 },
+          { "id": "t4", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": 1, "posisi": 3 },
+          { "id": "t5", "sifat": "belum dinilai", "beban": "belum dinilai", "hari_ke_tenggat": null, "posisi": 4 }
+        ]
+      },
+      "keluaran": {
+        "baris": null,
+        "langkah": [{ "jenis": "jeda", "menit": 10, "tugas_id": null, "kode": ["JEDA_DULU"] }],
+        "tugas_id": null,
+        "kode": ["JEDA_DULU"],
+        "skor": []
+      }
+    },
+    {
+      "nama": "rendah berat di luar jam rawan, menit sejak jeda tidak diketahui: tetap jeda",
+      "masukan": {
+        "fase": "rendah berat",
+        "jam_rawan": false,
+        "menit_sejak_jeda": null,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": 0, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 5, "posisi": 2 }
+        ]
+      },
+      "keluaran": {
+        "baris": null,
+        "langkah": [{ "jenis": "jeda", "menit": 10, "tugas_id": null, "kode": ["JEDA_DULU"] }],
+        "tugas_id": null,
+        "kode": ["JEDA_DULU"],
+        "skor": []
+      }
+    },
+    {
+      "nama": "biasa di jam rawan, 50 menit tanpa jeda: jalan dulu, tenggat hari ini mengalahkan kecocokan",
+      "masukan": {
+        "fase": "biasa",
+        "jam_rawan": true,
+        "menit_sejak_jeda": 50,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": 0, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 1 },
+          { "id": "t3", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": 5, "posisi": 2 }
+        ]
+      },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [
+          { "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] },
+          { "jenis": "tugas", "menit": 25, "tugas_id": "t1", "kode": ["TENGGAT_HARI_INI", "URUTAN_PENGGUNA"] }
+        ],
+        "tugas_id": "t1",
+        "kode": ["JALAN_DULU", "TENGGAT_HARI_INI", "URUTAN_PENGGUNA"],
+        "skor": [
+          { "id": "t1", "cocok": 0.2, "urgensi": 1, "urutan": 1, "skor": 3.6 },
+          { "id": "t2", "cocok": 0.9, "urgensi": 0, "urutan": 0.5, "skor": 3.2 },
+          { "id": "t3", "cocok": 0.1, "urgensi": 0, "urutan": 0, "skor": 0.3 }
+        ]
+      }
+    },
+    {
+      "nama": "siap fokus di jam rawan, baru jeda 10 menit: tanpa jalan, tugas aktif, monoton dihindari",
+      "masukan": {
+        "fase": "siap fokus",
+        "jam_rawan": true,
+        "menit_sejak_jeda": 10,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": null, "posisi": 1 }
+        ]
+      },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [{ "jenis": "tugas", "menit": 25, "tugas_id": "t2", "kode": ["AKTIF_SAAT_RAWAN", "HINDARI_MONOTON"] }],
+        "tugas_id": "t2",
+        "kode": ["AKTIF_SAAT_RAWAN", "HINDARI_MONOTON"],
+        "skor": [
+          { "id": "t2", "cocok": 1, "urgensi": 0, "urutan": 0, "skor": 3 },
+          { "id": "t1", "cocok": 0.1, "urgensi": 0, "urutan": 1, "skor": 1.3 }
+        ]
+      }
+    },
+    {
+      "nama": "siap fokus di luar jam rawan: baris siap fokus, tanpa lama blok",
+      "masukan": {
+        "fase": "siap fokus",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 10,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": null, "posisi": 1 }
+        ]
+      },
+      "keluaran": {
+        "baris": "siap fokus",
+        "langkah": [{ "jenis": "tugas", "menit": null, "tugas_id": "t2", "kode": ["SIAP_FOKUS"] }],
+        "tugas_id": "t2",
+        "kode": ["SIAP_FOKUS"],
+        "skor": [
+          { "id": "t2", "cocok": 1, "urgensi": 0, "urutan": 0, "skor": 3 },
+          { "id": "t1", "cocok": 0.5, "urgensi": 0, "urutan": 1, "skor": 2.5 }
+        ]
+      }
+    },
+    {
+      "nama": "seri skor: urutan pengguna menentukan, tugas belum dinilai",
+      "masukan": {
+        "fase": "rendah ringan",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 20,
+        "tugas": [
+          { "id": "t1", "sifat": "belum dinilai", "beban": "belum dinilai", "hari_ke_tenggat": 3, "posisi": 0 },
+          { "id": "t2", "sifat": "monoton", "beban": "ringan", "hari_ke_tenggat": 0, "posisi": 1 },
+          { "id": "t3", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": null, "posisi": 2 }
+        ]
+      },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [
+          { "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] },
+          {
+            "jenis": "tugas",
+            "menit": 25,
+            "tugas_id": "t1",
+            "kode": ["HINDARI_MONOTON", "TENGGAT_DEKAT", "URUTAN_PENGGUNA", "BELUM_DINILAI"]
+          }
+        ],
+        "tugas_id": "t1",
+        "kode": ["JALAN_DULU", "HINDARI_MONOTON", "TENGGAT_DEKAT", "URUTAN_PENGGUNA", "BELUM_DINILAI"],
+        "skor": [
+          { "id": "t1", "cocok": 0.5, "urgensi": 0.3, "urutan": 1, "skor": 3.1 },
+          { "id": "t2", "cocok": 0.2, "urgensi": 1, "urutan": 0.5, "skor": 3.1 },
+          { "id": "t3", "cocok": 0.9, "urgensi": 0, "urutan": 0, "skor": 2.7 }
+        ]
+      }
+    },
+    {
+      "nama": "tidak tahu: kamera tidak menilai, ikuti urutan pengguna",
+      "masukan": {
+        "fase": "tidak tahu",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 30,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": null, "posisi": 1 }
+        ]
+      },
+      "keluaran": {
+        "baris": "biasa",
+        "langkah": [{ "jenis": "tugas", "menit": null, "tugas_id": "t1", "kode": ["URUTAN_PENGGUNA"] }],
+        "tugas_id": "t1",
+        "kode": ["KAMERA_TIDAK_MENILAI", "URUTAN_PENGGUNA"],
+        "skor": [
+          { "id": "t1", "cocok": 0.5, "urgensi": 0, "urutan": 1, "skor": 2.5 },
+          { "id": "t2", "cocok": 0.5, "urgensi": 0, "urutan": 0, "skor": 1.5 }
+        ]
+      }
+    },
+    {
+      "nama": "jam rawan, menit sejak jeda tidak diketahui: jalan dulu",
+      "masukan": {
+        "fase": "biasa",
+        "jam_rawan": true,
+        "menit_sejak_jeda": null,
+        "tugas": [
+          { "id": "t1", "sifat": "monoton", "beban": "berat", "hari_ke_tenggat": null, "posisi": 0 },
+          { "id": "t2", "sifat": "aktif", "beban": "berat", "hari_ke_tenggat": null, "posisi": 1 }
+        ]
+      },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [
+          { "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] },
+          { "jenis": "tugas", "menit": 25, "tugas_id": "t2", "kode": ["AKTIF_SAAT_RAWAN", "HINDARI_MONOTON"] }
+        ],
+        "tugas_id": "t2",
+        "kode": ["JALAN_DULU", "AKTIF_SAAT_RAWAN", "HINDARI_MONOTON"],
+        "skor": [
+          { "id": "t2", "cocok": 1, "urgensi": 0, "urutan": 0, "skor": 3 },
+          { "id": "t1", "cocok": 0.1, "urgensi": 0, "urutan": 1, "skor": 1.3 }
+        ]
+      }
+    },
+    {
+      "nama": "satu tugas lewat tenggat: urutan 1, tenggat hari ini",
+      "masukan": {
+        "fase": "siap fokus",
+        "jam_rawan": false,
+        "menit_sejak_jeda": 15,
+        "tugas": [{ "id": "t1", "sifat": "aktif", "beban": "ringan", "hari_ke_tenggat": -2, "posisi": 0 }]
+      },
+      "keluaran": {
+        "baris": "siap fokus",
+        "langkah": [{ "jenis": "tugas", "menit": null, "tugas_id": "t1", "kode": ["TENGGAT_HARI_INI", "URUTAN_PENGGUNA"] }],
+        "tugas_id": "t1",
+        "kode": ["TENGGAT_HARI_INI", "URUTAN_PENGGUNA"],
+        "skor": [{ "id": "t1", "cocok": 0.6, "urgensi": 1, "urutan": 1, "skor": 4.8 }]
+      }
+    },
+    {
+      "nama": "biasa tanpa tugas: tidak ada langkah",
+      "masukan": { "fase": "biasa", "jam_rawan": false, "menit_sejak_jeda": 10, "tugas": [] },
+      "keluaran": { "baris": "biasa", "langkah": [], "tugas_id": null, "kode": ["TIDAK_ADA_TUGAS"], "skor": [] }
+    },
+    {
+      "nama": "rendah ringan tanpa tugas: hanya jalan, walau baru jeda",
+      "masukan": { "fase": "rendah ringan", "jam_rawan": false, "menit_sejak_jeda": 5, "tugas": [] },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [{ "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] }],
+        "tugas_id": null,
+        "kode": ["JALAN_DULU", "TIDAK_ADA_TUGAS"],
+        "skor": []
+      }
+    },
+    {
+      "nama": "jam rawan, 29 menit sejak jeda: belum waktunya jalan",
+      "masukan": { "fase": "biasa", "jam_rawan": true, "menit_sejak_jeda": 29, "tugas": [] },
+      "keluaran": { "baris": "rawan", "langkah": [], "tugas_id": null, "kode": ["TIDAK_ADA_TUGAS"], "skor": [] }
+    },
+    {
+      "nama": "jam rawan, 30 menit sejak jeda: waktunya jalan",
+      "masukan": { "fase": "biasa", "jam_rawan": true, "menit_sejak_jeda": 30, "tugas": [] },
+      "keluaran": {
+        "baris": "rawan",
+        "langkah": [{ "jenis": "jalan", "menit": 5, "tugas_id": null, "kode": ["JALAN_DULU"] }],
+        "tugas_id": null,
+        "kode": ["JALAN_DULU", "TIDAK_ADA_TUGAS"],
+        "skor": []
+      }
+    }
+  ]
+}
