@@ -1218,6 +1218,31 @@ abbr.eyebrow {
   margin-top: 0;
 }
 
+.plan-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-done .helper {
+  margin: 0;
+}
+
+/* Short walk (plan P20 W2.5): one line and Dismiss, the same ink rule as the PiP nudge. */
+.walk-nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-left: 3px solid var(--ink);
+}
+
+.walk-nudge p {
+  margin: 0;
+}
+
 /* ── Calibration screen: the camera with its scan on the left, the step on the right ── */
 
 dialog.calib-screen {

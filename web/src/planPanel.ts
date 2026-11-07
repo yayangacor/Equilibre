@@ -48,9 +48,11 @@ export type PlanDeps = {
   evalIntervalMs: number;
   server: () => boolean; // the backend can answer now (the online demo asks /api/health first, NOTES D-80)
   offlineReason: string; // why the plan is offline when the backend cannot answer
+  onTaskDone: () => void; // "I finished it": the walk scheduler suggests a short walk (W2.5)
 };
 
-type Shown = { view: PlanView; phase: PhaseView; at: number; cocok: boolean | null };
+// done: "I finished it" was pressed for this plan's task. google: the tasks came from Google Tasks.
+type Shown = { view: PlanView; phase: PhaseView; at: number; cocok: boolean | null; done: boolean; google: boolean };
 
 export class PlanPanel {
   private readonly deps: PlanDeps;
@@ -117,7 +119,14 @@ export class PlanPanel {
       const plan = server ? await requestPlan(req) : offlinePlan(req, this.deps.offlineReason);
       if (generation !== this.generation) return;
       this.decisionList = addDecision(this.decisionList, req.body, plan, Date.now());
-      this.shown = { view: planView(plan), phase: phaseView(phase, input.slump), at: now, cocok: null };
+      this.shown = {
+        view: planView(plan),
+        phase: phaseView(phase, input.slump),
+        at: now,
+        cocok: null,
+        done: false,
+        google: choice.kind === "google",
+      };
       this.saved = null;
     } catch (err) {
       console.error("Plan not made:", err);
@@ -215,6 +224,7 @@ export class PlanPanel {
 
     if (view.steps.length > 0) {
       const steps = el("ol", "", "plan-steps");
+      const hasTask = view.steps.some((s) => s.kind === "tugas");
       for (const step of view.steps) {
         const item = el("li", "", "plan-step");
         item.dataset.kind = step.kind;
@@ -222,6 +232,7 @@ export class PlanPanel {
         if (step.title) item.append(el("p", step.title, "plan-title"));
         item.append(el("p", step.text, "plan-text"));
         if (step.why) item.append(this.why(step.why));
+        if (step.kind === "next" && hasTask) item.append(this.doneAction());
         steps.append(item);
       }
       card.append(steps);
@@ -242,6 +253,30 @@ export class PlanPanel {
     if (view.badgeNote) meta.append(el("p", view.badgeNote, "helper"));
     card.append(meta, this.feedback());
     this.out.replaceChildren(card);
+  }
+
+  // "I finished it" on the "Next" step: the walk after the task (research §3.3). Google Tasks is read-only here, so the
+  // task is not ticked off there.
+  private doneAction(): HTMLElement {
+    const box = el("div", "", "plan-done");
+    const button = el("button", "I finished it", "btn outline") as HTMLButtonElement;
+    button.type = "button";
+    const note = el("p", "", "helper");
+    const update = () => {
+      const done = this.shown?.done ?? false;
+      button.disabled = done;
+      button.setAttribute("aria-pressed", String(done));
+      note.textContent = done ? `Marked as done.${this.shown?.google ? " Tick it off in Google Tasks too." : ""}` : "";
+    };
+    button.addEventListener("click", () => {
+      if (!this.shown || this.shown.done) return;
+      this.shown.done = true;
+      update();
+      this.deps.onTaskDone();
+    });
+    update();
+    box.append(button, note);
+    return box;
   }
 
   private why(text: string): HTMLElement {

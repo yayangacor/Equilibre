@@ -103,6 +103,12 @@
 
           <p id="long-rest" class="callout danger" role="status" hidden></p>
 
+          <!-- Short walk (plan P20 W2.5): before and in the low-energy hours, and after a task; never in a meeting. -->
+          <div id="walk-nudge" class="callout info walk-nudge" role="status" hidden>
+            <p id="walk-text"></p>
+            <button id="walk-dismiss" type="button" class="btn text">Dismiss</button>
+          </div>
+
           <!-- Ask: suggestions as a list, one field to type in (plan P07; layout after a plain chat panel, user 31 Oct). -->
           <section id="ask" class="card ask" aria-labelledby="h-ask">
             <div class="ask-head">
@@ -212,6 +218,10 @@
                   <button id="break-cancel" type="button" class="btn text">Cancel</button>
                 </div>
                 <p id="break-note" class="helper" aria-live="polite"></p>
+              </div>
+              <div class="inline-action">
+                <button id="meeting" type="button" class="btn outline" aria-pressed="false">I'm in a meeting</button>
+                <p id="meeting-note" class="helper" aria-live="polite"></p>
               </div>
             </section>
 

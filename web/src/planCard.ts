@@ -17,7 +17,8 @@ import { tagTask, type Rubric, type TagMemory } from "./taskTagger.ts";
 // - The phase is worked out when the user presses the button (it needs the history), not continuously, and shown
 //   with the plan it was made for.
 // - The timeline ends with a "Next" step that is not part of the Task Matcher's plan: after a task, a short walk
-//   (research §3.3: a walk after a task is done; the walk scheduler W2.5 will time it); after a break, plan again.
+//   (research §3.3: a walk after a task is done; "I finished it" there asks walkScheduler.ts, W2.5); after a break,
+//   plan again.
 // - The one-tap rubric asks only about tasks the lexicon could not tag (D-89 "ditanya sekali"), the first few in the
 //   user's order, with the four kinds as four buttons (one tap); "Not now" hides the question for this tab.
 

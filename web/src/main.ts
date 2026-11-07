@@ -42,7 +42,7 @@ import {
   type BreakState,
   type WindowFeatures,
 } from "./features.ts";
-import { initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
+import { GREETING, initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { LOCALE } from "./format.ts";
 import { brightness, faceBoxes, frameMiddle, LIGHT, toLightSample, type Box, type LightSample } from "./light.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
@@ -59,7 +59,8 @@ import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
-import { scopedStore } from "./planCard.ts";
+import { DEFAULT_SLUMP, slumpWindow, type SlumpWindow } from "./phase.ts";
+import { historyDayKeys, scopedStore } from "./planCard.ts";
 import { PlanPanel } from "./planPanel.ts";
 import {
   detectIntervalMs,
@@ -88,6 +89,7 @@ import { TasksPanel } from "./tasksPanel.ts";
 import { localTagStore, memoryTagStore } from "./taskTagger.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
+import { dismissWalk, initialWalkState, stepWalk, WALK_TEXT } from "./walkScheduler.ts";
 import { framesToCsv } from "./sessionLog.ts";
 import { LEFT_EYE, matrixLayout, RIGHT_EYE, toFrameSignal, type FrameSignal } from "./signals.ts";
 import { afterClick, needsWelcome, saveWelcomeDone, welcomeDone } from "./welcome.ts";
@@ -551,6 +553,12 @@ function renderToday() {
   renderTodayStrip(byId("today-strip"), byId("today-legend"), s);
 }
 
+// Continuous screen time right now for the plan and the walk scheduler; null while nothing is monitored.
+function liveMinutesSinceBreak(): number | null {
+  if (calibration !== null || paused || !monitor || !breakState) return null;
+  return minutesSinceBreak(breakState, performance.now());
+}
+
 // Minutes since the last break, or since monitoring started when there was none (menit_sejak_jeda).
 function renderSinceBreak() {
   if (!breakState || !monitor || calibration) {
@@ -580,7 +588,7 @@ export const planPanel = new PlanPanel({
     return {
       label: off ? null : (monitor?.labelState.shown?.label ?? null),
       quality: off ? null : (assessed?.level ?? null),
-      menitSejakJeda: off || !monitor || !breakState ? null : minutesSinceBreak(breakState, performance.now()),
+      menitSejakJeda: liveMinutesSinceBreak(),
     };
   },
   // The KSS answer counts for 15 minutes (phase.ts), so today and yesterday are enough for it.
@@ -594,6 +602,7 @@ export const planPanel = new PlanPanel({
   evalIntervalMs: EVAL_INTERVAL_MS,
   server: () => backend.saran,
   offlineReason: DEMO_NOTE.rencana,
+  onTaskDone: () => walkTick(true),
 });
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
@@ -618,6 +627,8 @@ const companion = new PipCompanion({
   },
   onSnooze: () => {
     greeting = snoozeGreeting(greeting, Date.now());
+    walk = dismissWalk(walk); // the snooze covers the walk nudge too
+    renderWalk();
     renderPipButton();
   },
   onPause: () => void setPaused(!paused),
@@ -693,8 +704,70 @@ function renderCompanion() {
   const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now());
   greeting = step.state;
   companion.render(companionView());
-  if (step.say) companion.say(step.say);
+  if (step.say) {
+    companion.say(step.say);
+    lastGreetingAt = Date.now();
+  }
 }
+
+// ── Short walk (plan P20 W2.5): a Dashboard line and the PiP nudge, never in a meeting ─────
+
+const walkNudge = byId("walk-nudge");
+const walkText = byId("walk-text");
+const meetingButton = byId<HTMLButtonElement>("meeting");
+const meetingNote = byId("meeting-note");
+// The personal slump hour comes from 7 days of history and moves slowly: read again every 10 minutes.
+const WALK_SLUMP_REFRESH_MS = 10 * 60_000;
+let walk = initialWalkState();
+let inMeeting = false; // "I'm in a meeting": this tab only, forgotten when it closes
+let walkSlump: SlumpWindow = DEFAULT_SLUMP;
+let walkSlumpAt: number | null = null;
+let lastGreetingAt = 0; // a greeting in the PiP window is not covered by a walk nudge while it shows
+
+function walkSlumpWindow(now: number): SlumpWindow {
+  if (walkSlumpAt === null || now - walkSlumpAt >= WALK_SLUMP_REFRESH_MS) {
+    walkSlumpAt = now;
+    void Promise.all(historyDayKeys(now).map((day) => panel.byDay("evaluasi", day))).then((days) => {
+      walkSlump = slumpWindow(days.flat(), now, EVAL_INTERVAL_MS);
+    });
+  }
+  return walkSlump;
+}
+
+// Every KSS_CHECK_MS, and right away for "I finished it" and the meeting switch. One clock for both inputs:
+// minutesSinceBreak runs on performance.now(), so "now" is that clock as wall time (wallClock).
+function walkTick(taskDone = false) {
+  const now = wallClock(performance.now());
+  const step = stepWalk(walk, {
+    now,
+    minutesSinceBreak: liveMinutesSinceBreak(),
+    slump: walkSlumpWindow(now),
+    meeting: inMeeting,
+    quiet: greeting.snoozeUntil > Date.now() || Date.now() - lastGreetingAt < GREETING.showMs,
+    taskDone,
+  });
+  walk = step.state;
+  if (step.say) companion.say(WALK_TEXT[step.say]);
+  renderWalk();
+}
+
+function renderWalk() {
+  walkNudge.hidden = walk.shown === null;
+  walkText.textContent = walk.shown ? WALK_TEXT[walk.shown.trigger] : "";
+  meetingButton.textContent = inMeeting ? "Meeting over" : "I'm in a meeting";
+  meetingButton.setAttribute("aria-pressed", String(inMeeting));
+  meetingNote.textContent = inMeeting ? "No walk reminders until you press Meeting over. Closing this tab turns it off." : "";
+}
+
+byId("walk-dismiss").addEventListener("click", () => {
+  walk = dismissWalk(walk);
+  renderWalk();
+});
+
+meetingButton.addEventListener("click", () => {
+  inMeeting = !inMeeting;
+  walkTick();
+});
 
 function recordEvaluation(step: EvaluationStep, t: number) {
   const shown = monitor?.labelState.shown;
@@ -2015,11 +2088,13 @@ async function main() {
   });
   setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
   userTest?.render();
-  // KSS reminders (when on) and the test card's clock.
+  // KSS reminders (when on), the test card's clock and the short-walk scheduler.
+  renderWalk();
   setInterval(() => {
     const now = Date.now();
     selfReport.tick(now);
     userTest?.render(now);
+    walkTick();
   }, KSS_CHECK_MS);
   if (NO_CAMERA) {
     cameraFailed("Camera not started (?kamera=0).");
