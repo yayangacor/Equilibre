@@ -7,6 +7,7 @@ import { assertLangflowUp, langflowUp, runFlow } from "./langflow.ts";
 import { askUp, forwardTanya } from "./forward.ts";
 import { DailyLimits, PROXY_SECRET_MIN, secretMatches, type PublicRoute } from "./limits.ts";
 import { FALLBACK_LABEL, readPrimaryModel } from "./model.ts";
+import { parseRencana, rencana } from "./rencana.ts";
 import { LangflowError } from "./reply.ts";
 import { parseTanya, tanya } from "./tanya.ts";
 
@@ -43,6 +44,35 @@ app.post("/api/analyze", async (req, res) => {
       ? FALLBACK_LABEL
       : await readPrimaryModel({ url: config.langflowUrl, apiKey: config.langflowApiKey, flowId });
     res.json({ ...out, model });
+  } catch (err) {
+    if (err instanceof LangflowError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+});
+
+// "Plan my next hour" (plan P20 W2.4): the energy phase and the abstract tasks t1..tn only (rencana.ts, NOTES D-90).
+// The flow's Task Matcher picks the task, the LLM explains it; the app falls back to its own Task Matcher on any error.
+app.post("/api/rencana", async (req, res) => {
+  const parsed = parseRencana(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  if (!config.langflowApiKey || !config.langflowRencanaFlowId) {
+    res.status(503).json({ error: "The server is not configured: set LANGFLOW_API_KEY and LANGFLOW_RENCANA_FLOW_ID in .env." });
+    return;
+  }
+
+  try {
+    const flowId = config.langflowRencanaFlowId;
+    const out = await rencana(parsed.value, (inputValue, tweaks) => runFlow(flowId, inputValue, tweaks));
+    const model = out.cadangan
+      ? FALLBACK_LABEL
+      : await readPrimaryModel({ url: config.langflowUrl, apiKey: config.langflowApiKey, flowId });
+    res.json({ ...out.jawaban, model, cadangan: out.cadangan });
   } catch (err) {
     if (err instanceof LangflowError) {
       res.status(err.status).json({ error: err.message });
@@ -125,8 +155,10 @@ publicApp.get("/api/health", async (_req, res) => {
     : Boolean(config.bobApiKey);
   res.json({ ok: true, langflow: await langflowUp(), bob, sisa: limits.remaining() });
 });
-publicApp.post(["/api/analyze", "/api/tanya"], (req, res, next) => {
-  const route: PublicRoute = req.path === "/api/analyze" ? "analyze" : "tanya";
+// A plan (/api/rencana) is a Langflow run with an LLM like an advice, so it counts against the advice budget: the same
+// daily cap and per-minute gap, and the total of LLM calls a day stays the one agreed in NOTES D-80.
+publicApp.post(["/api/analyze", "/api/tanya", "/api/rencana"], (req, res, next) => {
+  const route: PublicRoute = req.path === "/api/tanya" ? "tanya" : "analyze";
   if (route === "tanya" && bobBusy) {
     // Checked here as well so a busy Bob does not use up a visitor's turn.
     res.status(429).json({ error: "Bob is still answering another question. Try again in a moment." });

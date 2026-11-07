@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BODY_MAX, handle, OFFLINE, routeOf, type Env } from "../api/proxy.ts";
 import { DailyLimits, PUBLIC_LIMITS, secretMatches, wibDay } from "../../server/src/limits.ts";
 import { NO_BACKEND, onlineNote, probeBackend, toBackend } from "./demo.ts";
+import vercelJson from "../vercel.json?raw";
 
 // Online demo through a tunnel to the developer's laptop (NOTES D-80): the Vercel Function, the
 // server's limits and secret, and what the page offers after /api/health.
@@ -47,6 +48,17 @@ describe("Vercel Function proxy", () => {
     // The laptop gets a hash, never the IP itself.
     expect(headers["x-equilibre-client"]).toMatch(/^[0-9a-f]{16}$/);
     expect(JSON.stringify(headers)).not.toContain("203.0.113.9");
+  });
+
+  it("forwards a plan request (/api/rencana) like an advice, and vercel.json rewrites it here", async () => {
+    expect(routeOf(new URL("https://x/api/proxy?route=rencana"))).toBe("rencana");
+    const rewrites = (JSON.parse(vercelJson) as { rewrites: { source: string; destination: string }[] }).rewrites;
+    expect(rewrites).toContainEqual({ source: "/api/rencana", destination: "/api/proxy?route=rencana" });
+    const { fetcher, calls } = backend(() => jsonReply({ tugas_id: "t2" }));
+    const res = await handle(req("/api/rencana", { method: "POST", body: '{"fase":"biasa"}' }), ENV, fetcher);
+    expect(res.status).toBe(200);
+    expect(calls[0].url).toBe("https://equilibre.example.ngrok-free.app/api/rencana");
+    expect((await handle(req("/api/rencana"), ENV, fetcher)).status).toBe(405);
   });
 
   it("gives the same visitor the same id and another visitor another id", async () => {

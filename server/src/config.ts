@@ -10,6 +10,8 @@ export const config = {
   langflowUrl: (process.env.LANGFLOW_URL || "http://127.0.0.1:7860").replace(/\/+$/, ""),
   langflowApiKey: process.env.LANGFLOW_API_KEY ?? "",
   langflowFlowId: process.env.LANGFLOW_FLOW_ID ?? "",
+  // The flow rencana_kerja behind /api/rencana (plan P20 W2.4): Task Matcher → knowledge base → LLM. Empty → 503.
+  langflowRencanaFlowId: process.env.LANGFLOW_RENCANA_FLOW_ID ?? "",
   langflowTimeoutMs: 30_000,
   // IBM Bob (jalur B): key for headless runs (G-10), the isolated workspace next to equilibre/, and
   // bob.js from the global npm install (G-14).

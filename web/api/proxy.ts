@@ -1,5 +1,5 @@
-// Vercel Function behind /api/health, /api/analyze and /api/tanya of the online demo (NOTES D-80;
-// vercel.json rewrites the three paths here). It forwards to the Equilibre server on the developer's
+// Vercel Function behind /api/health, /api/analyze, /api/tanya and /api/rencana of the online demo (NOTES D-80;
+// vercel.json rewrites the four paths here). It forwards to the Equilibre server on the developer's
 // laptop through a tunnel (BACKEND_URL), adding the secret only it and the server know (BACKEND_SECRET)
 // and a hashed visitor id for the server's per-minute limit. Langflow, IBM Bob and every key stay on the
 // laptop. When the laptop is off, the tunnel answers with its own page (ngrok: HTML), which becomes the
@@ -13,6 +13,8 @@ export const ROUTES = {
   analyze: { method: "POST", timeoutMs: 75_000 },
   // Bob's own limit is 90 s.
   tanya: { method: "POST", timeoutMs: 110_000 },
+  // "Plan my next hour" (plan P20 W2.4): like analyze, two Langflow runs at most.
+  rencana: { method: "POST", timeoutMs: 75_000 },
 } as const;
 export type RouteName = keyof typeof ROUTES;
 
