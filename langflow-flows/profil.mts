@@ -63,6 +63,10 @@ export const PROFILES: Record<"watsonx" | "gemini", Profile> = {
 };
 export type ProfileName = keyof typeof PROFILES;
 
+// rencana_kerja (plan P20 W2.4) searches v4: the 9 notes of v3 plus the 3 notes of "Plan my next hour", Gemini vectors
+// as v3 (buat-kb.mjs builds it). The other flows stay on the profile's v3, so their tested retrieval does not change.
+export const RENCANA_KNOWLEDGE_BASE = "equilibre_panduan_v4";
+
 // Flows that use the setups. They are copies of analisis_status, so the Language Model and Knowledge
 // nodes keep the ids the server uses (LLM_NODE_ID, KNOWLEDGE_NODE_ID); ringkasan_harian has no
 // Knowledge node.

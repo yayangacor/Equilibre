@@ -9,9 +9,14 @@ export const SOURCES: Readonly<Record<string, string>> = {
   "albulescu-2022-micro-break.md": "Albulescu et al. (2022), PLOS ONE: micro-breaks",
   "allen-2016-ventilasi.md": "Allen et al. (2016), Environmental Health Perspectives: office ventilation",
   "eu-432-2012-air-minum.md": "Regulation (EU) No 432/2012: drinking water",
+  // jalan-singkat, jam-rawan-siang and tugas-aktif-vs-monoton: the notes of "Plan my next hour" (flow rencana_kerja,
+  // plan P20 W2.4), each from several studies.
+  "jalan-singkat.md": "Thayer (1987), Bergouignan et al. (2016) and others: short walks and felt energy",
+  "jam-rawan-siang.md": "Carskadon & Dement (1992), Monk (2005) and others: the afternoon dip in alertness",
   "kemenkes-healing119.md": "Indonesian Ministry of Health: the Healing119.id service",
   "niosh-kewaspadaan-kerja.md": "NIOSH (2015): staying alert during long work hours",
   "permenkes-48-2016-k3-perkantoran.md": "Health Ministry Regulation No. 48/2016: office health and safety",
+  "tugas-aktif-vs-monoton.md": "Mavjee & Horne (1994), Lim & Dinges (2010) and others: engaging vs monotonous tasks",
   "who-2022-mental-health-at-work.md": "WHO (2022): mental health at work",
 };
 

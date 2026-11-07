@@ -1,8 +1,10 @@
 # Knowledge base rekomendasi Equilibre
 
-Catatan ini adalah sumber RAG untuk flow Langflow `analisis_status` dan `cari_panduan`. Setiap file berisi
-**parafrase** poin yang boleh dipakai rekomendasi, sitasi lengkap, tautan, dan lisensinya. Teks sumber tidak
-disalin utuh. Klaim yang tidak ada di sini tidak boleh muncul di rekomendasi.
+Catatan ini adalah sumber RAG untuk flow Langflow `analisis_status` dan `cari_panduan` (knowledge base
+`equilibre_panduan_v3`: 9 catatan pertama) dan `rencana_kerja` (`equilibre_panduan_v4`: semua catatan, termasuk 3 catatan
+"Plan my next hour" dari laporan riset final §1, plan P20 W2.4). Setiap file berisi **parafrase** poin yang boleh dipakai
+rekomendasi, sitasi lengkap, tautan, dan lisensinya. Teks sumber tidak disalin utuh. Klaim yang tidak ada di sini tidak
+boleh muncul di rekomendasi.
 
 | File | Sumber | Lisensi | Dipakai untuk status |
 |---|---|---|---|
@@ -15,8 +17,12 @@ disalin utuh. Klaim yang tidak ada di sini tidak boleh muncul di rekomendasi.
 | `niosh-kewaspadaan-kerja.md` | NIOSH, Training for Nurses on Shift Work and Long Work Hours (Pub. 2015-115) | karya pemerintah AS, hanya parafrase | perlu jeda aktif, perlu jeda |
 | `eu-432-2012-air-minum.md` | Regulation (EU) No 432/2012, klaim kesehatan air (dasar: EFSA 2011) | dokumen resmi UE, hanya parafrase | perlu jeda aktif, perlu jeda |
 | `allen-2016-ventilasi.md` | Allen dkk. (2016), ventilasi kantor dan skor kognitif, Environ Health Perspect | CC BY 4.0 | perlu jeda aktif |
+| `jam-rawan-siang.md` | Carskadon & Dement 1992, Monk 2005, Deng dkk. 2026, Mavjee & Horne 1994, Muthusami dkk. 2017, Reyner dkk. 2012, Broughton 1998 | artikel jurnal, hanya parafrase | rencana: jam rawan siang |
+| `jalan-singkat.md` | Thayer 1987, Randolph & O'Connor 2017, Loy dkk. 2013, Bergouignan dkk. 2016, Wennberg dkk. 2016 | artikel jurnal, hanya parafrase | rencana: jalan dulu, jeda |
+| `tugas-aktif-vs-monoton.md` | Mavjee & Horne 1994, Lim & Dinges 2010, Peiris dkk. 2006, Pattyn dkk. 2008, Portas dkk. 1998, Tomasi dkk. 2009, Harrison & Horne 2000 | artikel jurnal, hanya parafrase | rencana: tugas aktif vs monoton |
 
-Diverifikasi dari halaman sumber pada 22 September 2026.
+Diverifikasi dari halaman sumber pada 22 September 2026; tiga catatan rencana dari laporan riset final §1 (7 November
+2026, abstrak PubMed dan halaman penerbit; DOI di daftar "Sumber A" laporan itu).
 
 ## Isi jeda aktif (D-27) dan sumbernya
 

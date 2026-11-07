@@ -5,6 +5,8 @@
 // chunk. Ingest embeds the notes (embedding calls, no LLM). An existing knowledge base is never
 // changed. The knowledge base endpoints are not in openapi.json; request shapes are from the Langflow
 // 1.12.2 source (NOTES G-40). Search quality afterwards: cek-retrieval.mts.
+// v4 (plan P20 W2.4) = all 12 notes, for rencana_kerja. v3 (28 Oct, the first 9 notes) stays as it is for
+// analisis_status and cari_panduan, so their tested retrieval does not change (profil.mts).
 // Usage (from equilibre/): node langflow-flows/buat-kb.mjs [--pratinjau]
 //   --pratinjau  only previews the split, creates nothing
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -14,8 +16,8 @@ const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
 const base = (process.env.LANGFLOW_URL || "http://127.0.0.1:7860").replace(/\/+$/, "");
 const previewOnly = process.argv.includes("--pratinjau");
-// Same name as PROFILES.gemini.knowledgeBase in profil.mts.
-const KB = "equilibre_panduan_v3";
+// Same name as RENCANA_KNOWLEDGE_BASE in profil.mts.
+const KB = "equilibre_panduan_v4";
 const EMBEDDING = { provider: "Google Generative AI", model: "models/gemini-embedding-001" };
 // An empty separator keeps the splitter's default separators, as for v2 (separator null).
 const SPLIT = { chunk_size: "2400", chunk_overlap: "0", separator: "" };
