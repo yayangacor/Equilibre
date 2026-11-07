@@ -14,6 +14,10 @@ export type FrameSignal = {
   blinkLeft: number; // blendshape eyeBlinkLeft, backup signal
   blinkRight: number; // blendshape eyeBlinkRight, backup signal
   lookDown: number; // mean of eyeLookDownLeft/Right: gaze down (logged for tuning, not used by the rules yet)
+  // Signal quality (quality.ts). NaN when no face, and in session CSVs from before 7 Nov (unknown, not bad).
+  yawDeg: number; // head turned left or right of the camera axis
+  rollDeg: number; // head tilted sideways
+  eyeDistPx: number; // distance between the two eye centres in video pixels: how large the face is in the picture
 };
 
 // Landmark indices in EAR order p1..p6 (Soukupová & Čech, 2016):
@@ -65,6 +69,30 @@ export function pitchFromMatrix(data: readonly number[]): number {
   return (Math.asin(Math.max(-1, Math.min(1, fy / norm))) * 180) / Math.PI;
 }
 
+// Turn of the forward axis (canonical +Z) about the camera's vertical axis, and tilt of the face's
+// sideways axis (canonical +X) in the image plane, in degrees. Both 0 when facing the camera upright;
+// only their size is used (quality.ts), so the sign convention does not matter.
+export function yawRollFromMatrix(data: readonly number[]): { yawDeg: number; rollDeg: number } {
+  const at = (row: number, col: number) =>
+    matrixLayout(data) === "column-major" ? data[col * 4 + row] : data[row * 4 + col];
+  const deg = (rad: number) => (rad * 180) / Math.PI;
+  const forward = Math.hypot(at(0, 2), at(2, 2));
+  const side = Math.hypot(at(0, 0), at(1, 0));
+  return {
+    yawDeg: forward === 0 ? NaN : deg(Math.atan2(at(0, 2), at(2, 2))),
+    rollDeg: side === 0 ? NaN : deg(Math.atan2(at(1, 0), at(0, 0))),
+  };
+}
+
+// Distance between the eye centres (midpoints of each eye's corners), in pixels of the video frame.
+export function eyeDistance(landmarks: readonly NormalizedLandmark[], width: number, height: number): number {
+  const centre = (indices: readonly number[]) => ({
+    x: ((landmarks[indices[0]].x + landmarks[indices[3]].x) / 2) * width,
+    y: ((landmarks[indices[0]].y + landmarks[indices[3]].y) / 2) * height,
+  });
+  return dist(centre(LEFT_EYE), centre(RIGHT_EYE));
+}
+
 export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, videoHeight: number, t: number): FrameSignal {
   const landmarks = result.faceLandmarks[0];
   if (!landmarks) {
@@ -79,6 +107,9 @@ export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, 
       blinkLeft: NaN,
       blinkRight: NaN,
       lookDown: NaN,
+      yawDeg: NaN,
+      rollDeg: NaN,
+      eyeDistPx: NaN,
     };
   }
 
@@ -87,6 +118,7 @@ export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, 
   const earLeft = eyeAspectRatio(landmarks, LEFT_EYE, videoWidth, videoHeight);
   const earRight = eyeAspectRatio(landmarks, RIGHT_EYE, videoWidth, videoHeight);
   const matrix = result.facialTransformationMatrixes[0];
+  const pose = matrix ? yawRollFromMatrix(matrix.data) : { yawDeg: NaN, rollDeg: NaN };
 
   return {
     t,
@@ -99,5 +131,7 @@ export function toFrameSignal(result: FaceLandmarkerResult, videoWidth: number, 
     blinkLeft: blendshape("eyeBlinkLeft"),
     blinkRight: blendshape("eyeBlinkRight"),
     lookDown: (blendshape("eyeLookDownLeft") + blendshape("eyeLookDownRight")) / 2,
+    ...pose,
+    eyeDistPx: eyeDistance(landmarks, videoWidth, videoHeight),
   };
 }

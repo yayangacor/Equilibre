@@ -39,6 +39,10 @@ export function parseCsv(path: string) {
         blinkLeft: get("blink_left"),
         blinkRight: get("blink_right"),
         lookDown: col("look_down") >= 0 ? get("look_down") : NaN,
+        // Quality columns since 7 Nov (plan P20 W1.4); older CSVs and the UTA-RLDD extracts leave them unknown.
+        yawDeg: col("yaw_deg") >= 0 ? get("yaw_deg") : NaN,
+        rollDeg: col("roll_deg") >= 0 ? get("roll_deg") : NaN,
+        eyeDistPx: col("eye_dist_px") >= 0 ? get("eye_dist_px") : NaN,
         body: Number.isFinite(area) ? { t, area, motion: get("body_motion") } : null,
       };
     });

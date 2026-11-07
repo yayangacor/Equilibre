@@ -1,6 +1,15 @@
 import type { FaceLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { describe, expect, it } from "vitest";
-import { eyeAspectRatio, matrixLayout, pitchFromMatrix, RIGHT_EYE, toFrameSignal } from "./signals.ts";
+import {
+  eyeAspectRatio,
+  eyeDistance,
+  LEFT_EYE,
+  matrixLayout,
+  pitchFromMatrix,
+  RIGHT_EYE,
+  toFrameSignal,
+  yawRollFromMatrix,
+} from "./signals.ts";
 
 const point = (x: number, y: number): NormalizedLandmark => ({ x, y, z: 0, visibility: 1 });
 
@@ -23,10 +32,12 @@ describe("eyeAspectRatio", () => {
   });
 });
 
-// 4×4 pose: rotation about X by `downDeg` (then about Y by `yawDeg`), face 50 cm in front of the camera.
-function poseMatrix(downDeg: number, yawDeg = 0, layout: "column-major" | "row-major" = "column-major"): number[] {
+// 4×4 pose: rotation about Z by `rollDeg`, then about X by `downDeg`, then about Y by `yawDeg`, face 50 cm in
+// front of the camera.
+function poseMatrix(downDeg: number, yawDeg = 0, layout: "column-major" | "row-major" = "column-major", rollDeg = 0): number[] {
   const a = (downDeg * Math.PI) / 180;
   const b = (yawDeg * Math.PI) / 180;
+  const c = (rollDeg * Math.PI) / 180;
   const rx = [
     [1, 0, 0],
     [0, Math.cos(a), -Math.sin(a)],
@@ -37,7 +48,13 @@ function poseMatrix(downDeg: number, yawDeg = 0, layout: "column-major" | "row-m
     [0, 1, 0],
     [-Math.sin(b), 0, Math.cos(b)],
   ];
-  const r = ry.map((row) => [0, 1, 2].map((c) => row.reduce((sum, v, k) => sum + v * rx[k][c], 0)));
+  const rz = [
+    [Math.cos(c), -Math.sin(c), 0],
+    [Math.sin(c), Math.cos(c), 0],
+    [0, 0, 1],
+  ];
+  const times = (p: number[][], q: number[][]) => p.map((row) => [0, 1, 2].map((j) => row.reduce((sum, v, k) => sum + v * q[k][j], 0)));
+  const r = times(ry, times(rx, rz));
   const m = [
     [...r[0], 1.5],
     [...r[1], -2],
@@ -95,5 +112,44 @@ describe("toFrameSignal", () => {
     expect(s.blinkLeft).toBe(0.1);
     expect(s.blinkRight).toBeNaN();
     expect(s.pitchDeg).toBeCloseTo(-15, 6);
+    expect(s.yawDeg).toBeCloseTo(0, 6);
+    expect(s.rollDeg).toBeCloseTo(0, 6);
+    expect(s.eyeDistPx).toBeGreaterThan(0);
+  });
+
+  it("leaves the quality numbers NaN without a face", () => {
+    const empty: FaceLandmarkerResult = { faceLandmarks: [], faceBlendshapes: [], facialTransformationMatrixes: [] };
+    const s = toFrameSignal(empty, 640, 480, 0);
+    expect([s.yawDeg, s.rollDeg, s.eyeDistPx].every(Number.isNaN)).toBe(true);
+  });
+});
+
+describe("yawRollFromMatrix", () => {
+  it("reads turning and sideways tilt, in both layouts", () => {
+    for (const layout of ["column-major", "row-major"] as const) {
+      const turned = yawRollFromMatrix(poseMatrix(0, 35, layout));
+      expect(Math.abs(turned.yawDeg)).toBeCloseTo(35, 6);
+      expect(turned.rollDeg).toBeCloseTo(0, 6);
+      const tilted = yawRollFromMatrix(poseMatrix(0, 0, layout, 20));
+      expect(Math.abs(tilted.rollDeg)).toBeCloseTo(20, 6);
+      expect(tilted.yawDeg).toBeCloseTo(0, 6);
+    }
+  });
+
+  it("is not fooled by nodding", () => {
+    const nod = yawRollFromMatrix(poseMatrix(25, 10));
+    expect(Math.abs(nod.yawDeg)).toBeCloseTo(10, 6);
+    expect(nod.rollDeg).toBeCloseTo(0, 6);
+  });
+});
+
+describe("eyeDistance", () => {
+  it("measures between the eye centres in pixels", () => {
+    const lm = Array.from({ length: 478 }, () => point(0.5, 0.5));
+    lm[RIGHT_EYE[0]] = point(0.3, 0.5);
+    lm[RIGHT_EYE[3]] = point(0.4, 0.5); // centre x 0.35
+    lm[LEFT_EYE[0]] = point(0.6, 0.5);
+    lm[LEFT_EYE[3]] = point(0.7, 0.5); // centre x 0.65
+    expect(eyeDistance(lm, 640, 480)).toBeCloseTo(0.3 * 640, 6);
   });
 });

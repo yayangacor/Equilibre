@@ -15,13 +15,30 @@ export function frame(t: number, overrides: Partial<FrameSignal> = {}): FrameSig
     blinkLeft: 0,
     blinkRight: 0,
     lookDown: 0,
+    yawDeg: 0,
+    rollDeg: 0,
+    eyeDistPx: 80,
     ...overrides,
   };
 }
 
 export function noFace(t: number): FrameSignal {
   const nan = NaN;
-  return { t, face: false, earLeft: nan, earRight: nan, ear: nan, jawOpen: nan, pitchDeg: nan, blinkLeft: nan, blinkRight: nan, lookDown: nan };
+  return {
+    t,
+    face: false,
+    earLeft: nan,
+    earRight: nan,
+    ear: nan,
+    jawOpen: nan,
+    pitchDeg: nan,
+    blinkLeft: nan,
+    blinkRight: nan,
+    lookDown: nan,
+    yawDeg: nan,
+    rollDeg: nan,
+    eyeDistPx: nan,
+  };
 }
 
 // One frame per value, FRAME_MS apart; null = no face in that frame.
