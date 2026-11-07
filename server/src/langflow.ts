@@ -57,7 +57,7 @@ export async function runFlow(
     throw new LangflowError("Langflow rejected the API key. Check LANGFLOW_API_KEY in .env.", 502);
   }
   if (res.status === 404) {
-    throw new LangflowError("Langflow has no flow with this ID. Check LANGFLOW_FLOW_ID in .env.", 502);
+    throw new LangflowError("Langflow has no flow with this ID. Check LANGFLOW_FLOW_ID (advice) or LANGFLOW_RENCANA_FLOW_ID (plan) in .env.", 502);
   }
   if (!res.ok) {
     console.error(`[langflow] HTTP ${res.status}:`, (await res.text()).slice(0, 1000));
