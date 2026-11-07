@@ -216,10 +216,12 @@ describe("offlinePlan", () => {
         menit: 10,
         tugas_id: null,
         judul: null,
-        teks: "Take an active break: walk for 10 minutes, or nap for 10–20 minutes if you can.",
+        teks: "Take an active break: stand up and walk for 10 minutes.",
       },
     ]);
     for (const t of TASKS) expect(JSON.stringify(plan)).not.toContain(t.title);
+    // No nap, the same rule as the advice flow (prompt-analisis_status.txt, user 22 Sep).
+    expect(JSON.stringify(plan)).not.toMatch(/nap|sleep/i);
   });
 
   it("has a sentence for every reason code", () => {
