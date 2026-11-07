@@ -1,5 +1,5 @@
 import { LOCALE } from "./format.ts";
-import type { DaySummary, EvaluationRecord } from "./history.ts";
+import { notJudgedTotal, type DaySummary, type EvaluationRecord } from "./history.ts";
 import type { Label } from "./rules.ts";
 
 // What the Insight page and the dashboard say about a day (plan P14): the fatigue level over time,
@@ -79,7 +79,7 @@ const sum = (s: DaySummary, labels: readonly Label[]) => labels.reduce((total, l
 export const atScreenMinutes = (s: DaySummary) => sum(s, AT_SCREEN);
 export const fatigueMinutes = (s: DaySummary) => sum(s, FATIGUE);
 export const judgedMinutes = (s: DaySummary) => atScreenMinutes(s) + s.menit["tidak di depan layar"];
-export const notJudgedMinutes = (s: DaySummary) => s.ditahan.fps + s.ditahan.mata + s.ditahan.lain;
+export const notJudgedMinutes = (s: DaySummary) => notJudgedTotal(s);
 export const monitoredMinutes = (s: DaySummary) => judgedMinutes(s) + notJudgedMinutes(s);
 
 // Share of the time at the screen spent "normal", 0–1; null with no time at the screen.

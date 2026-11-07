@@ -1,5 +1,5 @@
 import { LOCALE } from "./format.ts";
-import type { BreakRecord, DaySummary } from "./history.ts";
+import { notJudgedCauses, notJudgedTotal, type BreakRecord, type DaySummary } from "./history.ts";
 import { AT_SCREEN, formatDuration, LEVEL_LABELS, type LevelPoint } from "./insight.ts";
 import { LABELS, type Label } from "./rules.ts";
 import { stateName } from "./stateCopy.ts";
@@ -56,12 +56,12 @@ export function renderLabelBars(container: HTMLElement, note: HTMLElement, s: Da
       return row;
     }),
   );
-  const notJudged = s.ditahan.fps + s.ditahan.mata + s.ditahan.lain;
+  const notJudged = notJudgedTotal(s);
   note.textContent =
     notJudged === 0
       ? ""
-      : `Not assessed for ${formatDuration(notJudged)}: tab hidden ${formatDuration(s.ditahan.fps)}, ` +
-        `eyes not visible ${formatDuration(s.ditahan.mata)}. The last state was kept during that time.`;
+      : `Not assessed for ${formatDuration(notJudged)}: ${notJudgedCauses(s, formatDuration)}. ` +
+        "The last state was kept during that time.";
 }
 
 // ── Today strip (dashboard): the day so far as one stacked bar ──────────────────

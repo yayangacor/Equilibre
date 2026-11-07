@@ -1,6 +1,6 @@
 import { toSource, type Source } from "./answer.ts";
 import { LOCALE } from "./format.ts";
-import type { DaySummary } from "./history.ts";
+import { notJudgedTotal, type DaySummary } from "./history.ts";
 import type { Label } from "./rules.ts";
 
 // "Ask Equilibre" (plan P07): what the app sends with a question, and how the answer is shown.
@@ -28,7 +28,7 @@ const oneDecimal = (x: number) => Math.round(x * 10) / 10;
 // null when nothing was monitored today, so Bob is told there is no history rather than zeros.
 export function toHariIni(s: DaySummary | null): HariIni | null {
   if (!s) return null;
-  const monitored = Object.values(s.menit).reduce((a, b) => a + b, 0) + s.ditahan.fps + s.ditahan.mata + s.ditahan.lain;
+  const monitored = Object.values(s.menit).reduce((a, b) => a + b, 0) + notJudgedTotal(s);
   if (monitored === 0) return null;
   return {
     menit_normal: oneDecimal(s.menit.normal),

@@ -140,13 +140,20 @@ export function steadyFace(frames: readonly FrameSignal[]): boolean[] {
   return steady;
 }
 
-// Everything with t (or endT) in (now − windowMs, now] belongs to the window. Steadiness is
+// The frames with t in (now − windowMs, now], a face outside a steady run counted as no face. Steadiness is
 // judged on all kept frames first, so a run that started before the window is not cut short.
+export function windowFrames(frames: readonly FrameSignal[], now: number, windowMs: number): FrameSignal[] {
+  const steady = steadyFace(frames);
+  return frames
+    .map((f, i) => (f.face && !steady[i] ? { ...f, face: false } : f))
+    .filter((f) => f.t > now - windowMs && f.t <= now);
+}
+
+// Everything with t (or endT) in (now − windowMs, now] belongs to the window.
 export function computeWindowFeatures(data: WindowData, baseline: Baseline, now: number, windowMs: number): WindowFeatures {
   const from = now - windowMs;
   const inWindow = (t: number) => t > from && t <= now;
-  const steady = steadyFace(data.frames);
-  const all = data.frames.map((f, i) => (f.face && !steady[i] ? { ...f, face: false } : f)).filter((f) => inWindow(f.t));
+  const all = windowFrames(data.frames, now, windowMs);
   const menguap = data.yawns.filter((y) => inWindow(y.endT)).length;
   const closures = data.closures.filter((c) => inWindow(c.endT));
   const bodies = data.bodies.filter((b) => inWindow(b.t));

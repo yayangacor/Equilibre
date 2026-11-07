@@ -1,6 +1,7 @@
 import type { Baseline } from "./calibration.ts";
 import type { WindowFeatures } from "./features.ts";
 import { LOCALE } from "./format.ts";
+import type { WindowQuality } from "./quality.ts";
 
 // Same list as server/src/features.ts.
 export const LABELS = ["normal", "lelah ringan", "lelah", "tertidur", "tidak di depan layar"] as const;
@@ -181,9 +182,46 @@ export function lowFpsNote(f: WindowFeatures): string | null {
   );
 }
 
-// Rules → label. null = not calibrated yet, no frames, too few frames per second
-// (lowFpsNote), or eyes hidden at the desk (hiddenFaceNote).
-export function classify(f: WindowFeatures, baseline: Baseline | null, lookback: SleepLookback | null = null): Evaluation | null {
+// Why a window was not judged (stored as sebab_ditahan): too few frames per second (lowFpsNote), the eyes hidden
+// at the desk (hiddenFaceNote), the face turned away or too far, or too dark to read (quality.ts, plan P20 W1.4).
+export type HoldCause = "fps" | "mata" | "wajah" | "cahaya";
+
+export function qualityNote(f: WindowFeatures, quality: WindowQuality | null): string | null {
+  if (!quality || quality.level !== "tidak-dinilai") return null;
+  if (quality.reason === "fps") {
+    return (
+      `Frames were missing for most of ${spanOf(f)}, usually because the Equilibre tab was hidden or the laptop was busy. ` +
+      "The last state is kept."
+    );
+  }
+  if (quality.reason === "wajah") {
+    return (
+      `Your face was turned away or too far from the camera for most of ${spanOf(f)}, so your eyes could not be read. ` +
+      "The last state is kept until they can."
+    );
+  }
+  if (quality.reason === "cahaya") {
+    return `Too dark or too much glare to read your face over ${spanOf(f)}. The last state is kept until it can be read.`;
+  }
+  return null;
+}
+
+export function holdCause(f: WindowFeatures, quality: WindowQuality | null): HoldCause | null {
+  if (lowFpsNote(f) !== null || f.n_frame === 0) return "fps";
+  if (hiddenFaceNote(f) !== null) return "mata";
+  if (quality?.level === "tidak-dinilai") return quality.reason === "wajah" || quality.reason === "cahaya" ? quality.reason : "fps";
+  return null;
+}
+
+// Rules → label. null = not calibrated yet, no frames, too few frames per second (lowFpsNote), eyes hidden at the
+// desk (hiddenFaceNote), or a window quality.ts could not read. With the eyes readable less than half of the time
+// ("terbatas-mata": glasses, one eye glaring, head down a lot) only yawns count, up to "lelah ringan".
+export function classify(
+  f: WindowFeatures,
+  baseline: Baseline | null,
+  lookback: SleepLookback | null = null,
+  quality: WindowQuality | null = null,
+): Evaluation | null {
   if (!baseline || f.n_frame === 0 || lowFpsNote(f)) return null;
   const span = spanOf(f);
 
@@ -201,6 +239,8 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
       catatan: [],
     };
   }
+  if (quality?.level === "tidak-dinilai") return null;
+  if (quality?.level === "terbatas-mata") return yawnsOnly(f, quality);
 
   const alasan: string[] = [];
   const tanda: Tanda[] = [];
@@ -254,6 +294,24 @@ export function classify(f: WindowFeatures, baseline: Baseline | null, lookback:
   const label: Label = perclosTired || poin >= RULES.tiredPoints ? "lelah" : poin >= 1 ? "lelah ringan" : "normal";
   const skor = Math.max(Math.min(1, poin / 4), perclosTired ? 0.75 : 0);
   return { label, skor, poin, alasan, tanda, catatan };
+}
+
+// The eyes cannot be trusted in this window, so their signs are left out: what is left is yawning, and it can
+// raise the state to "lelah ringan" at most (research report §2.4: head and mouth cues are weak on their own).
+function yawnsOnly(f: WindowFeatures, quality: WindowQuality): Evaluation {
+  const why =
+    quality.reason === "kacamata"
+      ? "Your calibration could not tell open from closed eyes apart (often glasses), so eye signs are left out."
+      : `Your eyes were readable only ${pct(quality.mata ?? 0)} of ${spanOf(f)}, so eye signs are left out.`;
+  const yawned = f.menguap >= RULES.yawns;
+  return {
+    label: yawned ? "lelah ringan" : "normal",
+    skor: yawned ? 0.25 : 0,
+    poin: yawned ? 1 : 0,
+    alasan: yawned ? [`Yawned ${f.menguap}× in ${spanOf(f)}.`] : [],
+    tanda: yawned ? ["menguap"] : [],
+    catatan: [`${why} Only yawning is read, up to "Mildly tired".`],
+  };
 }
 
 // ── Rules + blink pattern (?label=gabungan, NOTES D-72) ─────────────────────────────
@@ -321,19 +379,27 @@ export function applyHysteresis(
     : { shown: state.shown, candidate: pending.label, streak, pending };
 }
 
-// hold: the eyes are hidden but the person is still there, so the shown label stays
-// and the UI explains why. pattern: only with ?label=gabungan (withBlinkPattern).
+// hold: the window could not be judged although someone is there (too few frames, eyes hidden, a face quality.ts
+// could not read), so the shown label stays and the UI explains why; cause names which. pattern: only with
+// ?label=gabungan (withBlinkPattern), and only for a fully judged window.
 export function evaluate(
   features: WindowFeatures,
   baseline: Baseline | null,
   prev: LabelState,
   lookback: SleepLookback | null = null,
   pattern: BlinkPattern | null = null,
-): { state: LabelState; latest: Evaluation | null; hold: string | null } {
-  const latest = withBlinkPattern(classify(features, baseline, lookback), pattern);
-  const hold =
-    latest === null && baseline !== null && features.n_frame > 0
-      ? (lowFpsNote(features) ?? hiddenFaceNote(features, lookback?.eyesHiddenMinutes))
-      : null;
-  return { state: latest ? applyHysteresis(prev, latest) : prev, latest, hold };
+  quality: WindowQuality | null = null,
+): { state: LabelState; latest: Evaluation | null; hold: string | null; cause: HoldCause | null } {
+  const fullyJudged = quality === null || quality.level === "nilai";
+  const latest = withBlinkPattern(classify(features, baseline, lookback, quality), fullyJudged ? pattern : null);
+  const held = latest === null && baseline !== null && features.n_frame > 0;
+  const hold = held
+    ? (lowFpsNote(features) ?? hiddenFaceNote(features, lookback?.eyesHiddenMinutes) ?? qualityNote(features, quality))
+    : null;
+  return {
+    state: latest ? applyHysteresis(prev, latest) : prev,
+    latest,
+    hold,
+    cause: held ? holdCause(features, quality) : null,
+  };
 }

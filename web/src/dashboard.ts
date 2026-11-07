@@ -1,6 +1,8 @@
 import { LOCALE } from "./format.ts";
 import {
   CHART_LABELS,
+  notJudgedCauses,
+  notJudgedTotal,
   type BreakRecord,
   type DaySummary,
   type EvaluationRecord,
@@ -136,7 +138,7 @@ export class Dashboard {
 
     const s = view.summary;
     const judged = s ? LABELS.reduce((sum, l) => sum + s.menit[l], 0) : 0;
-    const notJudged = s ? s.ditahan.fps + s.ditahan.mata + s.ditahan.lain : 0;
+    const notJudged = s ? notJudgedTotal(s) : 0;
     const empty = !s || judged + notJudged === 0;
     ui.note.hidden = !view.problem && !empty;
     ui.note.textContent =
@@ -175,7 +177,7 @@ export class Dashboard {
         "Not assessed",
         notJudged === 0
           ? minutes(0)
-          : `${minutes(notJudged)} (tab hidden ${one.format(s.ditahan.fps)}, eyes not visible ${one.format(s.ditahan.mata)})`,
+          : `${minutes(notJudged)} (${notJudgedCauses(s, (x) => one.format(x))})`,
       ],
       [
         "Breaks ≥ 2 min",

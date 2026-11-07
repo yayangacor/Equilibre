@@ -1,6 +1,6 @@
 import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
-import { LABELS, lowFpsNote, type Evaluation, type Label } from "./rules.ts";
+import { LABELS, lowFpsNote, type Evaluation, type HoldCause, type Label } from "./rules.ts";
 
 // The local history (IndexedDB, historyDb.ts): what Equilibre saw, what it advised and
 // what the user answered. None of it leaves the device (NOTES D-01); it is kept
@@ -16,8 +16,9 @@ type Stamp = {
   sesi: number; // wall clock of page load: one page load = one session
 };
 
-// "fps": hidden tab (lowFpsNote) · "mata": eyes hidden while still at the desk (hiddenFaceNote).
-export type HoldCause = "fps" | "mata";
+// sebab_ditahan (rules.ts HoldCause): "fps" hidden tab (lowFpsNote) · "mata" eyes hidden while still at the desk
+// (hiddenFaceNote) · since 7 Nov (plan P20 W1.4) "wajah" face turned away or too far · "cahaya" too dark or glaring.
+export type { HoldCause };
 
 // One per evaluation (every EVAL_INTERVAL_MS) while a label is shown: the payload of
 // that moment plus whether the window was judged at all.
@@ -87,7 +88,7 @@ export function oldestKeptDay(now: number, days: number = HISTORY_DAYS): string 
 
 export function toEvaluationRecord(
   shown: Evaluation,
-  step: { features: WindowFeatures; latest: Evaluation | null; hold: string | null; menitLelah: number },
+  step: { features: WindowFeatures; latest: Evaluation | null; hold: string | null; menitLelah: number; cause?: HoldCause | null },
   context: { t: number; sesi: number; menitSejakJeda: number; hematDaya: boolean },
 ): EvaluationRecord {
   const judged = step.latest !== null;
@@ -97,7 +98,9 @@ export function toEvaluationRecord(
     hari: dayKey(context.t),
     sesi: context.sesi,
     dinilai: judged,
-    sebab_ditahan: judged ? null : lowFpsNote(step.features) !== null ? "fps" : step.hold !== null ? "mata" : null,
+    sebab_ditahan: judged
+      ? null
+      : (step.cause ?? (lowFpsNote(step.features) !== null ? "fps" : step.hold !== null ? "mata" : null)),
     label_mentah: step.latest?.label ?? null,
     poin: shown.poin,
     hemat_daya: context.hematDaya,
@@ -219,6 +222,17 @@ export type DaySummary = {
   kss: { jumlah: number; rataRata: number | null };
 };
 
+export const notJudgedTotal = (s: DaySummary) => Object.values(s.ditahan).reduce((a, b) => a + b, 0);
+
+// The causes behind "Not assessed", for the sentences that list them. Tab and eyes always (the older wording);
+// the face and the light only when they happened.
+export function notJudgedCauses(s: DaySummary, format: (minutes: number) => string): string {
+  const parts = [`tab hidden ${format(s.ditahan.fps)}`, `eyes not visible ${format(s.ditahan.mata)}`];
+  if (s.ditahan.wajah > 0) parts.push(`face turned away ${format(s.ditahan.wajah)}`);
+  if (s.ditahan.cahaya > 0) parts.push(`too dark ${format(s.ditahan.cahaya)}`);
+  return parts.join(", ");
+}
+
 // Bottom to top in the hourly chart: the heaviest state sits on the baseline, so the
 // minutes of fatigue per hour read as one block. "tidak di depan layar" is left out of
 // the chart (it is time away, not a state at the screen) and stays in the numbers.
@@ -231,7 +245,7 @@ const noMinutes = (): LabelMinutes => Object.fromEntries(LABELS.map((l) => [l, 0
 export function summarizeDay(data: DayData, evalIntervalMs: number): DaySummary {
   const each = evalIntervalMs / 60_000;
   const menit = noMinutes();
-  const ditahan = { fps: 0, mata: 0, lain: 0 };
+  const ditahan: DaySummary["ditahan"] = { fps: 0, mata: 0, wajah: 0, cahaya: 0, lain: 0 };
   const hours = new Map<number, HourSummary>();
   for (const r of data.evaluasi) {
     const jam = new Date(r.t).getHours();
