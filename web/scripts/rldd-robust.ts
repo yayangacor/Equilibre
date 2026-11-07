@@ -115,6 +115,7 @@ type WindowRow = {
   hold: "fps" | "mata" | null;
   alarm: boolean; // what the person sees as a fatigue state right now
   judged: boolean;
+  level: string | null; // quality level the UI shows (quality.ts), null for code without it
   fps: number;
 };
 type VideoRun = { windows: WindowRow[]; long: number[]; blinks: number[]; yawns: number[]; kept: number; recorded: number };
@@ -124,6 +125,9 @@ function runVideo(baseline: Baseline, rows: readonly Row[], kept: readonly Row[]
     windowMs: WINDOW_MS,
     evalIntervalMs: EVAL_INTERVAL_MS,
     blinkPattern: engine === "gabungan",
+    // The glasses check (plan P20 W1.6a) needs a deliberate eyes-closed stage; this calibration stands in the deepest
+    // blink frames, which puts the closed/open ratio at 0.07–0.44 without glasses (NOTES G-57), so it stays off here.
+    eyesClosedStage: false,
   });
   // Body samples keep their own cadence whichever frames are dropped (replay.ts).
   const bodies = rows.flatMap((f) => (f.body ? [f.body] : []));
@@ -141,6 +145,10 @@ function runVideo(baseline: Baseline, rows: readonly Row[], kept: readonly Row[]
     const e = monitor.evaluate(f.t);
     if (f.t - kept[0].t < WINDOW_MS) continue; // the window is not full yet (rldd-dataset.ts)
     const shown = monitor.labelState.shown?.label ?? null;
+    // Code with the quality gate (W1.4): a label shown grey ("last assessed N min ago") is not an alarm, and a window
+    // counts as judged unless the UI says it cannot assess. Older code: every shown label looks current.
+    const level = (e as { assessed?: { level: string | null } }).assessed?.level ?? null;
+    const stale = level === "tidak-dinilai";
     run.windows.push({
       t: f.t,
       slot,
@@ -149,9 +157,9 @@ function runVideo(baseline: Baseline, rows: readonly Row[], kept: readonly Row[]
       shown,
       tanda: monitor.labelState.shown?.tanda ?? [],
       hold: e.hold === null ? null : lowFpsNote(e.features) !== null ? "fps" : "mata",
-      // Old code: every shown label looks current. Once W1.4 greys out a stale label, it stops counting here.
-      alarm: shown !== null && POSITIVE.includes(shown),
-      judged: e.latest !== null,
+      alarm: shown !== null && POSITIVE.includes(shown) && !stale,
+      judged: level === null ? e.latest !== null : !stale,
+      level,
       fps: e.features.durasi_jendela_detik > 0 ? e.features.n_frame / e.features.durasi_jendela_detik : 0,
     });
   }
@@ -167,7 +175,8 @@ type ClassStats = {
   tanpa_label: number;
   label: Record<string, number>;
   positif: number;
-  positif_ditahan: number; // positive windows whose label was only kept from an earlier evaluation
+  positif_ditahan: number; // positive windows whose label was only kept from an earlier evaluation, shown as current
+  tingkat: Record<string, number>; // windows per quality level the UI showed (code with quality.ts)
   tanda: Record<string, number>; // positive windows whose shown label rests on this sign (one window can have several)
   porsi_positif: number; // false alarms (class 0) or recall (class 10)
   porsi_positif_dinilai: number | null;
@@ -227,7 +236,10 @@ function classStats(runs: Map<string, VideoRun>): ClassStats {
     tanpa_label: all.filter((w) => w.shown === null).length,
     label,
     positif,
-    positif_ditahan: all.filter((w) => w.alarm && !w.judged).length,
+    positif_ditahan: all.filter((w) => w.alarm && w.raw === null).length,
+    tingkat: Object.fromEntries(
+      [...new Set(all.map((w) => w.level ?? "-"))].sort().map((l) => [l, all.filter((w) => (w.level ?? "-") === l).length]),
+    ),
     tanda: Object.fromEntries(TANDA.map((t) => [t, all.filter((w) => w.alarm && w.tanda.includes(t)).length])),
     porsi_positif: positif / all.length,
     porsi_positif_dinilai: ratio(judged.filter((w) => w.alarm).length, judged.length),
@@ -412,7 +424,7 @@ const output = {
     positif: POSITIVE,
     jam: { rata: "langkah 1000/fps ms", jeda: `langkah × (1 ± ${JITTER}), jeda ${PAUSE_MS[0]}–${PAUSE_MS[1]} ms sesudah ${PAUSE_SHARE * 100}% frame` },
     seed: "FNV-1a(partisipan|kelas|fps|jam) → mulberry32",
-    kacamata: "tidak tercatat untuk 12 subjek ini",
+    kacamata: "tidak tercatat untuk 12 subjek ini; cek rasio kalibrasi W1.6a dimatikan (kalibrasi RLDD tanpa tahap mata terpejam, G-57)",
   },
   catatan: notes,
   cek: check,
@@ -449,7 +461,8 @@ for (const r of results) {
   const d = r.kelas["10"];
   console.log(
     `${String(r.fps).padStart(3)} ${r.jam.padEnd(4)} | segar ${a.positif} (ditahan ${a.positif_ditahan}): ${signs(a)} | ` +
-      `mengantuk ${d.positif} (ditahan ${d.positif_ditahan}): ${signs(d)}`,
+      `mengantuk ${d.positif} (ditahan ${d.positif_ditahan}): ${signs(d)}` +
+      (a.tingkat["-"] === undefined ? ` | tingkat segar ${JSON.stringify(a.tingkat)} mengantuk ${JSON.stringify(d.tingkat)}` : ""),
   );
 }
 if (check) {

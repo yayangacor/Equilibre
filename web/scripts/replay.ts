@@ -100,6 +100,7 @@ const monitor = new Monitor(kedip ? { ...baseline, kedip } : baseline, {
   evalIntervalMs: EVAL_INTERVAL_MS,
   tidurMenit: tidurFlag ? Number(tidurFlag) : tidurMenit,
   blinkPattern: labelEngine === "gabungan",
+  eyesClosedStage: true, // a session log comes from the app's calibration, with its eyes-closed stage (plan P20 W1.6a)
 });
 const hasBody = liveBodies.length > 0;
 console.log(
@@ -127,7 +128,7 @@ const fixed = (x: number | null, width: number) => (x === null ? "-" : x.toFixed
 const motion = (x: number | null) => (x === null ? "    -" : x.toFixed(3));
 
 console.log(
-  `waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka terpejam tubuh diam gerak${kedip ? " pola" : ""} | mentah               -> tampil               | alasan`,
+  `waktu    | fps  perclos kedip/m durasi lama menguap nunduk hilang terbuka terpejam tubuh diam gerak${kedip ? " pola" : ""} | mentah               -> tampil               | kualitas (wajah/mata)            | alasan`,
 );
 for (const f of live) {
   while (nextBody < liveBodies.length && liveBodies[nextBody].t <= f.t) monitor.pushBody(liveBodies[nextBody++]);
@@ -144,7 +145,10 @@ for (const f of live) {
   if (f.t - lastEval < EVAL_INTERVAL_MS) continue;
   lastEval = f.t;
   const evaluation = monitor.evaluate(f.t);
-  const { features: feat, latest, hold, menitLelah, saran } = evaluation;
+  const { features: feat, latest, hold, menitLelah, saran, quality, assessed } = evaluation;
+  const share = (x: number | null) => (x === null ? "-" : `${Math.round(x * 100)}%`);
+  const level = `${assessed.level ?? "-"}${assessed.reason ? `:${assessed.reason}` : ""}`;
+  const qualityCell = `${level} (${share(quality.wajah)}/${share(quality.mata)})`;
   const fps = feat.durasi_jendela_detik > 0 ? feat.n_frame / feat.durasi_jendela_detik : 0;
   const shown = monitor.labelState.shown;
   if (shown) {
@@ -162,7 +166,7 @@ for (const f of live) {
       `${pct(feat.pct_kepala_menunduk)}  ${pct(feat.pct_wajah_hilang)}    ${pct(feat.pct_mata_terbuka)}     ${pct(feat.pct_mata_tertutup)}  ` +
       `${pct(feat.pct_tubuh_ada)} ${pct(feat.pct_tubuh_diam)} ${motion(feat.gerak_tubuh)}` +
       `${kedip ? ` ${pct(monitor.blinkScore(f.t)?.chance ?? null)}` : ""} | ` +
-      `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ` +
+      `${(latest?.label ?? (hold ? "(tahan)" : "-")).padEnd(20)} -> ${(shown?.label ?? "-").padEnd(20)} | ${qualityCell.padEnd(32)} | ` +
       [
         ...(latest?.alasan ?? []),
         ...(latest?.catatan ?? []).map((c) => `(${c})`),
