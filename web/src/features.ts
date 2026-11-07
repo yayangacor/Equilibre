@@ -1,4 +1,4 @@
-import type { EyeClosure } from "./blink.ts";
+import { LOW_FPS, MAX_FRAME_GAP_MS, type EyeClosure } from "./blink.ts";
 import { BODY, bodyPresent, type BodySample } from "./body.ts";
 import { median, perclosThreshold, type Baseline } from "./calibration.ts";
 import type { FrameSignal } from "./signals.ts";
@@ -7,9 +7,9 @@ import type { YawnEvent } from "./yawn.ts";
 // Field names are shared with the server whitelist (server/src/features.ts) and the
 // Langflow prompt, hence Indonesian snake_case. null = not enough data to say.
 export type WindowFeatures = {
-  perclos: number | null; // share of readable-eye frames with the eye ≥80% closed, short blinks left out
-  kedip_per_menit: number | null;
-  durasi_kedip_ms: number | null; // mean over blinks in the window
+  perclos: number | null; // share of readable-eye time with the eye closed, short blinks left out (time-weighted)
+  kedip_per_menit: number | null; // null below LOW_FPS too: too many blinks fall between frames
+  durasi_kedip_ms: number | null; // mean over blinks in the window; null below LOW_FPS (one frame = 125 ms or more)
   mata_tertutup_lama: number; // eye closures of MAX_BLINK_MS or longer that ended in the window
   menguap: number;
   pct_kepala_menunduk: number | null; // share of face frames with the head down
@@ -59,6 +59,32 @@ export function eyesReadable(f: FrameSignal, baseline: Baseline): boolean {
 // So an open eye counts with the head down too (it rules out "tertidur").
 export function eyesSeenOpen(f: FrameSignal, baseline: Baseline): boolean {
   return f.face && Number.isFinite(f.ear) && f.ear >= perclosThreshold(baseline);
+}
+
+// ── Time weights (plan P20 W1.1) ────────────────────────────────────────────────
+// Each frame stands for the time until the next one. After a stall longer than MAX_FRAME_GAP_MS (busy
+// laptop, tab switch) the eyes were not seen: the frame before it stands for one usual interval and the
+// rest is missing, neither closed nor open. The last frame stands for one usual interval too. At a steady
+// rate every weight is the same, so the result equals counting frames. (The plan's draft capped every
+// interval at twice the median, which under-weights the slower half of a window in which the rate changed,
+// e.g. 10 → 3 fps.)
+export function frameWeights(frames: readonly FrameSignal[]): number[] {
+  const intervals = frames.slice(1).map((f, i) => f.t - frames[i].t);
+  const usual = Math.min(intervals.length > 0 ? median(intervals) : 0, MAX_FRAME_GAP_MS);
+  return frames.map((_, i) => {
+    const dt = i < intervals.length ? intervals[i] : usual;
+    return dt > MAX_FRAME_GAP_MS ? usual : Math.max(0, dt);
+  });
+}
+
+// Frames per second at which the window was sampled, from the intervals that were not stalls: what one
+// frame resolves (W1.3). null with fewer than two frames.
+export function samplingFps(frames: readonly FrameSignal[]): number | null {
+  const intervals = frames
+    .slice(1)
+    .map((f, i) => f.t - frames[i].t)
+    .filter((dt) => dt > 0 && dt <= MAX_FRAME_GAP_MS);
+  return intervals.length > 0 ? 1000 / (intervals.reduce((a, b) => a + b, 0) / intervals.length) : null;
 }
 
 // Frames inside short blinks, found by walking both time-ordered lists once.
@@ -153,6 +179,9 @@ export function computeWindowFeatures(data: WindowData, baseline: Baseline, now:
 
   const spanMs = now - all[0].t;
   const secondsOf = (n: number) => (spanMs / 1000) * (n / all.length);
+  const weights = frameWeights(all);
+  const weightOf = new Map(all.map((f, i) => [f, weights[i]]));
+  const timeOf = (frames: readonly FrameSignal[]) => frames.reduce((sum, f) => sum + (weightOf.get(f) ?? 0), 0);
   const faces = all.filter((f) => f.face && Number.isFinite(f.ear));
   const readable = faces.filter((f) => eyesReadable(f, baseline));
   const eyeSeconds = secondsOf(readable.length);
@@ -161,12 +190,18 @@ export function computeWindowFeatures(data: WindowData, baseline: Baseline, now:
   const closedThreshold = perclosThreshold(baseline);
   const blinking = inShortBlink(readable, closures);
   const closedFrames = readable.filter((f) => f.ear < closedThreshold);
-  const closed = readable.filter((f, i) => f.ear < closedThreshold && !blinking[i]).length;
+  const closedTime = timeOf(readable.filter((f, i) => f.ear < closedThreshold && !blinking[i]));
+  const eyeTime = timeOf(readable);
+  // Below LOW_FPS a blink is one or two frames: its length reads as the frame interval, and slow blinks
+  // appear out of nothing (NOTES G-106: every false alarm at 7, 5 and 3 fps in UTA-RLDD was "kedipan_lambat").
+  const fps = samplingFps(all);
+  const blinkTiming = fps === null || fps >= LOW_FPS;
 
   return {
-    perclos: eyeSeconds >= MIN_EYE_SECONDS_FOR_PERCLOS ? closed / readable.length : null,
-    kedip_per_menit: eyeSeconds >= MIN_FACE_SECONDS_FOR_RATE ? blinks.length / (eyeSeconds / 60) : null,
-    durasi_kedip_ms: blinks.length > 0 ? blinks.reduce((sum, b) => sum + b.durationMs, 0) / blinks.length : null,
+    perclos: eyeSeconds >= MIN_EYE_SECONDS_FOR_PERCLOS && eyeTime > 0 ? closedTime / eyeTime : null,
+    kedip_per_menit: blinkTiming && eyeSeconds >= MIN_FACE_SECONDS_FOR_RATE ? blinks.length / (eyeSeconds / 60) : null,
+    durasi_kedip_ms:
+      blinkTiming && blinks.length > 0 ? blinks.reduce((sum, b) => sum + b.durationMs, 0) / blinks.length : null,
     menguap,
     pct_kepala_menunduk: pitches.length > 0 ? pitches.filter((f) => headDown(f, baseline)).length / pitches.length : null,
     pct_wajah_hilang: (all.length - faces.length) / all.length,

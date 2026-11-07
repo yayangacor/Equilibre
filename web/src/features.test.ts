@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { EyeClosure } from "./blink.ts";
 import type { BodySample } from "./body.ts";
-import { atScreen, breakEnded, computeWindowFeatures, initialBreakState, minutesSinceBreak, stepBreak } from "./features.ts";
+import {
+  atScreen,
+  breakEnded,
+  computeWindowFeatures,
+  frameWeights,
+  initialBreakState,
+  minutesSinceBreak,
+  samplingFps,
+  stepBreak,
+} from "./features.ts";
 import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, noFace, repeat } from "./test-helpers.ts";
 import type { YawnEvent } from "./yawn.ts";
@@ -152,6 +161,84 @@ describe("computeWindowFeatures", () => {
     expect(away).toMatchObject({ pct_mata_terbuka: 0, pct_mata_tertutup: 0, pct_tubuh_ada: null, gerak_tubuh: null });
 
     expect(compute([frame(NOW - 2000), frame(NOW - 1000)]).kedip_per_menit).toBeNull();
+  });
+});
+
+// Frames every `stepMs` over the window (NOW − WINDOW, NOW], eyes from `eye(t)`.
+const sampled = (stepMs: number, eye: (t: number) => number, from = NOW - WINDOW, to = NOW) =>
+  Array.from({ length: Math.floor((to - from) / stepMs) }, (_, i) => {
+    const t = from + (i + 1) * stepMs;
+    const v = eye(t);
+    return frame(t, { ear: v, earLeft: v, earRight: v });
+  });
+// Eyes shut 3 s out of every 20 s: 15% of the time, in closures far longer than a blink.
+const SHUT_3_OF_20 = (t: number) => (t % 20_000 < 3_000 ? 0.04 : 0.3);
+
+describe("time-weighted PERCLOS (plan P20 W1.1)", () => {
+  it("gives the same PERCLOS at 10, 5 and 3 fps for the same eyes", () => {
+    for (const stepMs of [100, 200, 333]) {
+      expect(compute(sampled(stepMs, SHUT_3_OF_20)).perclos).toBeCloseTo(0.15, 1);
+    }
+  });
+
+  it("counts time, not frames, when the rate changes inside the window", () => {
+    // First 30 s at 10 fps with the eyes open, then 30 s at 3 fps with them shut half of the time
+    // (power saving switched on as the person got drowsy): 15 of 60 s closed. Counting frames gives ±11%.
+    const fast = sampled(100, () => 0.3, NOW - WINDOW, NOW - 30_000);
+    const slow = sampled(333, (t) => (t % 10_000 < 5_000 ? 0.04 : 0.3), NOW - 30_000, NOW);
+    const frames = [...fast, ...slow];
+    const closedFrames = frames.filter((f) => f.ear < 0.065).length;
+    expect(closedFrames / frames.length).toBeLessThan(0.12);
+    expect(compute(frames).perclos).toBeCloseTo(0.25, 1);
+  });
+
+  it("does not let a frame before a stall stand for the whole stall", () => {
+    // 10 fps, eyes open, then one closed frame and nothing for 4 s (the loop stalled), then open again.
+    const before = sampled(100, () => 0.3, NOW - WINDOW, NOW - 10_000);
+    const closed = frame(NOW - 10_000 + 100, { ear: 0.04, earLeft: 0.04, earRight: 0.04 });
+    const after = sampled(100, () => 0.3, NOW - 10_000 + 4_100, NOW);
+    const f = compute([...before, closed, ...after]);
+    expect(f.perclos).toBeLessThan(0.01); // one usual interval (100 ms) of ±56 s seen
+    expect(frameWeights([...before.slice(-2), closed, after[0]])).toEqual([100, 100, 100, 100]);
+  });
+});
+
+describe("blink timing below 8 fps (plan P20 W1.3, NOTES G-106)", () => {
+  // A 150 ms blink every 4 s, eyes open otherwise.
+  const blinking = (t: number) => (t % 4_000 < 150 ? 0.04 : 0.3);
+  const blinksOf = (frames: FrameSignal[]) => {
+    const out: EyeClosure[] = [];
+    let start: number | null = null;
+    for (const f of frames) {
+      if (f.ear < 0.2 && start === null) start = f.t;
+      if (f.ear >= 0.2 && start !== null) {
+        out.push(blink(f.t, f.t - start));
+        start = null;
+      }
+    }
+    return out;
+  };
+
+  it("reads blink length and rate at 10 fps", () => {
+    const frames = sampled(100, blinking);
+    const f = compute(frames, blinksOf(frames));
+    expect(f.kedip_per_menit).toBeCloseTo(15, 0);
+    expect(f.durasi_kedip_ms).not.toBeNull();
+  });
+
+  it("leaves blink length and rate out at 5 fps, where one frame is 200 ms", () => {
+    const frames = sampled(200, blinking);
+    const f = compute(frames, blinksOf(frames));
+    expect(f.durasi_kedip_ms).toBeNull();
+    expect(f.kedip_per_menit).toBeNull();
+    expect(f.perclos).not.toBeNull(); // time-based signs stay
+  });
+
+  it("measures the sampling rate without the stalls", () => {
+    const frames = [...sampled(100, () => 0.3, NOW - WINDOW, NOW - 30_000), ...sampled(100, () => 0.3, NOW - 25_000, NOW)];
+    expect(samplingFps(frames)).toBeCloseTo(10, 6); // the 5 s stall is missing data, not a slow rate
+    expect(samplingFps(sampled(200, () => 0.3))).toBeCloseTo(5, 6);
+    expect(samplingFps([frame(0)])).toBeNull();
   });
 });
 
