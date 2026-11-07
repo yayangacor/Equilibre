@@ -78,7 +78,8 @@ import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type La
 import { SelfReport } from "./selfReport.ts";
 import { faceBox, gridCentre, ScanEffect, SCAN } from "./scanEffect.ts";
 import { stateName } from "./stateCopy.ts";
-import { heroCopy, type HeroState } from "./statusCopy.ts";
+import type { QualityState } from "./quality.ts";
+import { heroCopy, lastAssessedNote, limitedNote, UNASSESSED, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
@@ -163,6 +164,7 @@ const baselineList = byId("baseline");
 const payloadPre = byId("payload");
 const sendButton = byId<HTMLButtonElement>("send-status");
 const sendNote = byId("send-note");
+const heroPower = byId<HTMLButtonElement>("hero-power");
 const answer = byId("answer");
 const powerToggle = byId<HTMLInputElement>("power-saving");
 const powerNote = byId("power-note");
@@ -359,6 +361,11 @@ let saran: string | null = null;
 let features: WindowFeatures | null = null;
 let lastEvalT = 0;
 let lastFeaturesT = 0;
+// What the camera could read (quality.ts, plan P20 W1.4): the level the UI shows and when a label was last given.
+let assessed: QualityState | null = null;
+let lastAssessedT: number | null = null;
+// The last windows could not be read: the shown label is stale, so no advice, no automatic sending, no nudges.
+const unassessed = () => assessed?.level === "tidak-dinilai";
 
 // Detection rate (hemat daya). Every change goes into the session log header.
 let power: PowerState = initialPowerState(store ? loadPowerChoice(store) : false);
@@ -393,10 +400,13 @@ function resetWindow(t: number) {
         evalIntervalMs: EVAL_INTERVAL_MS,
         tidurMenit: TIDUR_MENIT,
         blinkPattern: COMBINED,
+        eyesClosedStage: true, // the app's calibration has its eyes-closed stage (W1.6a)
       })
     : null;
   latest = null;
   hold = null;
+  assessed = null;
+  lastAssessedT = null;
   menitLelah = 0;
   saran = null;
   features = null;
@@ -439,7 +449,7 @@ function onFrame(s: FrameSignal) {
   if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
     lastEvalT = s.t;
     const step = monitor.evaluate(s.t);
-    ({ latest, hold, menitLelah, saran } = step);
+    ({ latest, hold, menitLelah, saran, assessed, lastAssessedT } = step);
     recordEvaluation(step, s.t);
     renderStatus();
     renderPayload();
@@ -448,6 +458,7 @@ function onFrame(s: FrameSignal) {
 }
 
 function maybeAutoSend() {
+  if (unassessed()) return; // nothing is sent about a state the camera could not read; the episode goes on
   const target = autoTarget(monitor?.labelState.shown?.label ?? null, saran !== null);
   const step = stepAutoSend(autoState, target, Date.now(), autoSendOn && !sending);
   autoState = step.state;
@@ -465,7 +476,7 @@ if (TEST_MODE) byId("kss-panel").dataset.full = "";
 const selfReport = new SelfReport({
   panel,
   session: SESSION,
-  shown: () => (calibration ? null : (monitor?.labelState.shown ?? null)),
+  shown: () => (calibration || unassessed() ? null : (monitor?.labelState.shown ?? null)),
   // With a test code the reminders run only while the test does (after consent and calibration).
   reminders: () => (TEST_MODE ? userTest === null || userTest.running() : kssReminderOn),
   beep: reminderBeep,
@@ -542,7 +553,7 @@ function renderSinceBreak() {
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
 const tanyaPanel = new TanyaPanel({
   context: () => {
-    const shown = calibration ? null : (monitor?.labelState.shown ?? null);
+    const shown = calibration || unassessed() ? null : (monitor?.labelState.shown ?? null);
     return { label: shown?.label ?? null, menitLelah60: shown ? menitLelah : null };
   },
   todaySummary: () => panel.todaySummary(),
@@ -614,6 +625,10 @@ function companionView(): CompanionView {
   if (calibration) return { state: null, label: "Calibrating…", note: "Look at the screen as usual.", paused: false };
   if (!baseline) return { state: null, label: "Not calibrated", note: "Calibrate in the Equilibre tab first.", paused: false };
   const shown = monitor?.labelState.shown;
+  if (unassessed()) {
+    const copy = UNASSESSED[assessed?.reason ?? "fps"];
+    return { state: null, label: "Can't assess", note: `${copy.title}. ${copy.text}`, paused: false };
+  }
   if (!shown) return { state: null, label: "Reading…", note: "Your first state appears in a moment.", paused: false };
   return {
     state: shown.label,
@@ -626,7 +641,9 @@ function companionView(): CompanionView {
 // Before the window opens the nudge state still follows the label, so opening it later does
 // not replay an old change.
 function renderCompanion() {
-  const shown = calibration || !baseline || paused ? null : (monitor?.labelState.shown?.label ?? null);
+  // While the camera cannot read, the nudges keep the last label: nothing new to say, and nothing to repeat later.
+  const shown =
+    calibration || !baseline || paused ? null : unassessed() ? greeting.label : (monitor?.labelState.shown?.label ?? null);
   const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now());
   greeting = step.state;
   companion.render(companionView());
@@ -745,6 +762,8 @@ function renderBlinkScore() {
     blinkScoreNote.textContent =
       "Recalibrate to turn this score on (this baseline has no blink data yet)." +
       (COMBINED ? " Until then, the state comes from the rules only." : "");
+  } else if (score.lowFps) {
+    blinkScoreNote.textContent = "Paused below 8 frames per second: the score was trained on blinks at 10 fps.";
   } else if (score.chance === null) {
     blinkScoreNote.textContent = `Collecting blinks: ${score.n} of at least ${MIN_SCORE_BLINKS}…`;
   } else {
@@ -766,6 +785,7 @@ function heroState(): HeroState {
   if (calibration) return { kind: "calibrating" };
   if (!detecting) return { kind: "loading" };
   if (!baseline) return { kind: "uncalibrated" };
+  if (unassessed()) return { kind: "unassessed", reason: assessed?.reason ?? null, powerSaving: powerReason(power) !== null };
   const shown = monitor?.labelState.shown;
   return shown ? { kind: "label", label: shown.label } : { kind: "analyzing" };
 }
@@ -790,6 +810,9 @@ function renderStatus() {
   heroProgress.hidden = state.kind !== "calibrating" || calibProgress.hidden;
   heroCamera.hidden = state.kind !== "off";
   heroCalib.hidden = state.kind !== "uncalibrated";
+  // Before giving up on a low frame rate, the one-tap fix (research report §2.7): leave power saving.
+  const lowRate = (state.kind === "unassessed" && state.reason === "fps") || assessed?.level === "terbatas-fps";
+  heroPower.hidden = !(lowRate && powerReason(power) !== null);
   heroSaran.hidden = !(saran !== null || label === "lelah ringan" || label === "lelah" || label === "tertidur");
   document.body.toggleAttribute("data-calibrated", baseline !== null);
   renderControls();
@@ -797,10 +820,16 @@ function renderStatus() {
   const labelState = monitor?.labelState;
   const shown = state.kind === "label" ? labelState?.shown : undefined;
   if (state.kind === "analyzing" && hold) labelMeta.textContent = hold;
+  // The stale label is never shown as the current state: only as what was read last, and when.
+  if (state.kind === "unassessed") {
+    const ago = lastAssessedT === null ? null : (performance.now() - lastAssessedT) / 60_000;
+    labelMeta.textContent = lastAssessedNote(labelState?.shown?.label ?? null, ago);
+  }
   why.hidden = !labelState || !shown; // nothing to explain before the first label
   if (!labelState || !shown) return;
 
-  labelMeta.textContent = `Updated ${clock(new Date())}`;
+  const limited = limitedNote(assessed?.level ?? null, assessed?.reason ?? null, powerReason(power) !== null);
+  labelMeta.textContent = `Updated ${clock(new Date())}.${limited ? ` ${limited}` : ""}`;
   whyHint.textContent =
     shown.alasan.length === 0
       ? "No signs of tiredness in the last window."
@@ -835,8 +864,11 @@ const notSent = (payload: AnalyzePayload | null) => payload?.label === "tidak di
 function renderPayload() {
   const payload = currentPayload();
   payloadPre.textContent = payload ? JSON.stringify(payload, null, 2) : "No state yet.";
-  sendButton.disabled = !backend.saran || payload === null || sending || notSent(payload);
-  sendNote.hidden = !backend.saran || !notSent(payload);
+  sendButton.disabled = !backend.saran || payload === null || sending || notSent(payload) || unassessed();
+  sendNote.hidden = !backend.saran || !(notSent(payload) || unassessed());
+  sendNote.textContent = unassessed()
+    ? "No advice while the camera can't read your face: there is nothing to assess."
+    : "No advice while you're away from the screen: there is nothing to assess.";
 }
 
 function renderBaseline() {
@@ -1162,6 +1194,12 @@ function setPower(next: PowerState) {
 powerToggle.addEventListener("change", () => {
   setPower(onToggle(power, powerToggle.checked));
   if (store) savePowerChoice(store, power.chosen);
+});
+
+heroPower.addEventListener("click", () => {
+  setPower(onToggle(power, false));
+  if (store) savePowerChoice(store, power.chosen);
+  renderStatus();
 });
 
 // Battery Status API: Chromium only, and it may be blocked by a permissions policy.
