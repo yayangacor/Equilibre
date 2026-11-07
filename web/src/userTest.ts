@@ -304,10 +304,10 @@ export const SUBMISSION_KEYS = [
   "jeda",
 ] as const;
 
-// sebab_ditahan values sent with a test, as before 7 Nov. The causes added since (plan P20 W1.4: "wajah", "cahaya")
-// stay on the device until the user decides whether they may go out (NOTES Q-20, D-01): sent as null, which the
+// sebab_ditahan values sent with a test. "wajah" and "cahaya" (plan P20 W1.4) may go out since 7 Nov (NOTES D-101,
+// user's answer to Q-20); any cause added later stays on the device until decided (D-01): sent as null, which the
 // receiver already gets for a window not judged for another reason.
-export const SENT_HOLD_CAUSES = ["fps", "mata"] as const;
+export const SENT_HOLD_CAUSES = ["fps", "mata", "wajah", "cahaya"] as const;
 
 function sentCause<T extends { sebab_ditahan: string | null }>(record: T): T {
   const known = (SENT_HOLD_CAUSES as readonly string[]).includes(record.sebab_ditahan ?? "");

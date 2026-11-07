@@ -234,11 +234,11 @@ describe("submission", () => {
     expect(sub.evaluasi[0]).not.toHaveProperty("hari");
   });
 
-  it("sends only the hold causes sent before 7 Nov; the newer ones wait for a decision (NOTES Q-20)", () => {
+  it("sends the four decided hold causes; an undecided one goes out as null (NOTES D-101)", () => {
     const held = (sebab_ditahan: string) => ({ ...evaluation(START + 2 * MIN), dinilai: false, sebab_ditahan }) as EvaluationRecord;
-    const withCauses = { ...records, evaluasi: [held("fps"), held("mata"), held("wajah"), held("cahaya")] };
+    const withCauses = { ...records, evaluasi: ["fps", "mata", "wajah", "cahaya", "baru"].map(held) };
     const out = toSubmission(done, feedback, withCauses as never, { perangkat: sub.perangkat, baseline, now: START + 62 * MIN });
-    expect(out.evaluasi.map((e) => e.sebab_ditahan)).toEqual(["fps", "mata", null, null]);
+    expect(out.evaluasi.map((e) => e.sebab_ditahan)).toEqual(["fps", "mata", "wajah", "cahaya", null]);
   });
 
   it("refuses to build a submission before the test ended, or without an id", () => {
