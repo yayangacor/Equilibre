@@ -162,11 +162,11 @@ describe("parseBobOutput", () => {
     const faked =
       '<function_calls> <invoke name="mcp__equilibre-langflow__ringkasan_harian"> <parameter name="input">{}</parameter> </invoke> </function_calls> ' +
       JSON.stringify({ jawaban: "Pertimbangkan istirahat lebih panjang (15–20 menit).", sumber: [] });
-    expect(() => parseBobOutput(result(faked, { tool_calls: 0, session_costs: 0.01 }))).toThrow(/tanpa memanggil flow/);
+    expect(() => parseBobOutput(result(faked, { tool_calls: 0, session_costs: 0.01 }))).toThrow(/without calling a Langflow flow/);
     const clean = JSON.stringify({ jawaban: "Istirahatkan matamu.", sumber: [] });
     expect(() => parseBobOutput(result(clean, { tool_calls: 0, session_costs: 0.01 }))).toThrow(LangflowError);
-    expect(() => parseBobOutput(JSON.stringify({ type: "result", status: "success", last_message: clean }))).toThrow(/tanpa memanggil flow/);
-    expect(() => parseBobOutput(result(`<invoke name="x"></invoke> ${clean}`))).toThrow(/tanpa memanggil flow/); // markup despite a real call
+    expect(() => parseBobOutput(JSON.stringify({ type: "result", status: "success", last_message: clean }))).toThrow(/without calling a Langflow flow/);
+    expect(() => parseBobOutput(result(`<invoke name="x"></invoke> ${clean}`))).toThrow(/without calling a Langflow flow/); // markup despite a real call
     expect(parseBobOutput(result(clean)).tool_calls).toBe(1); // control: a real call passes
   });
 
@@ -182,7 +182,7 @@ describe("parseBobOutput", () => {
 
   it("fails on output without a result or with an empty answer", () => {
     expect(() => parseBobOutput("bukan json")).toThrow(LangflowError);
-    expect(() => parseBobOutput(result("  "))).toThrow(/tanpa jawaban/);
+    expect(() => parseBobOutput(result("  "))).toThrow(/without an answer/);
   });
 });
 
@@ -207,7 +207,7 @@ describe("tanya: one run per question", () => {
     const leaked = [`${summary} Mulai kalibrasi dan bekerja seperti biasa.`, `${summary} ${NO_HISTORY}`];
     const withNumbers = { pertanyaan: "Gimana kondisiku hari ini?", label: null, status: null, hari_ini: HARI_INI, disamarkan: [] };
     for (const text of leaked) expect((await tanya(withNumbers, answer(text))).jawaban).toBe(summary);
-    await expect(tanya(withNumbers, answer(NO_HISTORY))).rejects.toThrow(/tidak sesuai dengan angka/);
+    await expect(tanya(withNumbers, answer(NO_HISTORY))).rejects.toThrow(/did not match today's numbers/);
     const noNumbers = { ...withNumbers, hari_ini: null };
     expect((await tanya(noNumbers, answer(NO_HISTORY))).jawaban).toBe(NO_HISTORY); // control: true when nothing was sent
     const plain = `${summary}\nRata-rata rasa kantuk (KSS) 6,5 dari 9.`;

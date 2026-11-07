@@ -60,10 +60,10 @@ const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/;
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 function parseHariIni(v: unknown): { ok: true; value: HariIni } | { ok: false; error: string } {
-  if (!isObject(v)) return { ok: false, error: "hari_ini harus berupa objek." };
+  if (!isObject(v)) return { ok: false, error: "hari_ini must be an object." };
   const keys = Object.keys(HARI_INI_FIELDS);
   const unknownKeys = Object.keys(v).filter((k) => !keys.includes(k));
-  if (unknownKeys.length > 0) return { ok: false, error: `Field hari_ini tidak dikenal: ${unknownKeys.join(", ")}.` };
+  if (unknownKeys.length > 0) return { ok: false, error: `Unknown hari_ini fields: ${unknownKeys.join(", ")}.` };
   const out: Record<string, number | null> = {};
   for (const [key, [min, max]] of Object.entries(HARI_INI_FIELDS)) {
     const x = v[key];
@@ -72,7 +72,7 @@ function parseHariIni(v: unknown): { ok: true; value: HariIni } | { ok: false; e
       continue;
     }
     if (typeof x !== "number" || !Number.isFinite(x) || x < min || x > max) {
-      return { ok: false, error: `hari_ini.${key} harus berupa angka antara ${min} dan ${max}.` };
+      return { ok: false, error: `hari_ini.${key} must be a number from ${min} to ${max}.` };
     }
     out[key] = x;
   }
@@ -80,24 +80,24 @@ function parseHariIni(v: unknown): { ok: true; value: HariIni } | { ok: false; e
 }
 
 export function parseTanya(body: unknown): Parsed {
-  if (!isObject(body)) return { ok: false, error: "Body harus berupa objek JSON." };
+  if (!isObject(body)) return { ok: false, error: "The body must be a JSON object." };
   const unknownKeys = Object.keys(body).filter((k) => !["pertanyaan", "label", "menit_lelah_60", "hari_ini"].includes(k));
-  if (unknownKeys.length > 0) return { ok: false, error: `Field tidak dikenal: ${unknownKeys.join(", ")}.` };
+  if (unknownKeys.length > 0) return { ok: false, error: `Unknown fields: ${unknownKeys.join(", ")}.` };
 
   const q = typeof body.pertanyaan === "string" ? body.pertanyaan.trim() : null;
   if (q === null || q.length < PERTANYAAN_MIN || q.length > PERTANYAAN_MAX) {
-    return { ok: false, error: `pertanyaan harus berupa teks ${PERTANYAAN_MIN}–${PERTANYAAN_MAX} karakter.` };
+    return { ok: false, error: `pertanyaan must be text of ${PERTANYAAN_MIN}–${PERTANYAAN_MAX} characters.` };
   }
-  if (CONTROL.test(q)) return { ok: false, error: "pertanyaan berisi karakter yang tidak didukung." };
+  if (CONTROL.test(q)) return { ok: false, error: "pertanyaan contains unsupported characters." };
 
   let label: Label | null = null;
   if (body.label !== undefined && body.label !== null) {
-    if (!LABELS.includes(body.label as Label)) return { ok: false, error: `label harus salah satu dari: ${LABELS.join(", ")}.` };
+    if (!LABELS.includes(body.label as Label)) return { ok: false, error: `label must be one of: ${LABELS.join(", ")}.` };
     label = body.label as Label;
   }
   const lelah = body.menit_lelah_60;
   if (lelah !== undefined && (typeof lelah !== "number" || !Number.isFinite(lelah) || lelah < 0 || lelah > 60)) {
-    return { ok: false, error: "menit_lelah_60 harus berupa angka antara 0 dan 60." };
+    return { ok: false, error: "menit_lelah_60 must be a number from 0 to 60." };
   }
   let hari_ini: HariIni | null = null;
   if (body.hari_ini !== undefined && body.hari_ini !== null) {
@@ -214,7 +214,7 @@ export function withoutNoHistory(jawaban: string): string {
   const sentences = jawaban.split(/(?<=[.!?])\s+/);
   const kept = sentences.filter((s) => !NO_HISTORY_SENTENCE.test(s));
   if (kept.length === sentences.length) return jawaban;
-  if (kept.length === 0) throw new LangflowError("Ringkasan tidak sesuai dengan angka hari ini. Coba tanya lagi.", 502);
+  if (kept.length === 0) throw new LangflowError("The summary did not match today's numbers. Try asking again.", 502);
   return kept.join(" ");
 }
 
@@ -244,16 +244,16 @@ export function parseBobOutput(stdout: string): TanyaAnswer {
     .map((line) => parseJsonReply(line))
     .filter((x): x is Record<string, unknown> => isObject(x) && x.type === "result")
     .at(-1);
-  if (!result) throw new LangflowError("Bob tidak mengembalikan hasil yang bisa dibaca.", 502);
+  if (!result) throw new LangflowError("Bob returned no readable result.", 502);
   const last = typeof result.last_message === "string" ? result.last_message.trim() : "";
-  if (last === "") throw new LangflowError(`Bob selesai tanpa jawaban (status: ${String(result.status)}).`, 502);
+  if (last === "") throw new LangflowError(`Bob finished without an answer (status: ${String(result.status)}).`, 502);
   const stats = isObject(result.stats) ? result.stats : {};
   const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
   const toolCalls = num(stats.tool_calls);
   if (toolCalls === null || toolCalls < 1 || FAKE_TOOL_CALL.test(last)) {
     throw new LangflowError(
-      "Bob menjawab tanpa memanggil flow Langflow, jadi jawabannya tidak ditampilkan (isinya bisa tidak berasal dari panduan). " +
-        "Pastikan Langflow berjalan, lalu coba lagi.",
+      "Bob answered without calling a Langflow flow, so the answer is not shown (it may not come from the guide). " +
+        "Make sure Langflow is running, then try again.",
       502,
     );
   }

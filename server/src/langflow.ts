@@ -22,7 +22,7 @@ export async function langflowUp(): Promise<boolean> {
 export async function assertLangflowUp(): Promise<void> {
   if (await langflowUp()) return;
   throw new LangflowError(
-    `Langflow tidak berjalan di ${config.langflowUrl}, jadi Bob tidak punya flow untuk dipanggil. Jalankan Langflow lalu coba lagi.`,
+    `Langflow is not running at ${config.langflowUrl}, so Bob has no flow to call. Start Langflow and try again.`,
     503,
   );
 }
@@ -48,28 +48,28 @@ export async function runFlow(
     });
   } catch (err) {
     if ((err as Error).name === "TimeoutError") {
-      throw new LangflowError(`Langflow tidak menjawab dalam ${config.langflowTimeoutMs / 1000} detik.`, 504, true);
+      throw new LangflowError(`Langflow did not answer within ${config.langflowTimeoutMs / 1000} s.`, 504, true);
     }
-    throw new LangflowError(`Tidak bisa menghubungi Langflow di ${config.langflowUrl}. Pastikan Langflow sudah jalan.`, 502);
+    throw new LangflowError(`Cannot reach Langflow at ${config.langflowUrl}. Make sure Langflow is running.`, 502);
   }
 
   if (res.status === 401 || res.status === 403) {
-    throw new LangflowError("Langflow menolak API key. Cek LANGFLOW_API_KEY di .env.", 502);
+    throw new LangflowError("Langflow rejected the API key. Check LANGFLOW_API_KEY in .env.", 502);
   }
   if (res.status === 404) {
-    throw new LangflowError("Flow tidak ditemukan di Langflow. Cek LANGFLOW_FLOW_ID di .env.", 502);
+    throw new LangflowError("Langflow has no flow with this ID. Check LANGFLOW_FLOW_ID in .env.", 502);
   }
   if (!res.ok) {
     console.error(`[langflow] HTTP ${res.status}:`, (await res.text()).slice(0, 1000));
     // 5xx = a component failed, usually the LLM (e.g. 429 upstream, quota). 4xx = the request itself.
-    throw new LangflowError(`Langflow mengembalikan error (HTTP ${res.status}).`, 502, res.status >= 500);
+    throw new LangflowError(`Langflow returned an error (HTTP ${res.status}).`, 502, res.status >= 500);
   }
 
   const data = (await res.json()) as RunResponse;
   const text = data.outputs?.[0]?.outputs?.[0]?.results?.message?.text;
   if (typeof text !== "string" || text.trim() === "") {
     console.error("[langflow] unexpected response:", JSON.stringify(data).slice(0, 2000));
-    throw new LangflowError("Jawaban Langflow kosong atau formatnya tidak dikenali.", 502, true);
+    throw new LangflowError("Langflow's answer was empty or in an unknown format.", 502, true);
   }
   return text;
 }

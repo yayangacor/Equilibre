@@ -20,11 +20,11 @@ export const runBob: RunBob = (args) =>
     child.stderr.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
     const timer = setTimeout(() => {
       child.kill();
-      reject(new LangflowError(`Bob tidak menjawab dalam ${BOB_LIMITS.timeoutMs / 1000} detik.`, 504));
+      reject(new LangflowError(`Bob did not answer within ${BOB_LIMITS.timeoutMs / 1000} s.`, 504));
     }, BOB_LIMITS.timeoutMs);
     child.on("error", (err) => {
       clearTimeout(timer);
-      reject(new LangflowError(`Bob tidak bisa dijalankan: ${err.message}`, 503));
+      reject(new LangflowError(`Bob could not start: ${err.message}`, 503));
     });
     child.on("close", (code) => {
       clearTimeout(timer);
@@ -32,7 +32,7 @@ export const runBob: RunBob = (args) =>
       // stderr can quote the prompt, so only its last line goes to the log, never to the client.
       else {
         console.error(`[tanya] bob run exit ${code}: ${stderr.trim().split(/\r?\n/).at(-1) ?? ""}`);
-        reject(new LangflowError(`Bob berhenti dengan kode ${code}.`, 502));
+        reject(new LangflowError(`Bob stopped with exit code ${code}.`, 502));
       }
     });
   });

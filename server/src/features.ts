@@ -58,17 +58,17 @@ type ParseResult = { ok: true; value: FatigueFeatures } | { ok: false; error: st
 
 export function parseFeatures(body: unknown): ParseResult {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return { ok: false, error: "Body harus berupa objek JSON." };
+    return { ok: false, error: "The body must be a JSON object." };
   }
   const input = body as Record<string, unknown>;
 
   const unknownKeys = Object.keys(input).filter((key) => key !== "label" && key !== "tanda" && !(key in NUMERIC_FIELDS));
   if (unknownKeys.length > 0) {
-    return { ok: false, error: `Field tidak dikenal: ${unknownKeys.join(", ")}.` };
+    return { ok: false, error: `Unknown fields: ${unknownKeys.join(", ")}.` };
   }
 
   if (!LABELS.includes(input.label as Label)) {
-    return { ok: false, error: `label harus salah satu dari: ${LABELS.join(", ")}.` };
+    return { ok: false, error: `label must be one of: ${LABELS.join(", ")}.` };
   }
   const value: FatigueFeatures = { label: input.label as Label };
 
@@ -79,7 +79,7 @@ export function parseFeatures(body: unknown): ParseResult {
       !tanda.every((t) => TANDA.includes(t as Tanda)) ||
       new Set(tanda).size !== tanda.length
     ) {
-      return { ok: false, error: `tanda harus berupa daftar tanpa duplikat dari: ${TANDA.join(", ")}.` };
+      return { ok: false, error: `tanda must be a list without duplicates, taken from: ${TANDA.join(", ")}.` };
     }
     value.tanda = tanda as Tanda[];
   }
@@ -88,7 +88,7 @@ export function parseFeatures(body: unknown): ParseResult {
     const v = input[key];
     if (v === undefined) continue;
     if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) {
-      return { ok: false, error: `${key} harus berupa angka antara ${min} dan ${max}.` };
+      return { ok: false, error: `${key} must be a number from ${min} to ${max}.` };
     }
     value[key as keyof typeof NUMERIC_FIELDS] = v;
   }

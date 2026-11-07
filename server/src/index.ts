@@ -24,11 +24,11 @@ app.post("/api/analyze", async (req, res) => {
   }
   const input = toFlowInput(parsed.value);
   if (!input) {
-    res.status(422).json({ error: `Label "${parsed.value.label}" tidak dikirim ke Langflow.` });
+    res.status(422).json({ error: `The label "${parsed.value.label}" is not sent to Langflow.` });
     return;
   }
   if (!config.langflowApiKey || !config.langflowFlowId) {
-    res.status(503).json({ error: "Server belum dikonfigurasi: isi LANGFLOW_API_KEY dan LANGFLOW_FLOW_ID di .env." });
+    res.status(503).json({ error: "The server is not configured: set LANGFLOW_API_KEY and LANGFLOW_FLOW_ID in .env." });
     return;
   }
 
@@ -55,11 +55,11 @@ app.post("/api/tanya", async (req, res) => {
     return;
   }
   if (!config.bobApiKey) {
-    res.status(503).json({ error: "Server belum dikonfigurasi: isi BOB_API_KEY di .env." });
+    res.status(503).json({ error: "The server is not configured: set BOB_API_KEY in .env." });
     return;
   }
   if (bobBusy) {
-    res.status(429).json({ error: "Bob masih menjawab pertanyaan sebelumnya. Coba lagi sebentar lagi." });
+    res.status(429).json({ error: "Bob is still answering another question. Try again in a moment." });
     return;
   }
   bobBusy = true;
