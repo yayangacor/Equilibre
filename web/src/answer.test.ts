@@ -52,6 +52,7 @@ describe("toAnswerView", () => {
         { text: "rekaan.md (not in the knowledge base)", known: false },
       ],
       cadangan: false,
+      model: null,
     });
   });
 
@@ -68,9 +69,23 @@ describe("toAnswerView", () => {
   });
 
   it("falls back to the raw text when the reply is not JSON, and passes cadangan on", () => {
-    expect(toAnswerView({ text: "bukan json", result: null, cadangan: true })).toEqual({ kind: "text", text: "bukan json", cadangan: true });
+    expect(toAnswerView({ text: "bukan json", result: null, cadangan: true })).toEqual({
+      kind: "text",
+      text: "bukan json",
+      cadangan: true,
+      model: null,
+    });
     expect(toAnswerView(reply({ rekomendasi: "x" }, true)).cadangan).toBe(true);
     // Older servers do not send cadangan.
     expect(toAnswerView({ text: "{}", result: {} }).cadangan).toBe(false);
+  });
+
+  it("passes the answering model on, trimmed, and ignores an empty or missing one (plan P20 W0.5)", () => {
+    const withModel = { text: "{}", result: {}, model: " IBM watsonx · Mistral Small 3.1 (Tokyo) " };
+    expect(toAnswerView(withModel).model).toBe("IBM watsonx · Mistral Small 3.1 (Tokyo)");
+    expect(toAnswerView({ text: "x", result: null, model: "Gemini 2.5 Flash" }).model).toBe("Gemini 2.5 Flash");
+    expect(toAnswerView({ text: "{}", result: {}, model: "  " }).model).toBeNull();
+    expect(toAnswerView({ text: "{}", result: {}, model: null }).model).toBeNull();
+    expect(toAnswerView({ text: "{}", result: {} }).model).toBeNull(); // older server
   });
 });

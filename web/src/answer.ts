@@ -15,12 +15,14 @@ export const SOURCES: Readonly<Record<string, string>> = {
   "who-2022-mental-health-at-work.md": "WHO (2022): mental health at work",
 };
 
-export type AnalyzeResponse = { text: string; result: unknown; cadangan?: boolean };
+// model: which model answered, e.g. "IBM watsonx · Mistral Small 3.1 (Tokyo)" (plan P20 W0.5); null or
+// missing when the server could not read it or is older.
+export type AnalyzeResponse = { text: string; result: unknown; cadangan?: boolean; model?: string | null };
 
 export type Source = { text: string; known: boolean };
 export type AnswerView =
-  | { kind: "text"; text: string; cadangan: boolean } // the reply was not JSON
-  | { kind: "fields"; rows: [string, string][]; sumber: Source[] | null; cadangan: boolean };
+  | { kind: "text"; text: string; cadangan: boolean; model: string | null } // the reply was not JSON
+  | { kind: "fields"; rows: [string, string][]; sumber: Source[] | null; cadangan: boolean; model: string | null };
 
 const SHOWN = ["status", "rekomendasi", "alasan", "durasi_jeda_menit", "sumber"];
 
@@ -37,8 +39,9 @@ const asText = (value: unknown) => (typeof value === "string" ? value : JSON.str
 
 export function toAnswerView(reply: AnalyzeResponse): AnswerView {
   const cadangan = reply.cadangan === true;
+  const model = typeof reply.model === "string" && reply.model.trim() !== "" ? reply.model.trim() : null;
   const r = reply.result;
-  if (r === null || typeof r !== "object" || Array.isArray(r)) return { kind: "text", text: reply.text, cadangan };
+  if (r === null || typeof r !== "object" || Array.isArray(r)) return { kind: "text", text: reply.text, cadangan, model };
   const result = r as Record<string, unknown>;
 
   const rows: [string, string][] = [];
@@ -53,5 +56,5 @@ export function toAnswerView(reply: AnalyzeResponse): AnswerView {
   for (const [key, value] of Object.entries(result)) if (!SHOWN.includes(key)) rows.push([key, asText(value)]);
 
   const sumber = Array.isArray(result.sumber) ? result.sumber.map(toSource) : result.sumber === undefined ? null : [toSource(result.sumber)];
-  return { kind: "fields", rows, sumber, cadangan };
+  return { kind: "fields", rows, sumber, cadangan, model };
 }

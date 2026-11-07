@@ -5,6 +5,7 @@ import { runBob } from "./bob.ts";
 import { parseFeatures, toFlowInput } from "./features.ts";
 import { assertLangflowUp, langflowUp, runFlow } from "./langflow.ts";
 import { DailyLimits, PROXY_SECRET_MIN, secretMatches, type PublicRoute } from "./limits.ts";
+import { FALLBACK_LABEL, readPrimaryModel } from "./model.ts";
 import { LangflowError } from "./reply.ts";
 import { parseTanya, tanya } from "./tanya.ts";
 
@@ -34,7 +35,13 @@ app.post("/api/analyze", async (req, res) => {
 
   try {
     const flowId = config.langflowFlowId;
-    res.json(await analyze(input, (inputValue, tweaks) => runFlow(flowId, inputValue, tweaks)));
+    const out = await analyze(input, (inputValue, tweaks) => runFlow(flowId, inputValue, tweaks));
+    // Which model answered, for the advice card (plan P20 W0.5): the fallback is fixed, the primary
+    // one is read from the flow (no LLM call).
+    const model = out.cadangan
+      ? FALLBACK_LABEL
+      : await readPrimaryModel({ url: config.langflowUrl, apiKey: config.langflowApiKey, flowId });
+    res.json({ ...out, model });
   } catch (err) {
     if (err instanceof LangflowError) {
       res.status(err.status).json({ error: err.message });

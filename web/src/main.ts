@@ -1574,7 +1574,11 @@ function renderAnswer(reply: AnalyzeResponse, label: Label) {
       }
     }
   }
-  if (view.cadangan) card.append(el("p", "Answered by the backup model because the main model failed.", "helper"));
+  // Which model answered (plan P20 W0.5). Without a name (older server, flow unreadable) only the
+  // backup case is still said.
+  if (view.model) {
+    card.append(el("p", view.cadangan ? `Model: ${view.model} (backup; the main model failed)` : `Model: ${view.model}`, "helper"));
+  } else if (view.cadangan) card.append(el("p", "Answered by the backup model because the main model failed.", "helper"));
   answer.replaceChildren(card);
 }
 
