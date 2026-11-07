@@ -1,4 +1,5 @@
 import type { Account } from "./auth.ts";
+import type { ImportedTask } from "./googleTasks.ts";
 import {
   dayKey,
   type BreakRecord,
@@ -31,6 +32,41 @@ export const demoNote = (persona: DemoPersona) =>
   `Demo account. ${DEMO_ACCOUNTS[persona].name.split(" ")[0]} is a composite persona built from our 7 testers and ` +
   "the research; her history is sample data generated in this browser, not a real person's. Turn on the camera " +
   "to add your own readings on top.";
+
+// Sample tasks for "Plan my next hour" (plan P20 W2.6), so the card can be shown without a Google account. The card
+// uses them only while no Google Tasks are connected and shows them under SAMPLE_LIST, so they are never mixed with
+// real tasks. Rina's work as a finance admin, due dates counted from today; "Petty cash for November" has no verb the
+// lexicon knows, so the one-tap rubric (D-89) shows too.
+export const SAMPLE_LIST = "Sample tasks";
+const SAMPLE_TASKS: Readonly<Record<DemoPersona, readonly { title: string; dueIn: number | null }[]>> = {
+  rina: [
+    { title: "Reconcile October bank statements", dueIn: 0 },
+    { title: "Write the Q4 budget summary for the finance meeting", dueIn: 2 },
+    { title: "Reply to vendor emails", dueIn: null },
+    { title: "Call the tax consultant about PPh 21", dueIn: 1 },
+    { title: "Petty cash for November", dueIn: null },
+    { title: "Rekap reimburse tim marketing", dueIn: 3 },
+  ],
+};
+
+// "YYYY-MM-DD" plus n days, counted in UTC so no time zone or summer time can shift the date.
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// today: the local calendar day (history.ts dayKey).
+export function demoTasks(persona: DemoPersona, today: string): ImportedTask[] {
+  return SAMPLE_TASKS[persona].map((task, order) => ({
+    id: `sample-${persona}-${order + 1}`,
+    listId: `sample-${persona}`,
+    listTitle: SAMPLE_LIST,
+    title: task.title,
+    due: task.dueIn === null ? null : addDays(today, task.dueIn),
+    parent: null,
+    order,
+  }));
+}
 
 // Bump when the generator changes, so a browser that already holds an older seed gets the new days.
 export const SEED_VERSION = 2;
