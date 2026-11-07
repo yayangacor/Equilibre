@@ -41,6 +41,21 @@ describe("companion greeting", () => {
     expect(said).toEqual([GREETING_TEXT.lelah, GREETING_TEXT.istirahat, null, null, GREETING_TEXT.istirahat]);
   });
 
+  it("says 'you look tired' at most once per 20 minutes, but still speaks up for dozing off", () => {
+    let state = initialGreetingState();
+    const say = (label: Label, now: number) => {
+      const out = stepGreeting(state, label, false, now);
+      state = out.state;
+      return out.say;
+    };
+    expect(say("lelah", 0)).toBe(GREETING_TEXT.lelah);
+    say("normal", 60_000);
+    expect(say("lelah", 120_000)).toBeNull();
+    expect(say("tertidur", 180_000)).toBe(GREETING_TEXT.tertidur);
+    say("normal", 240_000);
+    expect(say("lelah", GREETING.minGapMs)).toBe(GREETING_TEXT.lelah);
+  });
+
   it("says nothing while snoozed, and does not catch up on changes made during the snooze", () => {
     const snoozed = snoozeGreeting(initialGreetingState(), 1_000);
     const during = run([["normal"], ["lelah"], ["tertidur", true]], snoozed, 1_000 + GREETING.snoozeMs - 1);

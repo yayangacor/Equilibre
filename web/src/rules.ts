@@ -52,7 +52,10 @@ export const RULES = {
   // (NOTES G-03), and 1 closed frame in ±10 made "lelah". Power saving (±5 fps) stays above it.
   minWindowFps: 3, // ⚠️ initial value, user decision 22 Sep
   tiredPoints: 3,
-  confirmEvaluations: 2, // hysteresis: a new label must show up this many times in a row
+  confirmEvaluations: 2, // hysteresis: a new label must show up this many times in a row…
+  // …and a fatigue label coming from a calm one this many (plan P20 W1.6e, research report §2.5: fewer alarms,
+  // a warning 10 s later). Leaving fatigue, or moving between its labels, keeps confirmEvaluations.
+  enterEvaluations: 3,
 } as const;
 
 // "tertidur" follows from what the camera sees over minutes, not from a fatigue
@@ -361,9 +364,16 @@ export type LabelState = {
 export const initialLabelState = (): LabelState => ({ shown: null, candidate: null, streak: 0, pending: null });
 
 const TIRED: readonly Label[] = ["lelah ringan", "lelah"];
+const FATIGUE: readonly Label[] = ["lelah ringan", "lelah", "tertidur"];
 
-// The first label is shown right away (nothing to flicker from). After that a
-// different label replaces it only after RULES.confirmEvaluations evaluations in a row.
+// How many evaluations in a row `next` needs to replace `shown`.
+export function confirmationsNeeded(shown: Label | null, next: Label, required: number = RULES.confirmEvaluations): number {
+  const entering = shown !== null && !FATIGUE.includes(shown) && FATIGUE.includes(next);
+  return entering ? Math.max(required, RULES.enterEvaluations) : required;
+}
+
+// The first label is shown right away (nothing to flicker from). After that a different label replaces it
+// only after RULES.confirmEvaluations evaluations in a row, RULES.enterEvaluations into fatigue.
 // On the way into "lelah ringan"/"lelah" from any other label the two confirm each
 // other and the lighter one is shown: raw labels alternating between them (21 Sep
 // session) used to keep "normal" on screen for good. Once one of them is shown, a
@@ -385,7 +395,7 @@ export function applyHysteresis(
   const streak = continues ? state.streak + 1 : 1;
   const keepLighter = pair && state.pending?.label === "lelah ringan" && next.label !== "lelah ringan";
   const pending = keepLighter && state.pending ? state.pending : next;
-  return streak >= required
+  return streak >= confirmationsNeeded(state.shown.label, pending.label, required)
     ? { shown: pending, candidate: null, streak: 0, pending: null }
     : { shown: state.shown, candidate: pending.label, streak, pending };
 }

@@ -265,14 +265,22 @@ describe("hysteresis", () => {
     expect(applyHysteresis(initialLabelState(), ev("normal")).shown?.label).toBe("normal");
   });
 
-  it("keeps the label after one different evaluation and switches after two", () => {
+  it("enters fatigue after three evaluations in a row and leaves it after two (plan P20 W1.6e)", () => {
     let s = applyHysteresis(initialLabelState(), ev("normal"));
+    s = applyHysteresis(s, ev("lelah"));
     s = applyHysteresis(s, ev("lelah"));
     expect(s.shown?.label).toBe("normal");
     expect(s.candidate).toBe("lelah");
     s = applyHysteresis(s, ev("lelah"));
     expect(s.shown?.label).toBe("lelah");
     expect(s.candidate).toBeNull();
+    s = applyHysteresis(s, ev("normal"));
+    expect(s.shown?.label).toBe("lelah");
+    s = applyHysteresis(s, ev("normal"));
+    expect(s.shown?.label).toBe("normal");
+    // Away needs two, as any change that is not into fatigue.
+    s = applyHysteresis(applyHysteresis(s, ev("tidak di depan layar")), ev("tidak di depan layar"));
+    expect(s.shown?.label).toBe("tidak di depan layar");
   });
 
   it("restarts the count when the candidate changes or the old label returns", () => {
@@ -292,14 +300,16 @@ describe("hysteresis", () => {
     s = applyHysteresis(s, light);
     expect(s.candidate).toBe("lelah ringan");
     s = applyHysteresis(s, ev("lelah"));
+    expect(s.shown?.label).toBe("normal");
+    s = applyHysteresis(s, ev("lelah"));
     expect(s.shown).toBe(light); // the lighter evaluation itself, with its own reasons and score
     // Same the other way round, and with the heavier one first the candidate reads as the lighter.
     s = applyHysteresis(applyHysteresis(initialLabelState(), ev("normal")), ev("lelah"));
-    s = applyHysteresis(s, ev("lelah ringan"));
+    s = applyHysteresis(applyHysteresis(s, ev("lelah ringan")), ev("lelah"));
     expect(s.shown?.label).toBe("lelah ringan");
-    // Two "lelah" in a row still show "lelah".
+    // Three "lelah" in a row still show "lelah".
     s = applyHysteresis(applyHysteresis(initialLabelState(), ev("normal")), ev("lelah"));
-    s = applyHysteresis(s, ev("lelah"));
+    s = applyHysteresis(applyHysteresis(s, ev("lelah")), ev("lelah"));
     expect(s.shown?.label).toBe("lelah");
   });
 

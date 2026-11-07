@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BodySample } from "./body.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
-import type { Label } from "./rules.ts";
+import { RULES, type Label } from "./rules.ts";
 import type { FrameSignal } from "./signals.ts";
 import { BASELINE, frame, FRAME_MS, noFace } from "./test-helpers.ts";
 
@@ -122,7 +122,8 @@ describe("Monitor: tertidur", () => {
     play(monitor, 60, upright);
     const minutes = minutesUntil(play(monitor, 3 * 60, headOnDesk, 60_000), "tertidur");
     expect(minutes).toBeGreaterThanOrEqual(1.8);
-    expect(minutes).toBeLessThanOrEqual(2);
+    // 2 min of hidden eyes, then three evaluations in a row into a fatigue label (RULES.enterEvaluations, W1.6e).
+    expect(minutes).toBeLessThanOrEqual(2 + (RULES.enterEvaluations * EVAL_MS) / 60_000);
   });
 });
 

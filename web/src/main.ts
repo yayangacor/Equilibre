@@ -75,7 +75,7 @@ import {
   type PowerState,
 } from "./powerSaving.ts";
 import { Router } from "./router.ts";
-import { ADVICE, BLINK_PATTERN_THRESHOLD, RULES, SLEEP, type Evaluation, type Label } from "./rules.ts";
+import { ADVICE, BLINK_PATTERN_THRESHOLD, confirmationsNeeded, SLEEP, type Evaluation, type Label } from "./rules.ts";
 import { SelfReport } from "./selfReport.ts";
 import { faceBox, gridCentre, ScanEffect, SCAN } from "./scanEffect.ts";
 import { stateName } from "./stateCopy.ts";
@@ -881,7 +881,8 @@ function renderStatus() {
   } else if (labelState.candidate && latest) {
     pendingNote.hidden = false;
     pendingNote.textContent =
-      `Last reading: "${stateName(labelState.candidate)}" (${labelState.streak}/${RULES.confirmEvaluations}). ` +
+      `Last reading: "${stateName(labelState.candidate)}" ` +
+      `(${labelState.streak}/${confirmationsNeeded(shown.label, labelState.candidate)}). ` +
       `The state changes if this shows again. ${latest.alasan.join(" ")}`;
   }
 }

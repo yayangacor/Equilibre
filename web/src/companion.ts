@@ -6,6 +6,8 @@ import type { Label } from "./rules.ts";
 export const GREETING = {
   snoozeMs: 30 * 60_000, // "Snooze nudges for 30 min"
   showMs: 20_000, // how long a greeting stays before it hides by itself
+  // At most one "you look tired" per this long (plan P20 W1.6e). Dozing off and the long-rest advice still speak up.
+  minGapMs: 20 * 60_000,
 } as const;
 
 export const GREETING_TEXT = {
@@ -18,6 +20,7 @@ export type GreetingState = {
   label: Label | null; // the last shown label seen
   advice: boolean; // whether the long-rest advice was showing
   snoozeUntil: number; // epoch ms; 0 = not snoozed
+  lastTiredAt?: number; // epoch ms of the last "you look tired"
 };
 
 export const initialGreetingState = (): GreetingState => ({ label: null, advice: false, snoozeUntil: 0 });
@@ -40,6 +43,9 @@ export function stepGreeting(
   if (advice && !state.advice) return { state: next, say: GREETING_TEXT.istirahat };
   if (label === state.label) return { state: next, say: null };
   if (label === "tertidur") return { state: next, say: GREETING_TEXT.tertidur };
-  if (label === "lelah" && state.label !== "tertidur") return { state: next, say: GREETING_TEXT.lelah };
+  if (label === "lelah" && state.label !== "tertidur") {
+    if (state.lastTiredAt !== undefined && now - state.lastTiredAt < GREETING.minGapMs) return { state: next, say: null };
+    return { state: { ...next, lastTiredAt: now }, say: GREETING_TEXT.lelah };
+  }
   return { state: next, say: null };
 }
