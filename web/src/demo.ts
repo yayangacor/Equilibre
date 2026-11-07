@@ -13,6 +13,7 @@ export const DEMO_NOTE = {
     "Advice is written by a Langflow flow with an LLM, through a backend on the developer's laptop. The laptop is " +
     "offline right now, so the online demo cannot request advice.",
   autoSend: "Not available in the online demo: each advice is an LLM call from a shared daily limit, so it is requested by hand.",
+  rencana: "The developer's laptop, which runs Langflow for this demo, is offline right now, so this plan was made on this laptop.",
   // Bob stays on the laptop when the server and Langflow move to the VPS (NOTES D-98), so this can be off alone.
   tanya: "Ask Equi runs IBM Bob on the developer's laptop, which is offline right now or has no Bob key.",
 } as const;

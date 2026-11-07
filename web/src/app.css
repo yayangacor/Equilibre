@@ -1064,6 +1064,160 @@ abbr.eyebrow {
   white-space: nowrap;
 }
 
+/* ── Plan my next hour (plan P20 W2.6): the rubric question, the timeline, the model badge ── */
+
+.plan {
+  display: grid;
+  gap: 12px;
+}
+
+.plan > :is(.card-head, p, .row) {
+  margin: 0;
+}
+
+.plan-ask {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--paper);
+}
+
+.plan-ask[hidden] {
+  display: none;
+}
+
+.plan-ask > p {
+  margin: 0;
+}
+
+.rubric-item {
+  display: grid;
+  gap: 6px;
+}
+
+.rubric-title {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.btn.rubric-choice {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+}
+
+.plan-ask .btn.text {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0;
+}
+
+.plan-result {
+  display: grid;
+  gap: 14px;
+}
+
+.plan-phase {
+  display: grid;
+  gap: 4px;
+}
+
+.plan-phase > p {
+  margin: 0;
+}
+
+.plan-phase-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* The steps as a timeline: a dot per step on one ruled line; the chosen task's dot is filled. */
+.plan-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-step {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 0 0 16px 22px;
+  border-left: 1px solid var(--rule-strong);
+}
+
+.plan-step:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.plan-step::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: -6px;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper-raised);
+}
+
+.plan-step[data-kind="tugas"]::before {
+  background: var(--ink);
+}
+
+.plan-step[data-kind="next"]::before {
+  border-style: dashed;
+}
+
+.plan-step > p {
+  margin: 0;
+}
+
+.plan-kind {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: var(--track-micro);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.plan-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.plan-text {
+  overflow-wrap: anywhere;
+}
+
+.plan-step[data-kind="next"] .plan-text {
+  color: var(--ink-2);
+}
+
+.plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-meta .helper,
+.plan .feedback .helper {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.plan .feedback {
+  margin-top: 0;
+}
+
 /* ── Calibration screen: the camera with its scan on the left, the step on the right ── */
 
 dialog.calib-screen {

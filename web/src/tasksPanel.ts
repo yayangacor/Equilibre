@@ -43,6 +43,11 @@ export class TasksPanel {
     return this.tasks;
   }
 
+  // Google access granted in this tab, whether or not any task is open ("Plan my next hour", planCard.ts).
+  get connected(): boolean {
+    return this.token !== null;
+  }
+
   private async connect() {
     if (this.busy) return;
     this.setBusy(true, "Opening Google…");

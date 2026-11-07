@@ -47,7 +47,7 @@ import { LOCALE } from "./format.ts";
 import { brightness, faceBoxes, frameMiddle, LIGHT, toLightSample, type Box, type LightSample } from "./light.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME, openHistory } from "./historyDb.ts";
-import { DEMO_ACCOUNTS, demoHistory, demoNote, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
+import { DEMO_ACCOUNTS, demoHistory, demoNote, demoTasks, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
 import { HistoryPanel } from "./historyPanel.ts";
 import { mountInsights } from "./insights/insightsPage.ts";
 import { formatDuration, monitoredMinutes } from "./insight.ts";
@@ -59,6 +59,8 @@ import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
+import { scopedStore } from "./planCard.ts";
+import { PlanPanel } from "./planPanel.ts";
 import {
   detectIntervalMs,
   initialPowerState,
@@ -83,6 +85,7 @@ import type { QualityState } from "./quality.ts";
 import { heroCopy, lastAssessedNote, limitedNote, UNASSESSED, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
 import { TasksPanel } from "./tasksPanel.ts";
+import { localTagStore, memoryTagStore } from "./taskTagger.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
 import { framesToCsv } from "./sessionLog.ts";
@@ -559,10 +562,41 @@ function renderSinceBreak() {
   sinceBreakValue.title = lastCameraBreak === null && !breakMarked ? "No break yet: counted from the start" : "";
 }
 
-// "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
-// Google Tasks import in Settings (plan P20 W2.1); the planner (W2.4) will read tasksPanel.current.
-export const tasksPanel = new TasksPanel();
+// Google Tasks import in Settings (plan P20 W2.1); "Plan my next hour" reads tasksPanel.current.
+export const tasksPanel = new TasksPanel(() => planPanel.tasksChanged());
 
+// "Plan my next hour" on the Dashboard (plan P20 W2.6): asks /api/rencana only on the button (NOTES D-19). The demo
+// account plans with its sample tasks while Google is not connected; their rubric answers are kept apart.
+// planPanel.decisions: each plan and its "Fits / Doesn't fit", in memory for the decision log (W2.7).
+export const planPanel = new PlanPanel({
+  tasks: () => ({ connected: tasksPanel.connected, tasks: tasksPanel.current }),
+  sample: DEMO_PERSONA ? (today) => demoTasks(DEMO_PERSONA, today) : null,
+  tags: {
+    google: store ? localTagStore(store) : memoryTagStore(),
+    sample: store && DEMO_PERSONA ? localTagStore(scopedStore(store, `demo-${DEMO_PERSONA}`)) : memoryTagStore(),
+  },
+  live: () => {
+    const off = calibration !== null || paused;
+    return {
+      label: off ? null : (monitor?.labelState.shown?.label ?? null),
+      quality: off ? null : (assessed?.level ?? null),
+      menitSejakJeda: off || !monitor || !breakState ? null : minutesSinceBreak(breakState, performance.now()),
+    };
+  },
+  // The KSS answer counts for 15 minutes (phase.ts), so today and yesterday are enough for it.
+  history: async (days) => {
+    const [evaluasi, kss] = await Promise.all([
+      Promise.all(days.map((day) => panel.byDay("evaluasi", day))),
+      Promise.all(days.slice(0, 2).map((day) => panel.byDay("kss", day))),
+    ]);
+    return { evaluasi: evaluasi.flat(), kss: kss.flat() };
+  },
+  evalIntervalMs: EVAL_INTERVAL_MS,
+  server: () => backend.saran,
+  offlineReason: DEMO_NOTE.rencana,
+});
+
+// "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
 const tanyaPanel = new TanyaPanel({
   context: () => {
     const shown = calibration || unassessed() ? null : (monitor?.labelState.shown ?? null);

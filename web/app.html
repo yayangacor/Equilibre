@@ -152,6 +152,21 @@
             </div>
           </section>
 
+          <!-- Plan my next hour (plan P20 W2.6): the Task Matcher's plan for the energy now and the open tasks. -->
+          <section id="plan" class="card plan" aria-labelledby="h-plan">
+            <div class="card-head">
+              <h2 id="h-plan">Plan my next hour</h2>
+              <span id="plan-source" class="eyebrow"></span>
+            </div>
+            <p class="muted">A short plan from your energy right now and your open tasks.</p>
+            <p id="plan-note" class="helper"></p>
+            <p id="plan-connect" class="callout info" hidden>Connect Google Tasks to plan with your own tasks: <a href="#tasks-card">Settings → Google Tasks</a>.</p>
+            <div id="plan-ask" class="plan-ask" hidden></div>
+            <div class="row"><button id="plan-make" type="button" class="btn primary">Plan my next hour</button></div>
+            <div id="plan-out" class="plan-out" aria-live="polite"></div>
+            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Sends your energy level and each task as t1, t2… with its kind and due day. Never task titles.</p>
+          </section>
+
           <section class="readout" aria-labelledby="h-readout">
             <div class="readout-head">
               <h2 id="h-readout" class="eyebrow">What we see, right now</h2>
@@ -392,6 +407,13 @@
                 <li>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
+                    <p class="flow-title">Plan requests go to IBM Langflow when you press Plan</p>
+                    <p class="muted">Your energy level, minutes since your last break, and each task as t1, t2… with its kind, days to its due date and place in your list. Never task titles or list names.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
+                  <div>
                     <p class="flow-title">Your account is kept by Supabase</p>
                     <p class="muted">Name, email, a password hash (or, with Google, your Google name and picture link), and sign-in times and logs.</p>
                   </div>
@@ -413,8 +435,8 @@
                 <li>
                   <span class="flow-icon local" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" /></svg></span>
                   <div>
-                    <p class="flow-title">Google Tasks: read into this tab, never sent on</p>
-                    <p class="muted">Only when you connect: open task titles and due dates, read-only, straight from Google. Notes are ignored. Nothing is kept after you close the tab.</p>
+                    <p class="flow-title">Google Tasks: titles stay in this tab</p>
+                    <p class="muted">Only when you connect: open task titles and due dates, read-only, straight from Google. Notes are ignored. Titles are gone when you close the tab; the kinds of work you confirm are remembered on this device.</p>
                   </div>
                 </li>
               </ul>
