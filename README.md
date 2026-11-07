@@ -38,7 +38,7 @@ flowchart LR
   bob -- "MCP" --> fb["Langflow<br/>cari_panduan · ringkasan_harian"]
   fa --> kb[("Knowledge base<br/>9 catatan")]
   fb --> kb
-  fa --> llm["watsonx.ai<br/>Mistral Small 3.1<br/>(cadangan sejak 28 Okt: Gemini 2.5 Flash)"]
+  fa --> llm["watsonx.ai Tokyo<br/>Mistral Small 3.1<br/>(cadangan: Gemini 2.5 Flash)"]
   fb --> llm
 ```
 
@@ -164,15 +164,17 @@ kantuk tertangkap, dengan `lelah ringan` dihitung positif.
 
 Ekspor JSON ada di `langflow-flows/` (tanpa API key). Ketiganya memakai pola yang sama: **Chat Input → Prompt Template (+
 Knowledge → Parser) → Language Model → Chat Output**. LLM: watsonx.ai `mistralai/mistral-small-3-1-24b-instruct-2503`
-(region Dallas, temperature 0,2, maks. 512 token). Embedding knowledge base: watsonx.ai `intfloat/multilingual-e5-large`
-(`equilibre_panduan_v2`).
+(region Tokyo `jp-tok` sejak 1 Nov 2026, temperature 0,2, maks. 512 token; uji S22 di Tokyo: 10,9 detik, JSON valid).
+Embedding knowledge base: Google `models/gemini-embedding-001` di `equilibre_panduan_v3` (9 catatan, 1 chunk per catatan),
+karena Langflow 1.12.2 membuat embedding watsonx lewat region Dallas apa pun region proyeknya, sehingga vektor e5 tidak bisa
+dibangun dengan proyek Tokyo.
 
-**Cadangan Gemini (sejak 28 Okt 2026).** Trial IBM Cloud pengembang berakhir 26 Okt, jadi watsonx.ai tidak bisa dipanggil
-sampai akunnya aktif lagi. Sementara itu ketiga flow memakai Google AI Studio: LLM `gemini-2.5-flash` dan embedding
-`models/gemini-embedding-001` di knowledge base `equilibre_panduan_v3` (9 catatan yang sama, 1 chunk per catatan). Batas
-token dinaikkan ke 4096 karena token berpikir Gemini ikut dihitung sebagai output: 4 jawaban uji memakai 791–1.663 token
-output, padahal isinya hanya beberapa kalimat. Prompt, aturan server, dan format JSON tidak berubah. Setelan kedua penyedia
-ada di `langflow-flows/profil.mts`; `node langflow-flows/ganti-model.mts watsonx|gemini` memindahkan ketiga flow.
+**Model cadangan: Gemini 2.5 Flash.** Kalau model utama gagal atau jawabannya bukan JSON, server menjalankan flow yang sama
+sekali lagi dengan node LLM diganti `gemini-2.5-flash` (tweak per permintaan, maks. 4096 token karena token berpikir Gemini ikut
+dihitung sebagai output). Kartu saran menyebut model yang menjawab; server membaca nama model utama dari node LLM flow (tanpa
+panggilan LLM). Riwayat: 28 Okt–1 Nov ketiga flow sepenuhnya memakai Gemini karena trial IBM Cloud pengembang berakhir 26 Okt.
+Setelan kedua penyedia ada di `langflow-flows/profil.mts`; `node langflow-flows/ganti-model.mts watsonx|gemini` memindahkan
+ketiga flow.
 
 | Flow | Dipanggil oleh | Input | Output |
 |---|---|---|---|
@@ -190,8 +192,8 @@ ada di `langflow-flows/profil.mts`; `node langflow-flows/ganti-model.mts watsonx
 | `tertidur` | perlu jeda aktif | 10 menit | bergerak, cahaya terang, minum air, udara segar |
 | ≥ 15 menit lelah dalam 1 jam | perlu istirahat panjang | – | berhenti, istirahat cukup, cuti |
 
-Label `tidak di depan layar` tidak dikirim. Kalau jawaban model utama (Mistral, atau Gemini selama cadangan) gagal atau bukan
-JSON, flow yang sama dijalankan sekali lagi dengan model cadangan (Qwen3.8 Flash lewat OpenRouter).
+Label `tidak di depan layar` tidak dikirim. Kalau jawaban model utama gagal atau bukan JSON, flow yang sama dijalankan sekali
+lagi dengan model cadangan Gemini 2.5 Flash (lihat di atas).
 
 **Aturan utama prompt `analisis_status`** (`langflow-flows/prompt-analisis_status.txt`): status dan durasi jeda tidak boleh
 diubah; kegiatan hanya dari KONTEKS knowledge base; alasan hanya dari daftar `tanda` (tidak menilai angka sendiri, kepala
@@ -266,8 +268,9 @@ IBM Plex Sans untuk antarmuka, Plex Mono untuk setiap angka dan label, Plex Seri
 
 Prasyarat: Node.js 22.18+ (skrip `.ts` dijalankan langsung dengan type stripping bawaan Node), Langflow 1.12 di
 `http://127.0.0.1:7860` dengan ketiga flow diimpor dari `langflow-flows/` dan kredensial model sebagai Global Variable
-(watsonx.ai: `WATSONX_APIKEY`, `WATSONX_PROJECT_ID`, `WATSONX_URL`; cadangan Gemini: `GOOGLE_API_KEY` tipe Credential, lalu
-`node langflow-flows/buat-kb.mjs` dan `node langflow-flows/ganti-model.mts gemini`), serta IBM Bob Shell untuk "Tanya Equilibre".
+(watsonx.ai: `WATSONX_APIKEY`, `WATSONX_PROJECT_ID`, `WATSONX_URL`; Google: `GOOGLE_API_KEY` tipe Credential, untuk embedding
+knowledge base dan model cadangan; lalu `node langflow-flows/buat-kb.mjs` dan `node langflow-flows/ganti-model.mts watsonx`), serta
+IBM Bob Shell untuk "Tanya Equilibre".
 
 ```bash
 cp .env.example .env          # isi LANGFLOW_API_KEY, LANGFLOW_FLOW_ID, dan BOB_API_KEY (Ask Equilibre)
