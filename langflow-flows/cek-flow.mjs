@@ -17,7 +17,8 @@ if (existsSync(envPath)) process.loadEnvFile(envPath);
 const base = (process.env.LANGFLOW_URL || "http://127.0.0.1:7860").replace(/\/+$/, "");
 const restore = process.argv.includes("--pulihkan");
 const full = process.argv.includes("--penuh");
-const NAMES = ["analisis_status", "cari_panduan", "ringkasan_harian"];
+// rencana_kerja (plan P20 W2.4) is uploaded with buat-rencana.mts --unggah, which keeps its id.
+const NAMES = ["analisis_status", "cari_panduan", "ringkasan_harian", "rencana_kerja"];
 
 const { access_token } = await (await fetch(`${base}/api/v1/auto_login`)).json();
 const auth = { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" };
@@ -29,7 +30,8 @@ for (const name of NAMES) {
   const exported = JSON.parse(readFileSync(fileURLToPath(new URL(`./${name}.json`, import.meta.url)), "utf8"));
   const res = await fetch(`${base}/api/v1/flows/${exported.id}`, { headers: auth });
   if (!res.ok) {
-    console.log(`${name}: flow ${exported.id} tidak ada di Langflow (HTTP ${res.status})`);
+    const hint = name === "rencana_kerja" ? "; pasang dengan buat-rencana.mts --unggah" : "";
+    console.log(`${name}: flow ${exported.id} tidak ada di Langflow (HTTP ${res.status})${hint}`);
     problems++;
     continue;
   }

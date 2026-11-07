@@ -1,13 +1,13 @@
-// Switches the three flows between the setups in profil.mts (NOTES D-76): model and max tokens of the
-// Language Model node, knowledge base of the Knowledge node. PATCH per flow, then read back. No LLM
-// call. Afterwards: node langflow-flows/export.mjs <flowId> for each flow, then cek-flow.mjs.
+// Switches the four flows between the setups in profil.mts (NOTES D-76): model and max tokens of the
+// Language Model node, knowledge base of the Knowledge node (v4 for rencana_kerja, profil.mts knowledgeBaseFor).
+// PATCH per flow, then read back. No LLM call. Afterwards: node langflow-flows/export.mjs <flowId> for each flow, then cek-flow.mjs.
 // Usage (from equilibre/): node langflow-flows/ganti-model.mts <gemini|watsonx> [--cek]
 //   --cek  only prints the setup of each live flow, changes nothing
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { LLM_NODE_ID } from "../server/src/analyze.ts";
 import { KNOWLEDGE_NODE_ID } from "../server/src/features.ts";
-import { FLOWS, PROFILES, type ProfileName } from "./profil.mts";
+import { FLOWS, knowledgeBaseFor, PROFILES, type ProfileName } from "./profil.mts";
 
 const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
@@ -38,17 +38,17 @@ function setup(flow: Flow) {
   };
 }
 
-function matches(flow: Flow) {
+function matches(flow: Flow, name: string) {
   const s = setup(flow);
   return (
     s.model === `${profile.model.name} (${profile.model.provider})` &&
     s.maxTokens === profile.maxTokens &&
     (profile.watsonxUrl === undefined || s.watsonxUrl === profile.watsonxUrl) &&
-    (template(flow, KNOWLEDGE_NODE_ID) === undefined || s.knowledgeBase === profile.knowledgeBase)
+    (template(flow, KNOWLEDGE_NODE_ID) === undefined || s.knowledgeBase === knowledgeBaseFor(profile, name))
   );
 }
 
-function apply(flow: Flow) {
+function apply(flow: Flow, name: string) {
   const llm = template(flow, LLM_NODE_ID);
   if (!llm?.model || !llm.max_tokens) throw new Error(`node ${LLM_NODE_ID} tidak lengkap`);
   llm.model.value = [profile.model];
@@ -64,8 +64,9 @@ function apply(flow: Flow) {
   }
   const kb = template(flow, KNOWLEDGE_NODE_ID)?.knowledge_base;
   if (kb) {
-    kb.value = profile.knowledgeBase;
-    if (!(kb.options ?? []).includes(profile.knowledgeBase)) kb.options = [...(kb.options ?? []), profile.knowledgeBase];
+    const wanted = knowledgeBaseFor(profile, name);
+    kb.value = wanted;
+    if (!(kb.options ?? []).includes(wanted)) kb.options = [...(kb.options ?? []), wanted];
   }
 }
 
@@ -84,7 +85,7 @@ for (const name of FLOWS) {
   const flow = (await res.json()) as Flow;
   const before = setup(flow);
   console.log(`${name}: ${before.model}, max_tokens ${before.maxTokens}, URL watsonx ${before.watsonxUrl ?? "-"}, knowledge base ${before.knowledgeBase ?? "-"}`);
-  if (matches(flow)) {
+  if (matches(flow, name)) {
     console.log(`${name}: sudah setelan ${target}`);
     continue;
   }
@@ -93,10 +94,10 @@ for (const name of FLOWS) {
     failed++;
     continue;
   }
-  apply(flow);
+  apply(flow, name);
   const patch = await fetch(`${base}/api/v1/flows/${id}`, { method: "PATCH", headers: auth, body: JSON.stringify({ data: flow.data }) });
   const after = (await (await fetch(`${base}/api/v1/flows/${id}`, { headers: auth })).json()) as Flow;
-  const ok = patch.ok && matches(after);
+  const ok = patch.ok && matches(after, name);
   const s = setup(after);
   console.log(`${name}: PATCH ${patch.status}, dibaca balik ${ok ? "sesuai" : "BERBEDA"}: ${s.model}, max_tokens ${s.maxTokens}, URL watsonx ${s.watsonxUrl ?? "-"}, knowledge base ${s.knowledgeBase ?? "-"}`);
   if (!ok) failed++;

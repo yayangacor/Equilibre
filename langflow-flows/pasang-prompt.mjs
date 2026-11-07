@@ -1,7 +1,7 @@
 // Installs langflow-flows/prompt-<flow>.txt into the Prompt node of the live flow (PATCH), so the
 // prompt kept in Git is the one Langflow runs. Afterwards run export.mjs <flowId> and cek-flow.mjs.
 // The trailing newline of the .txt is dropped: the live template has none. No LLM call.
-// Usage (from equilibre/): node langflow-flows/pasang-prompt.mjs <cari_panduan|ringkasan_harian|analisis_status> [--cek]
+// Usage (from equilibre/): node langflow-flows/pasang-prompt.mjs <cari_panduan|ringkasan_harian|analisis_status|rencana_kerja> [--cek]
 //   --cek  only compares the live template with the .txt, changes nothing
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

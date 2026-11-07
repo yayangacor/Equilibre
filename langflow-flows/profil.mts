@@ -69,5 +69,10 @@ export const RENCANA_KNOWLEDGE_BASE = "equilibre_panduan_v4";
 
 // Flows that use the setups. They are copies of analisis_status, so the Language Model and Knowledge
 // nodes keep the ids the server uses (LLM_NODE_ID, KNOWLEDGE_NODE_ID); ringkasan_harian has no
-// Knowledge node.
-export const FLOWS = ["analisis_status", "cari_panduan", "ringkasan_harian"] as const;
+// Knowledge node. rencana_kerja is built from analisis_status by buat-rencana.mts.
+export const FLOWS = ["analisis_status", "cari_panduan", "ringkasan_harian", "rencana_kerja"] as const;
+
+// The knowledge base a flow's Knowledge node must hold under a setup.
+export function knowledgeBaseFor(profile: Profile, flow: string): string {
+  return flow === "rencana_kerja" ? RENCANA_KNOWLEDGE_BASE : profile.knowledgeBase;
+}
