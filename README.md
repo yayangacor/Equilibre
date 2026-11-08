@@ -102,7 +102,7 @@ flowchart LR
 |---|---|---|
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan; `pola_kedip` hanya dengan `?label=gabungan`), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
 | `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain dan menyamarkan email serta deret ≥ 9 angka (telepon, NIK, rekening) sebelum pertanyaan diteruskan; nama tidak bisa disaring. Kotak Ask menyebutkan apa yang dikirim di bawahnya, dan jawaban memberi tahu bila ada yang disamarkan |
-| `POST /api/rencana` → Langflow `rencana_kerja`, **hanya saat tombol Plan ditekan** | `fase` (tingkat energi), `jam_rawan` (ya/tidak), `menit_sejak_jeda`, dan tiap tugas sebagai `{id: "t1"…, sifat, beban, hari_ke_tenggat, posisi}` (maks. 50). **Tanpa judul tugas, catatan, atau nama daftar** | `server/src/rencana.ts` menolak kunci asing di dua tingkat dan `id` selain `"t" + (posisi + 1)`; jawaban LLM ditolak bila menyebut tugas yang tidak dikirim; judul ditempelkan kembali di browser |
+| `POST /api/rencana` → Langflow `rencana_kerja`, **hanya saat tombol Plan ditekan** | `fase` (tingkat energi), `jam_rawan` (ya/tidak), `menit_sejak_jeda`, dan tiap tugas sebagai `{id: "t1"…, sifat, beban, hari_ke_tenggat, posisi}` (maks. 50). **Tanpa judul tugas, catatan, atau nama daftar** | `server/src/rencana.ts` menolak kunci asing di dua tingkat dan `id` selain `"t" + (posisi + 1)`; jawaban LLM ditolak bila menyebut tugas selain yang dipilih Task Matcher, menit selain menit langkahnya, atau tidur (server dan browser); judul ditempelkan kembali di browser |
 | Google (`accounts.google.com`, `tasks.googleapis.com`), hanya setelah pengguna menekan Connect di Settings → Google Tasks | token akses Google (izin `tasks.readonly`) untuk membaca tugas terbuka. Judul dan tanggal tenggat **masuk** ke tab ini dan tidak diteruskan ke mana pun; catatan tugas dibuang | library Google Identity Services baru dimuat saat Connect; token dan tugas hanya di memori (hilang saat tab ditutup); hanya jenis tugas yang dikonfirmasi pengguna yang disimpan, di perangkat |
 | Google Sheet pengembang, **hanya mode uji `?kode=`** setelah penguji setuju dan menekan Kirim | riwayat jendela uji (label + angka payload per evaluasi, sebab label ditahan, KSS, koreksi label, jeda), 4 angka baseline kalibrasi, jenis browser/OS, resolusi kamera, fps rata-rata, isian awal, feedback, kode uji; log keputusan rencana tidak ikut | whitelist field di `web/src/userTest.ts` (dites); penerima menolak kode yang tidak terdaftar (`uji-pengguna/Code.gs`); data dihapus paling lambat 30 Nov 2026 (gelombang pertama: 31 Okt), sesuai layar persetujuan |
 | Google (`odml.pa.googleapis.com`), dari library MediaPipe Tasks tiap 60 detik per task | **diblokir.** Metrik kinerja dan pemakaian MediaPipe: jenis task, mode, keluarga OS, versi library, waktu muat, jumlah dan lama inferensi (88–103 byte per kiriman, diukur 29 Okt); tanpa video, gambar, landmark, atau label. MediaPipe tidak punya opsi untuk mematikannya ([Privacy Notice](https://github.com/google-ai-edge/mediapipe#privacy-notice)) | `Content-Security-Policy` `connect-src` di ketiga halaman (`index.html`, `auth.html`, `app.html`) hanya mengizinkan origin sendiri, penerima uji Apps Script, Supabase Auth, serta Google Identity Services (`accounts.google.com/gsi/`) dan Tasks API (`web/src/csp.test.ts`, dengan kontrol negatif) |
@@ -187,23 +187,27 @@ sedikit frame. Karena itu tiap jendela dinilai dulu apakah wajah bisa dibaca (`w
 memberi skor keyakinan, jadi kualitas diturunkan dari frame itu sendiri:
 
 - **Wajah terbaca:** menghadap layar (|yaw| ≤ 30°, |roll| ≤ 25°, kepala tidak mendongak > 20° dari kalibrasi) dan cukup dekat (jarak
-  antar-mata ≥ 35 px di video).
+  antar-mata ≥ 35 px di video; app meminta 640×480, dan ukuran yang diberikan kamera dicatat di log sesi).
 - **Mata tak terbaca ≠ mata tertutup:** beda EAR kiri–kanan yang besar (satu lensa silau, satu mata tertutup benda) atau ≥ 8% piksel
   di sekitar mata jenuh (silau lensa) membuat mata dianggap tak terbaca, jadi tidak dihitung sebagai tertutup.
 - **Kacamata:** bila saat kalibrasi EAR terpejam > 0,3× EAR terbuka (dua penguji berkacamata: 0,50 dan 0,56; tanpa kacamata 0,05–0,15),
   mata tidak bisa diukur andal sampai kalibrasi berikutnya.
 - **Cahaya:** kecerahan wajah dibaca sekali per detik dari beberapa piksel video yang langsung dibuang (< 40 dari 255 = terlalu gelap).
+  Tanpa wajah, yang dibaca seluruh frame, bukan bagian tengahnya: kepala di atas meja dengan rambut gelap di ruang terang tidak dikira
+  "too dark", sehingga `tertidur` tetap bisa muncul. Silau tampil dengan alasannya sendiri, bukan "too dark".
+- **Frame berhenti:** bila tidak ada frame selama 10 detik (kamera dipakai app lain, kamera dicabut), jendela dinilai menurut jam dan
+  tampil "Can't assess", bukan label lama seolah masih terkini.
 
 | Tingkat | Kapan | Yang dinilai | Yang tampil |
 |---|---|---|---|
 | Penuh | fps ≥ 8, wajah dan mata terbaca | semua tanda | label |
 | Limited check (fps) | fps < 8, misalnya hemat daya | PERCLOS, mata terpejam lama, menguap | label + "Limited check…"; tombol "Turn off power saving" bila hemat daya menyala |
 | Limited check (mata) | mata terbaca < 60% waktu, atau kalibrasi tidak bisa membedakan mata terbuka dan terpejam | menguap saja, maks. `lelah ringan` | label + alasannya + satu saran (kalibrasi ulang dengan cahaya dari depan, miringkan kacamata) |
-| Can't assess | frame ada < 50% waktu, wajah terbaca < 50%, terlalu gelap, atau silau | tidak ada | "Can't assess" + alasan + cara memperbaikinya; label terakhir abu-abu "Last assessed N min ago" |
+| Can't assess | frame ada < 50% waktu (termasuk frame berhenti), wajah terbaca < 50%, terlalu gelap, atau silau | tidak ada | "Can't assess" + alasan + cara memperbaikinya; label terakhir abu-abu "Last assessed N min ago" |
 
 Pindah tingkat butuh 2 jendela berturut-turut. Semua ambang adalah usulan awal (⚠️) dan belum disetel pada kamera sungguhan; protokol
-uji kamera 9 skenario (kacamata, silau, hemat daya, ruangan gelap, kontrol positif mata terpejam, HP, menoleh, bicara/tertawa vs
-menguap) sudah ditulis dan menunggu dijalankan.
+uji kamera 11 skenario (kacamata, silau, hemat daya, ruangan gelap, kontrol positif mata terpejam, HP, menoleh, bicara/tertawa vs
+menguap, kepala di meja di ruang terang, kamera direbut app lain) sudah ditulis dan menunggu dijalankan.
 
 **Ketahanan fps pada UTA-RLDD** (`web/scripts/rldd-robust.ts`): 12 orang, video segar vs mengantuk, rekaman disubsampel ke 10/7/5/3
 fps; positif = `lelah ringan` atau lebih; kriteria lulus ditulis sebelum harness dijalankan. Kode lama vs kode sekarang, jam rata:
@@ -367,8 +371,9 @@ memilih tugas dari sinyal kantuk mengalahkan aturan gratis "tugas berat dulu" ba
    memakai 6 tugas contoh berlabel "Sample tasks", yang tidak pernah dicampur dengan Google Tasks.
 2. **Rubrik tugas di perangkat** (`taskTagger.ts`): kata kerja di judul (Inggris + Indonesia) → **sifat** aktif/monoton dan **beban**
    berat/ringan; **tenggat** (hari ini / besok / ≤ 3 hari / lainnya) dari tanggal `due`; **urutan** dari posisi di daftar. Kata kerja
-   yang tidak dikenal atau ambigu = "belum dinilai" dan ditanya sekali; koreksi satu ketukan disimpan di perangkat per tugas dan
-   menambah kamus pribadi. Server tidak ikut menentukan.
+   yang tidak dikenal atau ambigu = "belum dinilai" dan ditanya sekali; jenis tugas yang dipilih rencana bisa diubah kapan saja lewat
+   tombol **Kind: … Change** di langkah tugasnya, lalu rencana disusun ulang. Koreksi satu ketukan disimpan di perangkat per tugas dan
+   per akun, dan menambah kamus pribadi (kata umum seperti "the" atau "untuk" tidak ikut dipelajari). Server tidak ikut menentukan.
 3. **Fase energi** (`phase.ts`): Siap fokus / Biasa / Rendah ringan / Rendah berat / Tidak tahu, dari label, gerbang kualitas, isian
    KSS ≤ 15 menit terakhir, dan jam. **Jam rawan pribadi** = jam dengan porsi lelah tertinggi di riwayat 7 hari (bawaan 13.00–16.00
    bila data < 3 hari). Bila kamera tidak bisa menilai, fasenya "Tidak tahu" dan rencana menyebutnya, bukan menebak.
@@ -377,8 +382,9 @@ memilih tugas dari sinyal kantuk mengalahkan aturan gratis "tugas berat dulu" ba
    bila ≥ 30 menit tanpa jeda), lalu tugas aktif 25 menit, hindari tugas monoton. `lelah` bertahan atau `tertidur`: jeda aktif 10
    menit dulu, tanpa tugas (tanpa tidur siang, sama dengan flow saran). Hasilnya: langkah, tugas terpilih, dan kode alasan.
 5. **Penjelasan:** `/api/rencana` → `rencana_kerja` menulis alasannya dari knowledge base v4 dengan penanda `t3`, lalu browser
-   menempelkan judul asli. Browser memakai rencana server hanya bila tugas dan urutan jenis langkahnya sama dengan Task Matcher lokal;
-   selain itu, atau tanpa backend, tampil **rencana offline** beserta sebabnya. Kartu menyebut model yang menjawab dan sumbernya, lalu
+   menempelkan judul asli. LLM hanya menulis kalimat, tidak memilih: server dan browser menolak jawaban yang tugas atau urutan jenis
+   langkahnya beda dari Task Matcher lokal, dan kalimat yang menyebut tugas lain, menit selain menit langkahnya, atau tidur. Bila
+   ditolak, atau tanpa backend, tampil **rencana offline** beserta sebabnya. Kartu menyebut model yang menjawab dan sumbernya, lalu
    bertanya **Fits / Doesn't fit**.
 6. **Penjadwal jalan singkat** (`walkScheduler.ts`): saran jalan 5–10 menit dalam 30 menit sebelum jam rawan bila ≥ 30 menit tanpa
    jeda, tiap 30 menit layar terus-menerus selama jam rawan, dan sesudah "I finished it"; paling sering sekali per 30 menit; tidak
@@ -508,7 +514,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **709 test, 47 file lolos** (8 Nov; rules, fitur, kedip, menguap, kalibrasi, gerbang kualitas, penjaga cahaya, whitelist payload, server `/api/analyze`, `/api/tanya`, dan `/api/rencana`, penerusan Ask, riwayat dan upgrade database, kirim otomatis, sapaan PiP, skor pola kedip, Google Tasks, rubrik tugas (58 judul contoh), fase energi, Task Matcher, kartu rencana, penjadwal jalan, log keputusan, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **730 test, 49 file lolos** (8 Nov; rules, fitur, kedip, menguap, kalibrasi, gerbang kualitas, penjaga cahaya, whitelist payload, server `/api/analyze`, `/api/tanya`, dan `/api/rencana`, penerusan Ask, riwayat dan upgrade database, kirim otomatis, sapaan PiP, skor pola kedip, Google Tasks, rubrik tugas (58 judul contoh), fase energi, Task Matcher, kartu rencana dan penolakan kalimat yang menyimpang, penjadwal jalan, log keputusan, jam dinding setelah laptop tidur, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang, hasil kode sebelum perubahan kamera 7 Nov) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
