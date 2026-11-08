@@ -178,7 +178,10 @@ export class Monitor {
     // A window with a label was judged at its own level (away and asleep come from the rules, whatever the face
     // looked like); one without, for the reason the rules gave.
     const level: QualityLevel = result.latest ? (quality.level === "tidak-dinilai" ? "nilai" : quality.level) : "tidak-dinilai";
-    const reason: QualityReason | null = result.latest ? (level === "nilai" ? null : quality.reason) : (result.cause ?? "fps");
+    // The stored hold cause folds glare into "cahaya" (history, tester submission: NOTES D-101); the UI keeps them
+    // apart, since "turn on a light" makes glare worse.
+    const held: QualityReason = result.cause === "cahaya" && quality.reason === "silau" ? "silau" : (result.cause ?? "fps");
+    const reason: QualityReason | null = result.latest ? (level === "nilai" ? null : quality.reason) : held;
     this.assessed = stepQuality(this.assessed, { level, reason });
     const menitLelah = this.menitLelah(now);
     return {

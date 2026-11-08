@@ -193,3 +193,30 @@ describe("Monitor: must not say tertidur or lelah", () => {
     expect(left.at(-1)).toBe("tidak di depan layar");
   });
 });
+
+describe("Monitor: why a window could not be read", () => {
+  // A light sample once a second (main.ts LIGHT.intervalMs) with the face found.
+  const lit = (monitor: Monitor, seconds: number, start: number, luma: number, clipped: number) => {
+    for (let t = start + 1000; t <= start + seconds * 1000; t += 1000) {
+      monitor.pushLight({ t, face: true, luma, clipped, eyes: 1, eyeGlare: 0 });
+    }
+  };
+
+  it("says glare, not too dark, when the face is overexposed", () => {
+    const monitor = create();
+    lit(monitor, 90, 0, 200, 0.5);
+    const steps: EvaluationStep[] = [];
+    play(monitor, 90, upright, 0, steps);
+    expect(steps.at(-1)?.cause).toBe("cahaya"); // stored cause (history, tester submission)
+    expect(steps.at(-1)?.assessed).toMatchObject({ level: "tidak-dinilai", reason: "silau" });
+  });
+
+  it("says too dark when the face is dark (control)", () => {
+    const monitor = create();
+    lit(monitor, 90, 0, 20, 0);
+    const steps: EvaluationStep[] = [];
+    play(monitor, 90, upright, 0, steps);
+    expect(steps.at(-1)?.cause).toBe("cahaya");
+    expect(steps.at(-1)?.assessed).toMatchObject({ level: "tidak-dinilai", reason: "cahaya" });
+  });
+});
