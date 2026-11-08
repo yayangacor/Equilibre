@@ -6,8 +6,10 @@
 // changed. The knowledge base endpoints are not in openapi.json; request shapes are from the Langflow
 // 1.12.2 source (NOTES G-40). Search quality afterwards: cek-retrieval.mts.
 // v4 (plan P20 W2.4) = all 12 notes, for rencana_kerja. v3 (28 Oct, the first 9 notes) stays as it is for
-// analisis_status and cari_panduan, so their tested retrieval does not change (profil.mts).
-// Usage (from equilibre/): node langflow-flows/buat-kb.mjs [--pratinjau]
+// analisis_status and cari_panduan, so their tested retrieval does not change (profil.mts); --versi=v3 rebuilds it on a
+// fresh Langflow from the same 9 notes (the three notes added for rencana_kerja left out).
+// Usage (from equilibre/): node langflow-flows/buat-kb.mjs [--versi=v3|v4] [--pratinjau]
+//   --versi      v4 (default) or v3
 //   --pratinjau  only previews the split, creates nothing
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,8 +18,18 @@ const envPath = fileURLToPath(new URL("../.env", import.meta.url));
 if (existsSync(envPath)) process.loadEnvFile(envPath);
 const base = (process.env.LANGFLOW_URL || "http://127.0.0.1:7860").replace(/\/+$/, "");
 const previewOnly = process.argv.includes("--pratinjau");
-// Same name as RENCANA_KNOWLEDGE_BASE in profil.mts.
-const KB = "equilibre_panduan_v4";
+// v4: same name as RENCANA_KNOWLEDGE_BASE in profil.mts. v3: the knowledge base of the two advice flows.
+const VERSIONS = {
+  v3: { kb: "equilibre_panduan_v3", leaveOut: ["jalan-singkat.md", "jam-rawan-siang.md", "tugas-aktif-vs-monoton.md"] },
+  v4: { kb: "equilibre_panduan_v4", leaveOut: [] },
+};
+const versionArg = process.argv.find((a) => a.startsWith("--versi="))?.slice("--versi=".length) ?? "v4";
+const version = VERSIONS[versionArg];
+if (!version) {
+  console.error(`--versi=${versionArg} tidak dikenal: pakai v3 atau v4.`);
+  process.exit(1);
+}
+const KB = version.kb;
 const EMBEDDING = { provider: "Google Generative AI", model: "models/gemini-embedding-001" };
 // An empty separator keeps the splitter's default separators, as for v2 (separator null).
 const SPLIT = { chunk_size: "2400", chunk_overlap: "0", separator: "" };
@@ -26,7 +38,7 @@ const READY_TIMEOUT_MS = 120_000;
 
 const dir = new URL("../knowledge/", import.meta.url);
 const notes = readdirSync(dir)
-  .filter((f) => f.endsWith(".md") && f !== "README.md")
+  .filter((f) => f.endsWith(".md") && f !== "README.md" && !version.leaveOut.includes(f))
   .sort()
   .map((name) => ({ name, text: readFileSync(new URL(name, dir), "utf8") }));
 

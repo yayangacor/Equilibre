@@ -432,8 +432,9 @@ Prasyarat: Node.js 22.18+ (skrip `.ts` dijalankan langsung dengan type stripping
 `http://127.0.0.1:7860` dengan flow `analisis_status`, `cari_panduan`, dan `ringkasan_harian` diimpor dari `langflow-flows/` dan
 kredensial model sebagai Global Variable (watsonx.ai: `WATSONX_APIKEY`, `WATSONX_PROJECT_ID`, `WATSONX_URL`; Google: `GOOGLE_API_KEY`
 tipe Credential, untuk embedding knowledge base dan model cadangan), knowledge base `equilibre_panduan_v3`, lalu
-`node langflow-flows/ganti-model.mts watsonx`; serta IBM Bob Shell untuk "Tanya Equilibre". Catatan: v3 dibangun 28 Okt dari 9 catatan
-pertama oleh versi lama `buat-kb.mjs` (commit `9aba89d`); skrip sekarang hanya membangun v4 (langkah Plan my next hour di bawah).
+`node langflow-flows/ganti-model.mts watsonx`; serta IBM Bob Shell untuk "Tanya Equilibre". Pada Langflow baru:
+`node langflow-flows/buat-kb.mjs --versi=v3` membangun v3 dari 9 catatan yang sama (tiga catatan Plan my next hour tidak ikut); tanpa
+`--versi` skrip membangun v4 (langkah Plan my next hour di bawah).
 
 ```bash
 cp .env.example .env          # isi LANGFLOW_API_KEY, LANGFLOW_FLOW_ID, dan BOB_API_KEY (Ask Equilibre);
