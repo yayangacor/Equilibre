@@ -7,7 +7,9 @@ import { DEFAULT_SLUMP, energyPhase } from "./phase.ts";
 import {
   ASK_MAX,
   chooseTasks,
+  chosenTask,
   historyDayKeys,
+  kindOf,
   phaseInputFrom,
   phaseView,
   planView,
@@ -103,6 +105,24 @@ describe("one-tap rubric", () => {
     expect(ASK_MAX).toBe(3);
     const late = [...Array.from({ length: 50 }, (_, i) => google(`k${i}`, `Write part ${i}`, i)), google("late", "Zorbify", 50)];
     expect(tasksToAsk(late, TODAY, emptyTagMemory())).toEqual([]);
+  });
+
+  it("lets the plan's task be changed even when the lexicon tagged it, kept as its answer (D-89, review B, 8 Nov)", () => {
+    const req = toRencanaRequest({ fase: "siap fokus", jam_rawan: false }, 10, REAL, TODAY, emptyTagMemory());
+    const plan = offlinePlan(req, null);
+    const task = chosenTask(plan.tugas_id, req.peta, REAL);
+    expect(task?.title).toBe("Write Q3 report for Dina");
+    // Tagged by the lexicon, so the question never asks about it: only "Change" can.
+    expect(tasksToAsk(REAL, TODAY, emptyTagMemory()).map((a) => a.id)).not.toContain(task!.id);
+    expect(kindOf(task!, TODAY, emptyTagMemory())?.text).toBe("Active, demanding");
+    const memory = rememberTag(emptyTagMemory(), task!, { sifat: "monoton", beban: "ringan" });
+    expect(kindOf(task!, TODAY, memory)?.text).toBe("Routine, light");
+    expect(tagTask(task!, TODAY, memory.corrections, memory.personal).source).toBe("correction");
+    // No task to change: a break, an id the request does not know, a task no longer listed.
+    expect(chosenTask(null, req.peta, REAL)).toBeNull();
+    expect(chosenTask("t9", req.peta, REAL)).toBeNull();
+    expect(chosenTask(plan.tugas_id, req.peta, [])).toBeNull();
+    expect(kindOf(google("u1", "Zorbify", 0), TODAY, emptyTagMemory())).toBeNull(); // not assessed
   });
 
   it("offers the four kinds as one tap each", () => {

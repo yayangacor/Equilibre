@@ -5,7 +5,9 @@ import { dayKey, type EvaluationRecord, type KssRecord } from "./history.ts";
 import { energyPhase } from "./phase.ts";
 import {
   chooseTasks,
+  chosenTask,
   historyDayKeys,
+  kindOf,
   phaseInputFrom,
   phaseView,
   planView,
@@ -53,6 +55,7 @@ export type PlanDeps = {
 
 // done: "I finished it" was pressed for this plan's task. google: the tasks came from Google Tasks.
 // logId: this plan's record in the decision log; null when the history could not store it.
+// task: the chosen task, for "Change" (D-89); null for a break or no task.
 type Shown = {
   view: PlanView;
   phase: PhaseView;
@@ -61,6 +64,7 @@ type Shown = {
   done: boolean;
   google: boolean;
   logId: number | null;
+  task: ImportedTask | null;
 };
 
 export class PlanPanel {
@@ -75,6 +79,7 @@ export class PlanPanel {
   private busy: "server" | "local" | null = null;
   private problem: string | null = null;
   private askLater = false; // "Not now": no rubric question for the rest of this tab
+  private changing = false; // "Change" on the plan's task: its four buttons are open
   private saved: string | null = null;
   private generation = 0; // bumped when the tasks change, so a plan for tasks no longer there is dropped
 
@@ -90,6 +95,7 @@ export class PlanPanel {
     this.shown = null;
     this.problem = null;
     this.saved = null;
+    this.changing = false;
     this.render();
   }
 
@@ -136,8 +142,10 @@ export class PlanPanel {
         done: false,
         google: choice.kind === "google",
         logId,
+        task: chosenTask(plan.tugas_id, req.peta, choice.tasks),
       };
       this.saved = null;
+      this.changing = false;
     } catch (err) {
       console.error("Plan not made:", err);
       this.problem = "The plan could not be made. Try again.";
@@ -188,16 +196,21 @@ export class PlanPanel {
 
   private askRow(item: AskItem, store: TagMemoryStore): HTMLElement {
     const row = el("div", "", "rubric-item");
-    row.append(el("p", item.title, "rubric-title"));
+    row.append(el("p", item.title, "rubric-title"), this.choiceRow(item, store, null));
+    return row;
+  }
+
+  // The four kinds, one tap each; current: the kind the task has now (pressed), null when not assessed.
+  private choiceRow(item: AskItem, store: TagMemoryStore, current: Rubric | null): HTMLElement {
     const choices = el("div", "", "choice-row");
     for (const choice of RUBRIC_CHOICES) {
       const button = el("button", choice.text, "btn outline rubric-choice") as HTMLButtonElement;
       button.type = "button";
+      if (current) button.setAttribute("aria-pressed", String(current.sifat === choice.rubric.sifat && current.beban === choice.rubric.beban));
       button.addEventListener("click", () => this.answer(item, choice.rubric, store));
       choices.append(button);
     }
-    row.append(choices);
-    return row;
+    return choices;
   }
 
   private answer(item: AskItem, rubric: Rubric, store: TagMemoryStore) {
@@ -205,7 +218,29 @@ export class PlanPanel {
     this.saved = ok
       ? `Saved on this laptop.${this.shown ? " Plan again to use it." : ""}`
       : "It could not be saved on this laptop.";
+    this.changing = false;
     this.render();
+  }
+
+  // "Change" on the plan's task (D-89: any value, one tap): the kind it has now, and the same four buttons as the
+  // question above, saved as this task's answer.
+  private kindAction(task: ImportedTask, store: TagMemoryStore): HTMLElement {
+    const current = kindOf(task, dayKey(Date.now()), store.load());
+    const box = el("div", "", "rubric-item");
+    const line = el("div", "", "choice-row");
+    const toggle = el("button", this.changing ? "Cancel" : "Change", "btn text") as HTMLButtonElement;
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", String(this.changing));
+    toggle.addEventListener("click", () => {
+      this.changing = !this.changing;
+      this.render();
+      // The card was drawn again: keep the keyboard where the user is.
+      this.out.querySelector<HTMLElement>(this.changing ? ".rubric-choice" : "[aria-expanded]")?.focus();
+    });
+    line.append(el("span", `Kind: ${current?.text ?? "Not assessed"}`, "choices-label"), toggle);
+    box.append(line);
+    if (this.changing) box.append(this.choiceRow(task, store, current?.rubric ?? null));
+    return box;
   }
 
   // ── The plan ──
@@ -223,7 +258,7 @@ export class PlanPanel {
       this.out.replaceChildren();
       return;
     }
-    const { view, phase, at } = this.shown;
+    const { view, phase, at, task, google } = this.shown;
     const card = el("div", "", "plan-result");
 
     const head = el("div", "", "plan-phase");
@@ -241,6 +276,7 @@ export class PlanPanel {
         item.append(el("p", step.minutes ? `${step.label} · ${step.minutes}` : step.label, "plan-kind"));
         if (step.title) item.append(el("p", step.title, "plan-title"));
         item.append(el("p", step.text, "plan-text"));
+        if (step.kind === "tugas" && task) item.append(this.kindAction(task, google ? this.deps.tags.google : this.deps.tags.sample));
         if (step.why) item.append(this.why(step.why));
         if (step.kind === "next" && hasTask) item.append(this.doneAction());
         steps.append(item);

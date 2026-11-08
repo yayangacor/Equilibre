@@ -21,6 +21,8 @@ import { tagTask, type Rubric, type TagMemory } from "./taskTagger.ts";
 //   plan again.
 // - The one-tap rubric asks only about tasks the lexicon could not tag (D-89 "ditanya sekali"), the first few in the
 //   user's order, with the four kinds as four buttons (one tap); "Not now" hides the question for this tab.
+// - Any other value is changed on the plan: "Change" next to the chosen task opens the same four buttons for it, and
+//   the answer is stored like the question's (rememberTag). The plan on screen stays until "Plan again".
 
 // ── Which tasks ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,20 @@ export function tasksToAsk(tasks: readonly ImportedTask[], today: string, memory
     .filter((task) => tagTask(task, today, memory.corrections, memory.personal).source === "unknown")
     .slice(0, max)
     .map((task) => ({ id: task.id, title: task.title }));
+}
+
+// "Change" next to the plan's task (D-89: the user changes any value with one tap, not only an unknown verb's): the
+// task the plan chose, found through the request's peta; null for a plan without a task or a task no longer listed.
+export function chosenTask(tugasId: string | null, peta: ReadonlyMap<string, string>, tasks: readonly ImportedTask[]): ImportedTask | null {
+  if (tugasId === null) return null;
+  const id = peta.get(tugasId);
+  return tasks.find((task) => task.id === id) ?? null;
+}
+
+// The kind a task is tagged with now, as one of the four buttons; null while it is "belum dinilai".
+export function kindOf(task: ImportedTask, today: string, memory: TagMemory): (typeof RUBRIC_CHOICES)[number] | null {
+  const tag = tagTask(task, today, memory.corrections, memory.personal);
+  return RUBRIC_CHOICES.find((c) => c.rubric.sifat === tag.sifat && c.rubric.beban === tag.beban) ?? null;
 }
 
 // The sample tasks' answers live under their own key, so a demo never teaches the real dictionary.
