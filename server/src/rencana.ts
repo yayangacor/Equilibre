@@ -153,6 +153,11 @@ export function parseRencanaReply(reply: string, input: RencanaInput): Result<Re
     }
     const teks = text(s.teks, `${at}.teks`, L.teksMax, ids);
     if (!teks.ok) return teks;
+    // A step may name only the chosen task: "Work on t2" under a plan for t1 would show another task's title in the
+    // step than in the card's heading. The reason (alasan) may still compare it with the others.
+    for (const m of teks.value.matchAll(MARKER)) {
+      if (`t${m[1]}` !== chosen.value) return { ok: false, error: `${at}.teks names ${m[0]}; a step may name only the chosen task.` };
+    }
     langkah.push({ jenis: s.jenis, menit, tugas_id: id.value, teks: teks.value });
   }
 

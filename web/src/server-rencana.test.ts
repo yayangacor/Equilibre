@@ -133,6 +133,20 @@ describe("parseRencanaReply: what the LLM must answer", () => {
     expect(errorFor({ alasan: "t2nya aktif, (t3) monoton, t5 belum dinilai." })).toBeNull();
   });
 
+  it("refuses a step that names another task than the chosen one (the card would show two titles)", () => {
+    const withTexts = (walk: string, work: string) => [
+      { ...answer.langkah[0], teks: walk },
+      { ...answer.langkah[1], teks: work },
+    ];
+    expect(errorFor({ langkah: withTexts("Jalan kaki 5 menit dulu.", "Kerjakan t3 sekarang.") })).toContain(
+      "langkah[1].teks names t3; a step may name only the chosen task",
+    );
+    expect(errorFor({ langkah: withTexts("Jalan dulu, lalu T4.", "Kerjakan t2.") })).toContain("langkah[0].teks names T4");
+    // Positive control: the chosen task in any step, in either case, and no marker at all.
+    expect(errorFor({ langkah: withTexts("Jalan 5 menit, lalu T2.", "Kerjakan t2 selama 25 menit.") })).toBeNull();
+    expect(errorFor({ langkah: withTexts("Jalan kaki 5 menit.", "Mulai tugasnya sekarang.") })).toBeNull();
+  });
+
   it("names a task exactly when the rules give one (NOTES D-84)", () => {
     const veryLow: RencanaInput = { ...LOW, fase: "rendah berat" };
     const pause = { langkah: [{ jenis: "jeda", menit: 10, tugas_id: null, teks: "Jeda aktif 10 menit." }], alasan: "Energi sangat rendah." };
