@@ -44,9 +44,9 @@ PLAN = {"walk_minutes": 5, "break_minutes": 10, "low_block_minutes": 25, "walk_d
 
 # The knowledge base search for each cocok row (None = the break of "rendah berat"). The rencana_kerja flow sends
 # it to the Knowledge node, so the notes that back the rule reach the prompt. ⚠️ Wording not tuned on the
-# knowledge base yet (cek-retrieval.mts runs searches without an LLM).
+# knowledge base yet (cek-retrieval.mts runs searches without an LLM). Never sleep or a nap (NOTES D-27).
 KUERI = {
-    None: "jeda aktif saat sangat mengantuk: jalan cepat singkat, cahaya terang, tidur siang singkat",
+    None: "jeda aktif saat sangat mengantuk: jalan cepat singkat, cahaya terang",
     "rawan": "penurunan kewaspadaan siang hari, jalan singkat 5 sampai 10 menit, tugas aktif bukan tugas monoton saat mengantuk",
     "siap fokus": "tugas aktif yang menantang dikerjakan saat segar, tugas monoton memperlihatkan kantuk",
     "biasa": "jeda gerak singkat yang rutin mengurangi rasa lelah saat bekerja di depan layar",

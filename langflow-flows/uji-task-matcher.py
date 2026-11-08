@@ -7,6 +7,7 @@
 #   the path is for the mutation check (a copy with one rule broken must fail)
 import ast
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -82,7 +83,11 @@ for name, text in bad.items():
     except ValueError:
         pass
 
+# The knowledge base search never asks for sleep or a nap: Equilibre never suggests them (NOTES D-27; review B, 8 Nov).
+nap = [str(row) for row, kueri in rules["KUERI"].items() if re.search(r"tidur|\bnap|lelap", kueri, re.IGNORECASE)]
+
 ok = len(cases) - len(failed)
 print(f"Task Matcher Python vs fixtures: {ok}/{len(cases)} sama; input buruk ditolak {len(bad) - len(not_refused)}/{len(bad)}"
-      + (f"; TIDAK ditolak: {', '.join(not_refused)}" if not_refused else ""))
-sys.exit(1 if failed or not_refused else 0)
+      + (f"; TIDAK ditolak: {', '.join(not_refused)}" if not_refused else "")
+      + (f"; kueri menyebut tidur: {', '.join(nap)}" if nap else "; kueri tanpa tidur"))
+sys.exit(1 if failed or not_refused or nap else 0)
