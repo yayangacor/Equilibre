@@ -239,10 +239,24 @@ export function findVerb(title: string, personal: ReadonlyMap<string, Rubric> = 
   return null;
 }
 
-// The word the UI asks about when no verb is known: the first word made of letters only (skips "Q3", "2x").
+// Words never learned as a verb: articles, prepositions, conjunctions, pronouns and fillers, English and Indonesian.
+// Learned, "the" from "The quarterly numbers" would tag "The budget review" ahead of the lexicon's "review" (review B,
+// 8 Nov). Lexicon words stay out of it ("buat" is a verb there).
+export const STOP_WORDS: ReadonlySet<string> = new Set([
+  // English
+  "the", "an", "to", "for", "of", "in", "on", "at", "by", "with", "from", "about", "and", "or", "but", "my", "our",
+  "your", "his", "her", "their", "its", "this", "that", "these", "those", "it", "we", "you", "they", "re", "fw",
+  "please", "pls", "todo",
+  // Indonesian
+  "untuk", "utk", "dan", "atau", "tapi", "dengan", "dgn", "di", "ke", "dari", "pada", "yang", "yg", "ini", "itu",
+  "saya", "aku", "kami", "kita", "kamu", "anda", "dia", "mereka", "tolong", "mohon", "tentang",
+]);
+
+// The word the UI asks about when no verb is known: the first word made of letters only (skips "Q3", "2x") that is
+// not a stop word; null when there is none, and then nothing is learned for the dictionary.
 // It is remembered as typed ("lunch"), so its own inflections match through stems() later.
 export function askedWord(title: string): string | null {
-  return titleWords(title).find((w) => /^\p{L}{2,}$/u.test(w)) ?? null;
+  return titleWords(title).find((w) => /^\p{L}{2,}$/u.test(w) && !STOP_WORDS.has(w)) ?? null;
 }
 
 // ── Due date ────────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
   rememberTag,
   serializeTagMemory,
   stems,
+  STOP_WORDS,
   TAG_MEMORY_KEY,
   TAG_MEMORY_LIMIT,
   tagTask,
@@ -266,6 +267,34 @@ describe("corrections and the personal dictionary", () => {
     memory = rememberTag(memory, task("b", "Review architecture"), { sifat: "aktif", beban: "berat" });
     expect(tagTask(task("a", "Review invoices"), today, memory.corrections, memory.personal).sifat).toBe("monoton");
     expect(tagTask(task("c", "Review budget"), today, memory.corrections, memory.personal).sifat).toBe("aktif");
+  });
+
+  it("never learns a stop word as a verb, so a later lexicon verb still decides (review B, 8 Nov)", () => {
+    const routine: Rubric = { sifat: "monoton", beban: "ringan" };
+    const quarterly = rememberTag(emptyTagMemory(), task("a", "The quarterly numbers"), routine);
+    expect(quarterly.personal.has("the")).toBe(false);
+    expect(quarterly.personal.get("quarterly")).toEqual(routine);
+    for (const title of ["The budget review", "The client pitch deck"]) {
+      expect(tagTask(task("b", title), today, quarterly.corrections, quarterly.personal), title).toMatchObject({
+        sifat: "aktif",
+        beban: "berat",
+        source: "lexicon",
+      });
+    }
+    const klien = rememberTag(emptyTagMemory(), task("c", "Untuk direksi"), routine);
+    expect([...klien.personal.keys()]).toEqual(["direksi"]);
+    expect(tagTask(task("d", "Untuk klien: rancang proposal"), today, klien.corrections, klien.personal)).toMatchObject({
+      sifat: "aktif",
+      verb: "rancang",
+      source: "lexicon",
+    });
+    // Only stop words: the task keeps its answer, the dictionary learns nothing.
+    const only = rememberTag(emptyTagMemory(), task("e", "Re: this"), routine);
+    expect(only.corrections.get("e")).toEqual(routine);
+    expect(only.personal.size).toBe(0);
+    expect(tagTask(task("e", "Re: this"), today, only.corrections, only.personal)).toMatchObject({ source: "correction", verb: null });
+    // No lexicon word is a stop word.
+    expect(Object.values(TASK_LEXICON).flat().filter((w) => STOP_WORDS.has(w))).toEqual([]);
   });
 
   it("finds a learned Indonesian word through its affixes", () => {
