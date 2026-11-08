@@ -199,8 +199,29 @@ describe("what the UI shows changes after two windows in a row", () => {
     s = stepQuality(s, { level: "tidak-dinilai", reason: "fps" });
     expect(s.reason).toBe("fps");
     s = stepQuality(s, { level: "nilai", reason: null });
-    s = stepQuality(s, { level: "terbatas-fps", reason: "fps" }); // a different level breaks the streak
+    expect(s.level).toBe("tidak-dinilai"); // one window is not enough
+    s = stepQuality(s, { level: "tidak-dinilai", reason: "fps" }); // back to the shown level: the streak ends
+    s = stepQuality(s, { level: "nilai", reason: null });
     expect(s.level).toBe("tidak-dinilai");
+    s = stepQuality(s, { level: "terbatas-fps", reason: "fps" }); // two windows unlike the shown one: the latest shows
+    expect(s).toMatchObject({ level: "terbatas-fps", reason: "fps" });
+  });
+
+  it("does not stay on a stale level while two other levels take turns (review C, 8 Nov)", () => {
+    let s = stepQuality(initialQualityState(), { level: "tidak-dinilai", reason: "wajah" });
+    for (let i = 0; i < 8; i++) s = stepQuality(s, i % 2 === 0 ? { level: "nilai", reason: null } : { level: "terbatas-fps", reason: "fps" });
+    expect(s.level).not.toBe("tidak-dinilai");
+  });
+
+  it("judges a window holding one frame as too few frames, with or without a face (review C, 8 Nov)", () => {
+    for (const one of [frame(60_000), noFace(60_000)]) {
+      expect(windowQuality([one], CLEAR, 60_000, WINDOW)).toMatchObject({ level: "tidak-dinilai", reason: "fps" });
+    }
+    const monitor = new Monitor(CLEAR, { windowMs: WINDOW, evalIntervalMs: 10_000 });
+    monitor.pushFrame(noFace(60_000));
+    const step = monitor.evaluate(60_000);
+    expect(step.latest).toBeNull();
+    expect(step.cause).toBe("fps");
   });
 
   it("greys out a label that has not been refreshed, through the Monitor", () => {

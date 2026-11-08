@@ -176,7 +176,10 @@ export function hiddenFaceNote(f: WindowFeatures, sleepMinutes: number = SLEEP.e
 }
 
 export function lowFpsNote(f: WindowFeatures): string | null {
-  if (f.durasi_jendela_detik <= 0) return null;
+  // A single frame (the first after the laptop slept, or after a frozen tab) covers no time: too few frames as well.
+  if (f.durasi_jendela_detik <= 0) {
+    return f.n_frame > 0 ? "The camera read only one frame in this window. Monitoring paused, so the last state is kept." : null;
+  }
   const fps = f.n_frame / f.durasi_jendela_detik;
   if (fps >= RULES.minWindowFps) return null;
   return (

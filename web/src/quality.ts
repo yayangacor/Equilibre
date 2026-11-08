@@ -86,7 +86,8 @@ export function windowQuality(
   const problem = (share: number) => lit !== null && share >= LIGHT.minShare;
   if (lit && problem(lit.dark)) return { level: "tidak-dinilai", reason: "cahaya", wajah: null, mata: null, fps: samplingFps(all) };
   if (lit && problem(lit.glare)) return { level: "tidak-dinilai", reason: "silau", wajah: null, mata: null, fps: samplingFps(all) };
-  if (all.length === 0) return { level: "tidak-dinilai", reason: "fps", wajah: null, mata: null, fps: null };
+  // One frame covers no time (frameWeights gives it 0): it says nothing about the face, only that frames are missing.
+  if (all.length < 2) return { level: "tidak-dinilai", reason: "fps", wajah: null, mata: null, fps: null };
   const weights = frameWeights(all);
   const seenMs = weights.reduce((a, b) => a + b, 0);
   const share = (weightOf: (f: FrameSignal) => number) =>
@@ -122,7 +123,9 @@ export function stepQuality(
   required: number = QUALITY.confirmWindows,
 ): QualityState {
   if (state.level === null || state.level === next.level) return { level: next.level, reason: next.reason, candidate: null, streak: 0 };
-  const streak = state.candidate === next.level ? state.streak + 1 : 1;
+  // Counts windows in a row that differ from what is shown, whatever their level, and then shows the latest: two
+  // levels taking turns (each unlike the shown one) must not keep a stale level up forever.
+  const streak = state.streak + 1;
   return streak >= required
     ? { level: next.level, reason: next.reason, candidate: null, streak: 0 }
     : { ...state, candidate: next.level, streak };
