@@ -573,7 +573,8 @@ function renderSinceBreak() {
 
 // Google Tasks import in Settings (plan P20 W2.1); "Plan my next hour" reads tasksPanel.current.
 // The local decision log of "Plan my next hour" (plan P20 W2.7): in the history database, never sent. A Google Tasks
-// read while connected tells whether a planned task is still open; a disconnect is no read.
+// read while connected tells whether a planned task is still open; a disconnect is no read, and it forgets the
+// watched tasks, so another account's list is never compared with them.
 const decisionLog = new DecisionLog(panel.decisionStore());
 const clearedBefore = panel.onCleared;
 panel.onCleared = () => {
@@ -582,7 +583,7 @@ panel.onCleared = () => {
 };
 
 export const tasksPanel = new TasksPanel((tasks) => {
-  if (tasksPanel.connected) void decisionLog.tasksRefreshed(new Set(tasks.map((t) => t.id)), Date.now());
+  void decisionLog.googleTasksChanged(tasksPanel.connected ? new Set(tasks.map((t) => t.id)) : null, Date.now());
   planPanel.tasksChanged();
 });
 

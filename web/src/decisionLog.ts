@@ -22,7 +22,8 @@ import type { AbstractTask } from "./taskTagger.ts";
 //                        null when none was stored (camera off, tab closed, paused); t_cek_30 says it was looked up
 //   tidak_terbuka_60     the chosen task was no longer open at a Google Tasks refresh within 60 minutes. The Google id
 //                        it needs lives in memory only, so it stays null after the tab closes, without a refresh in
-//                        those 60 minutes, for the demo's sample tasks, and for plans without a task.
+//                        those 60 minutes, after a disconnect (the next account may be another), for the demo's
+//                        sample tasks, and for plans without a task.
 // Readings where the plan is silent (the simpler one each time):
 // - "diterima" and "mulai ≤ 30 mnt" (accepted, started within 30 min) are not observable without new input or a
 //   write scope on Google Tasks; "Fits" and "I finished it" are the closest the card has, so no separate field.
@@ -163,6 +164,18 @@ export class DecisionLog {
     return this.store.update(id, { t_selesai: t });
   }
 
+  // Every change of the Google Tasks connection (tasksPanel.ts): open, the task ids of a read while connected; null,
+  // a disconnect. A disconnect forgets what is watched, since the next connection may be another account, whose list
+  // never holds this one's task: its plans keep tidak_terbuka_60 as it was (null when no read came), never "closed"
+  // (review A, 8 Nov).
+  async googleTasksChanged(open: ReadonlySet<string> | null, now: number): Promise<void> {
+    if (open === null) {
+      this.forget();
+      return;
+    }
+    await this.tasksRefreshed(open, now);
+  }
+
   // After every Google Tasks read while connected (not on a disconnect: no list then, not an empty one).
   async tasksRefreshed(open: ReadonlySet<string>, now: number): Promise<void> {
     for (const [id, w] of [...this.watched]) {
@@ -198,7 +211,7 @@ export class DecisionLog {
     }
   }
 
-  // "Delete all history": nothing left to watch.
+  // "Delete all history" or a Google Tasks disconnect: nothing left to watch.
   forget() {
     this.watched.clear();
   }

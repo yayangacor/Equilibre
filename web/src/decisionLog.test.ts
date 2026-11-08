@@ -193,6 +193,21 @@ describe("the decision log over a store", () => {
     expect(store.rows.get(later)!.tidak_terbuka_60).toBeNull();
   });
 
+  it("forgets the watched task on a disconnect: another account's list never marks it closed (review A, 8 Nov)", async () => {
+    const store = new MemoryStore();
+    const log = new DecisionLog(store);
+    const t = at(14, 10);
+    const planA = (await log.planned(planFor(REAL, t).record, "GT-aa11"))!;
+    await log.googleTasksChanged(null, t + MIN); // Disconnect account A
+    await log.googleTasksChanged(new Set(["GT-zz99"]), t + 5 * MIN); // account B's list
+    expect(store.rows.get(planA)!.tidak_terbuka_60).toBeNull();
+
+    // Positive control: a read while still connected does fill it.
+    const planB = (await log.planned(planFor(REAL, t + 6 * MIN).record, "GT-zz99"))!;
+    await log.googleTasksChanged(new Set(), t + 10 * MIN);
+    expect(store.rows.get(planB)!.tidak_terbuka_60).toBe(true);
+  });
+
   it("fills label_30 from the history, for plans of earlier sessions too, once each", async () => {
     const store = new MemoryStore();
     const log = new DecisionLog(store);
