@@ -7,7 +7,9 @@ import { UJI_URL } from "./userTest.ts";
 // Each page's Content-Security-Policy decides what it may connect to (NOTES D-01, G-90, D-77): its own origin (assets,
 // models, /api), the Apps Script receiver of the user test (it answers through a redirect to googleusercontent), and
 // Supabase Auth for the account (D-78), and the Google Tasks import (plan P20 W2.1): the Google Identity Services
-// endpoints under accounts.google.com/gsi/ and the Tasks API. Every page carries the same policy.
+// endpoints under accounts.google.com/gsi/, the Tasks API, and the one endpoint Disconnect needs:
+// google.accounts.oauth2.revoke() is an XMLHttpRequest POST to https://oauth2.googleapis.com/revoke (read in the GIS
+// client, 8 Nov), which connect-src governs. Every page carries the same policy.
 const POLICY = [
   "'self'",
   "https://script.google.com",
@@ -15,6 +17,7 @@ const POLICY = [
   "https://*.supabase.co",
   "https://accounts.google.com/gsi/",
   "https://tasks.googleapis.com",
+  "https://oauth2.googleapis.com/revoke",
 ];
 
 const PAGE = "https://equilibre.example";
@@ -29,15 +32,16 @@ function policyOf(html: string) {
       .map(([name, ...sources]) => [name, sources] as const),
   );
   const connectSrc = directives.get("connect-src") ?? [];
-  // Exact origins, one "https://*.host" wildcard (subdomains only, over https), and a source ending in "/" that allows
-  // only paths under it.
+  // Exact origins, one "https://*.host" wildcard (subdomains only, over https), a source ending in "/" that allows
+  // only paths under it, and a source with any other path that allows exactly that path (CSP path matching).
   const allows = (url: string) => {
     const { origin, protocol, host, pathname } = new URL(url, PAGE);
     return connectSrc.some((source) => {
       if (source === "'self'") return origin === PAGE;
       if (source.startsWith("https://*.")) return protocol === "https:" && host.endsWith(source.slice("https://*".length));
       const at = new URL(source);
-      if (at.pathname !== "/") return origin === at.origin && pathname.startsWith(at.pathname);
+      if (at.pathname.endsWith("/") && at.pathname !== "/") return origin === at.origin && pathname.startsWith(at.pathname);
+      if (at.pathname !== "/") return origin === at.origin && pathname === at.pathname;
       return origin === source;
     });
   };
@@ -71,6 +75,13 @@ describe.each([
     expect(allows("https://accounts.google.com/")).toBe(false);
     expect(allows("https://www.googleapis.com/tasks/v1/users/@me/lists")).toBe(false);
     expect(allows("https://tasks.googleapis.com.evil.example/")).toBe(false);
+  });
+
+  it("lets Disconnect revoke the Google grant, and nothing else on oauth2.googleapis.com (review A, 8 Nov)", () => {
+    expect(allows("https://oauth2.googleapis.com/revoke")).toBe(true);
+    expect(allows("https://oauth2.googleapis.com/token")).toBe(false);
+    expect(allows("https://oauth2.googleapis.com/revoke/x")).toBe(false);
+    expect(allows("https://oauth2.googleapis.com/")).toBe(false);
   });
 
   it("blocks MediaPipe's usage metrics and any other host (negative control)", () => {
