@@ -5,11 +5,8 @@ import type { ImportedTask } from "./googleTasks.ts";
 import type { EvaluationRecord, KssRecord } from "./history.ts";
 import { DEFAULT_SLUMP, energyPhase } from "./phase.ts";
 import {
-  addDecision,
-  answerLatest,
   ASK_MAX,
   chooseTasks,
-  DECISIONS_MAX,
   historyDayKeys,
   phaseInputFrom,
   phaseView,
@@ -259,36 +256,18 @@ describe("the timeline", () => {
   });
 });
 
-describe("what leaves the laptop, and what is kept for the decision log", () => {
-  it("the request and the kept decision never hold a title, a list name or a task id (negative control)", () => {
+// The decision log kept from each plan (W2.7) is tested in decisionLog.test.ts.
+describe("what leaves the laptop", () => {
+  it("the request never holds a title, a list name or a task id (negative control)", () => {
     for (const tasks of [SAMPLE, REAL]) {
       const req = toRencanaRequest({ fase: "rendah ringan", jam_rawan: true }, 45, tasks, TODAY, emptyTagMemory());
       const plan = offlinePlan(req, null);
-      const decisions = answerLatest(addDecision([], req.body, plan, AT_1410), true, AT_1410 + 1000);
-      const out = JSON.stringify([req.body, decisions]);
+      const out = JSON.stringify(req.body);
       const secrets = tasks.flatMap((t) => [t.title, t.listTitle, t.id, t.listId]);
       for (const s of secrets) expect(out).not.toContain(s);
-      // Positive control: the plan shown on the laptop does carry the chosen title.
+      // Positive control: the plan shown on the laptop does carry the chosen title, and peta its own id.
       expect(JSON.stringify(plan)).toContain(tasks.find((t) => `t${t.order + 1}` === plan.tugas_id)!.title);
+      expect(req.peta.get(plan.tugas_id!)).toBe(tasks.find((t) => `t${t.order + 1}` === plan.tugas_id)!.id);
     }
-  });
-
-  it("keeps the answer on the latest plan, a second tap changes it, and keeps at most DECISIONS_MAX", () => {
-    const req = toRencanaRequest({ fase: "biasa", jam_rawan: false }, 10, SAMPLE, TODAY, emptyTagMemory());
-    const plan = offlinePlan(req, "offline");
-    let list = addDecision([], req.body, plan, 1);
-    list = addDecision(list, req.body, plan, 2);
-    expect(list.map((d) => d.cocok)).toEqual([null, null]);
-    list = answerLatest(list, false, 3);
-    list = answerLatest(list, true, 4);
-    expect(list.map((d) => [d.t, d.cocok, d.t_cocok])).toEqual([
-      [1, null, null],
-      [2, true, 4],
-    ]);
-    expect(list[1]).toMatchObject({ asal: "offline", model: null, tugas_id: plan.tugas_id, kode: plan.kode });
-    expect(answerLatest([], true, 5)).toEqual([]);
-    for (let i = 0; i < DECISIONS_MAX + 5; i++) list = addDecision(list, req.body, plan, 10 + i);
-    expect(list).toHaveLength(DECISIONS_MAX);
-    expect(list.at(-1)!.t).toBe(10 + DECISIONS_MAX + 4);
   });
 });

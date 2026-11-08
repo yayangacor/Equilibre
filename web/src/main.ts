@@ -25,6 +25,7 @@ import {
   type KeyValueStore,
 } from "./calibration.ts";
 import { ACCOUNTS, currentAccount, scopeKey, signOut, type Account } from "./auth.ts";
+import { DecisionLog } from "./decisionLog.ts";
 import { DEMO, DEMO_NOTE, demoCallout, LOCAL_BACKEND, NO_BACKEND, onlineNote, probeBackend, type Backend } from "./demo.ts";
 import { loadDevMode, saveDevMode, showDebugLink } from "./devMode.ts";
 import { downloadFile, fileStamp } from "./download.ts";
@@ -571,11 +572,23 @@ function renderSinceBreak() {
 }
 
 // Google Tasks import in Settings (plan P20 W2.1); "Plan my next hour" reads tasksPanel.current.
-export const tasksPanel = new TasksPanel(() => planPanel.tasksChanged());
+// The local decision log of "Plan my next hour" (plan P20 W2.7): in the history database, never sent. A Google Tasks
+// read while connected tells whether a planned task is still open; a disconnect is no read.
+const decisionLog = new DecisionLog(panel.decisionStore());
+const clearedBefore = panel.onCleared;
+panel.onCleared = () => {
+  clearedBefore();
+  decisionLog.forget();
+};
+
+export const tasksPanel = new TasksPanel((tasks) => {
+  if (tasksPanel.connected) void decisionLog.tasksRefreshed(new Set(tasks.map((t) => t.id)), Date.now());
+  planPanel.tasksChanged();
+});
 
 // "Plan my next hour" on the Dashboard (plan P20 W2.6): asks /api/rencana only on the button (NOTES D-19). The demo
 // account plans with its sample tasks while Google is not connected; their rubric answers are kept apart.
-// planPanel.decisions: each plan and its "Fits / Doesn't fit", in memory for the decision log (W2.7).
+// Each plan, its "Fits / Doesn't fit" and "I finished it" go to the decision log (W2.7).
 export const planPanel = new PlanPanel({
   tasks: () => ({ connected: tasksPanel.connected, tasks: tasksPanel.current }),
   sample: DEMO_PERSONA ? (today) => demoTasks(DEMO_PERSONA, today) : null,
@@ -603,6 +616,8 @@ export const planPanel = new PlanPanel({
   server: () => backend.saran,
   offlineReason: DEMO_NOTE.rencana,
   onTaskDone: () => walkTick(true),
+  log: decisionLog,
+  session: SESSION,
 });
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).
@@ -2082,11 +2097,16 @@ async function main() {
     ? seedDemo(DEMO_PERSONA, historyDbName(account)).catch((err) => console.error("Demo history not seeded:", err))
     : Promise.resolve();
   void seeded.then(() => panel.open(historyDbName(account))).then(() => {
+    void decisionLog.fillLabels(Date.now()); // plans of earlier sessions
     selfReport.restoreKssClock(userTest?.started ?? null);
     insights = mountInsights(byId("insights-root"), { load: () => panel.allRecords(), evalIntervalMs: EVAL_INTERVAL_MS });
     insights.setVisible(router.page === "insights");
   });
-  setInterval(() => void panel.refresh(), DASHBOARD_REFRESH_MS);
+  // The decision log's "label 30 minutes later" is filled from the history as it comes in (decisionLog.ts).
+  setInterval(() => {
+    void panel.refresh();
+    void decisionLog.fillLabels(Date.now());
+  }, DASHBOARD_REFRESH_MS);
   userTest?.render();
   // KSS reminders (when on), the test card's clock and the short-walk scheduler.
   renderWalk();

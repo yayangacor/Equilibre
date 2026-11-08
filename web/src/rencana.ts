@@ -26,8 +26,9 @@ export type RencanaBody = {
   menit_sejak_jeda: number | null;
   tugas: AbstractTask[];
 };
-// judul: "t3" → the task's title. Kept in the browser, never sent.
-export type RencanaRequest = { body: RencanaBody; judul: ReadonlyMap<string, string> };
+// judul: "t3" → the task's title; peta: "t3" → the task's own id (Google's, or the sample's), for the decision log's
+// outcome in memory (decisionLog.ts). Both kept in the browser, never sent or stored.
+export type RencanaRequest = { body: RencanaBody; judul: ReadonlyMap<string, string>; peta: ReadonlyMap<string, string> };
 
 const clamp = (x: number, min: number, max: number) => Math.min(max, Math.max(min, x));
 
@@ -60,6 +61,7 @@ export function toRencanaRequest(
       })),
     },
     judul,
+    peta,
   };
 }
 

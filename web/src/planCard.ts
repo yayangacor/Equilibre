@@ -4,9 +4,9 @@ import type { ImportedTask } from "./googleTasks.ts";
 import { dayKey, type EvaluationRecord, type KssRecord } from "./history.ts";
 import { SLUMP, slumpWindow, type Phase, type PhaseInput, type PhaseReason, type PhaseResult, type SlumpWindow } from "./phase.ts";
 import type { QualityLevel } from "./quality.ts";
-import { RENCANA_LIMITS, type Plan, type RencanaBody } from "./rencana.ts";
+import { RENCANA_LIMITS, type Plan } from "./rencana.ts";
 import type { Label } from "./rules.ts";
-import { PLAN, type ReasonCode, type StepKind } from "./taskMatcher.ts";
+import { PLAN, type StepKind } from "./taskMatcher.ts";
 import { tagTask, type Rubric, type TagMemory } from "./taskTagger.ts";
 
 // What the Dashboard card "Plan my next hour" shows (plan P20 W2.6), from the state of this laptop. Pure: no DOM, no
@@ -198,38 +198,4 @@ export function planView(plan: Plan): PlanView {
   };
 }
 
-// ── "Fits / Doesn't fit", kept for the decision log (W2.7) ──────────────────────
-
-// One plan the user asked for, with what was sent (abstract tasks only, never a title) and the answer.
-export type PlanDecision = {
-  t: number;
-  dikirim: RencanaBody;
-  asal: Plan["asal"];
-  model: string | null;
-  tugas_id: string | null;
-  kode: ReasonCode[];
-  cocok: boolean | null; // null: not answered yet
-  t_cocok: number | null;
-};
-
-export const DECISIONS_MAX = 50; // in memory until W2.7 stores them
-
-export function addDecision(list: readonly PlanDecision[], body: RencanaBody, plan: Plan, t: number): PlanDecision[] {
-  const decision: PlanDecision = {
-    t,
-    dikirim: body,
-    asal: plan.asal,
-    model: plan.model,
-    tugas_id: plan.tugas_id,
-    kode: [...plan.kode],
-    cocok: null,
-    t_cocok: null,
-  };
-  return [...list, decision].slice(-DECISIONS_MAX);
-}
-
-// The answer to the latest plan; a second tap changes it.
-export function answerLatest(list: readonly PlanDecision[], cocok: boolean, t: number): PlanDecision[] {
-  if (list.length === 0) return [...list];
-  return [...list.slice(0, -1), { ...list[list.length - 1], cocok, t_cocok: t }];
-}
+// "Fits / Doesn't fit" and "I finished it" are kept in the decision log (decisionLog.ts, W2.7), not here.

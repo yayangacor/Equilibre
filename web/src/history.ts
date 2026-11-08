@@ -1,3 +1,4 @@
+import type { DecisionRecord } from "./decisionLog.ts";
 import type { WindowFeatures } from "./features.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { LABELS, lowFpsNote, type Evaluation, type HoldCause, type Label } from "./rules.ts";
@@ -10,7 +11,7 @@ import { LABELS, lowFpsNote, type Evaluation, type HoldCause, type Label } from 
 
 export const HISTORY_DAYS = 30;
 
-type Stamp = {
+export type Stamp = {
   id?: number; // set by IndexedDB (autoIncrement)
   hari: string; // local calendar day, YYYY-MM-DD: the index every query goes through
   sesi: number; // wall clock of page load: one page load = one session
@@ -181,8 +182,10 @@ export function toKssRecord(kss: number, context: Context & { labelTampil: Label
   };
 }
 
-// The file behind "Unduh riwayat (JSON)": everything kept, plus what it is.
-export function toExport(stores: DayData, now: number) {
+// The file behind "Download history (JSON)": everything kept, plus what it is. keputusan: the decision log of "Plan
+// my next hour" (decisionLog.ts, plan P20 W2.7), apart from DayData so the user test submission never sees it.
+// versi stays 1: the file only gained a key.
+export function toExport(stores: DayData, now: number, keputusan: readonly DecisionRecord[] = []) {
   return {
     format: "equilibre-riwayat",
     versi: 1,
@@ -190,6 +193,7 @@ export function toExport(stores: DayData, now: number) {
     hari_disimpan: HISTORY_DAYS,
     catatan: "Label dan angka ringkasan dari perangkat ini saja, tanpa gambar. Waktu dalam milidetik sejak epoch.",
     ...stores,
+    keputusan,
   };
 }
 

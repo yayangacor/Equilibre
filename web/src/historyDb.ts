@@ -1,12 +1,15 @@
+import type { DecisionRecord } from "./decisionLog.ts";
 import type { BreakRecord, EvaluationRecord, KssRecord, LabelCorrectionRecord, RecommendationRecord } from "./history.ts";
 
 // IndexedDB behind the local history (record types and logic: history.ts). Kept thin:
 // Vitest runs in Node without IndexedDB, so this file is checked in a real browser
-// instead (plans/P06, step 2). Every store is keyed by an autoIncrement id and indexed
-// by `hari`, and no transaction awaits anything, so none of them closes early.
+// instead (plans/P06, step 2); the schema upgrade alone is tested on a stand-in (historyDb.test.ts).
+// Every store is keyed by an autoIncrement id and indexed by `hari`, and no transaction
+// awaits anything, so none of them closes early.
 
 export const DB_NAME = "equilibre";
-const DB_VERSION = 1;
+// 1: the five stores of the history · 2 (8 Nov, plan P20 W2.7): + "keputusan", the decision log (decisionLog.ts).
+export const DB_VERSION = 2;
 const DAY = "hari";
 
 export type Stores = {
@@ -15,9 +18,29 @@ export type Stores = {
   rekomendasi: RecommendationRecord;
   koreksi_label: LabelCorrectionRecord;
   kss: KssRecord;
+  keputusan: DecisionRecord;
 };
 export type StoreName = keyof Stores;
-export const STORE_NAMES: readonly StoreName[] = ["evaluasi", "jeda", "rekomendasi", "koreksi_label", "kss"];
+export const STORE_NAMES: readonly StoreName[] = ["evaluasi", "jeda", "rekomendasi", "koreksi_label", "kss", "keputusan"];
+
+// What the upgrade needs of an IDBDatabase (a stand-in in the tests).
+export type SchemaDb = {
+  objectStoreNames: { contains(name: string): boolean };
+  createObjectStore(name: string, options: { keyPath: string; autoIncrement: boolean }): { createIndex(name: string, keyPath: string): unknown };
+};
+
+// The whole migration, from any older version: creates each store that does not exist yet, with its `hari` index, and
+// leaves every existing store and its records as they are (from 1 to 2 that is only "keputusan"). Nothing is ever
+// deleted or rewritten here. Resolves with the stores it created.
+export function upgradeSchema(db: SchemaDb): StoreName[] {
+  const created: StoreName[] = [];
+  for (const store of STORE_NAMES) {
+    if (db.objectStoreNames.contains(store)) continue;
+    db.createObjectStore(store, { keyPath: "id", autoIncrement: true }).createIndex(DAY, DAY);
+    created.push(store);
+  }
+  return created;
+}
 
 function succeeded<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -106,12 +129,13 @@ export class HistoryDb {
   }
 
   // Empties every store and fills it with these records in one transaction (the demo account's seed, demoAccount.ts).
-  replaceAll(data: { [S in StoreName]: Stores[S][] }): Promise<void> {
+  // A store left out stays empty (the seed has no decision log).
+  replaceAll(data: { [S in StoreName]?: Stores[S][] }): Promise<void> {
     const tx = this.db.transaction(STORE_NAMES, "readwrite");
     for (const name of STORE_NAMES) {
       const objects = tx.objectStore(name);
       objects.clear();
-      for (const record of data[name]) objects.add(record);
+      for (const record of data[name] ?? []) objects.add(record);
     }
     return committed(tx);
   }
@@ -142,12 +166,7 @@ export function openHistory(name: string = DB_NAME): Promise<HistoryDb> {
     }
     const req = factory.open(name, DB_VERSION);
     req.onupgradeneeded = () => {
-      const db = req.result;
-      for (const store of STORE_NAMES) {
-        if (!db.objectStoreNames.contains(store)) {
-          db.createObjectStore(store, { keyPath: "id", autoIncrement: true }).createIndex(DAY, DAY);
-        }
-      }
+      upgradeSchema(req.result);
     };
     req.onsuccess = () => resolve(new HistoryDb(req.result));
     req.onerror = () => reject(req.error);

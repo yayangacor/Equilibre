@@ -1,10 +1,9 @@
+import { toDecisionRecord, type DecisionLog } from "./decisionLog.ts";
 import { LOCALE } from "./format.ts";
 import type { ImportedTask } from "./googleTasks.ts";
 import { dayKey, type EvaluationRecord, type KssRecord } from "./history.ts";
 import { energyPhase } from "./phase.ts";
 import {
-  addDecision,
-  answerLatest,
   chooseTasks,
   historyDayKeys,
   phaseInputFrom,
@@ -16,7 +15,6 @@ import {
   type AskItem,
   type LiveState,
   type PhaseView,
-  type PlanDecision,
   type PlanView,
   type TaskChoice,
 } from "./planCard.ts";
@@ -49,10 +47,21 @@ export type PlanDeps = {
   server: () => boolean; // the backend can answer now (the online demo asks /api/health first, NOTES D-80)
   offlineReason: string; // why the plan is offline when the backend cannot answer
   onTaskDone: () => void; // "I finished it": the walk scheduler suggests a short walk (W2.5)
+  log: Pick<DecisionLog, "planned" | "answered" | "taskDone">; // the local decision log (W2.7), nothing sent
+  session: number; // the page load, the history's `sesi`
 };
 
 // done: "I finished it" was pressed for this plan's task. google: the tasks came from Google Tasks.
-type Shown = { view: PlanView; phase: PhaseView; at: number; cocok: boolean | null; done: boolean; google: boolean };
+// logId: this plan's record in the decision log; null when the history could not store it.
+type Shown = {
+  view: PlanView;
+  phase: PhaseView;
+  at: number;
+  cocok: boolean | null;
+  done: boolean;
+  google: boolean;
+  logId: number | null;
+};
 
 export class PlanPanel {
   private readonly deps: PlanDeps;
@@ -68,17 +77,11 @@ export class PlanPanel {
   private askLater = false; // "Not now": no rubric question for the rest of this tab
   private saved: string | null = null;
   private generation = 0; // bumped when the tasks change, so a plan for tasks no longer there is dropped
-  private decisionList: PlanDecision[] = [];
 
   constructor(deps: PlanDeps) {
     this.deps = deps;
     this.button.addEventListener("click", () => void this.make());
     this.render();
-  }
-
-  // For the decision log (W2.7): what was sent for each plan and whether it fit. In memory only.
-  get decisions(): readonly PlanDecision[] {
-    return this.decisionList;
   }
 
   // Connected, refreshed or disconnected: a plan naming tasks that may be gone is not kept on screen.
@@ -118,7 +121,13 @@ export class PlanPanel {
       const req = toRencanaRequest(phase, input.menitSejakJeda, choice.tasks, today, this.tagStore(choice).load());
       const plan = server ? await requestPlan(req) : offlinePlan(req, this.deps.offlineReason);
       if (generation !== this.generation) return;
-      this.decisionList = addDecision(this.decisionList, req.body, plan, Date.now());
+      // Logged before it shows, so "Fits" and "I finished it" always have its record (the card says "Making your
+      // plan…" until then). The task's own id stays in memory for tidak_terbuka_60; only a Google one can be looked
+      // for at a refresh. A task change in the milliseconds of the write leaves a record of a plan not shown.
+      const record = toDecisionRecord(req.body, plan, { t: Date.now(), sesi: this.deps.session });
+      const googleId = choice.kind === "google" && plan.tugas_id !== null ? (req.peta.get(plan.tugas_id) ?? null) : null;
+      const logId = await this.deps.log.planned(record, googleId);
+      if (generation !== this.generation) return;
       this.shown = {
         view: planView(plan),
         phase: phaseView(phase, input.slump),
@@ -126,6 +135,7 @@ export class PlanPanel {
         cocok: null,
         done: false,
         google: choice.kind === "google",
+        logId,
       };
       this.saved = null;
     } catch (err) {
@@ -271,6 +281,7 @@ export class PlanPanel {
     button.addEventListener("click", () => {
       if (!this.shown || this.shown.done) return;
       this.shown.done = true;
+      if (this.shown.logId !== null) void this.deps.log.taskDone(this.shown.logId, Date.now());
       update();
       this.deps.onTaskDone();
     });
@@ -285,7 +296,7 @@ export class PlanPanel {
     return why;
   }
 
-  // "Fits / Doesn't fit": kept with the latest decision, nothing is sent (W2.7 will store it).
+  // "Fits / Doesn't fit": stored with this plan's record in the decision log (W2.7), nothing is sent.
   private feedback(): HTMLElement {
     const box = el("div", "", "feedback");
     box.append(el("span", "This plan:", "choices-label"));
@@ -301,7 +312,7 @@ export class PlanPanel {
       button.addEventListener("click", () => {
         if (!this.shown) return;
         this.shown.cocok = cocok;
-        this.decisionList = answerLatest(this.decisionList, cocok, Date.now());
+        if (this.shown.logId !== null) void this.deps.log.answered(this.shown.logId, cocok, Date.now());
         update();
       });
       box.append(button);

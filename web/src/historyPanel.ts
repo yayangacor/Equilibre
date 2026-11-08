@@ -1,4 +1,5 @@
 import { Dashboard } from "./dashboard.ts";
+import type { DecisionRecord, DecisionStore } from "./decisionLog.ts";
 import { downloadFile, fileStamp } from "./download.ts";
 import { dayKey, oldestKeptDay, summarizeDay, toExport, type DayData, type DaySummary, type Feedback } from "./history.ts";
 import { openHistory, type HistoryDb, type StoreName, type Stores } from "./historyDb.ts";
@@ -101,6 +102,32 @@ export class HistoryPanel {
     }
   }
 
+  // The decision log (decisionLog.ts) on this database. A record deleted meanwhile is simply not updated.
+  decisionStore(): DecisionStore {
+    return {
+      add: (record) => this.add("keputusan", record),
+      update: async (id, patch) => {
+        try {
+          await this.db?.update("keputusan", id, patch);
+        } catch (err) {
+          this.failed(err);
+        }
+      },
+      all: () => this.decisions(),
+      evaluations: (day) => this.byDay("evaluasi", day),
+    };
+  }
+
+  // Every decision record, for the export. Kept out of allRecords(), which the user test submission reads.
+  async decisions(): Promise<DecisionRecord[]> {
+    try {
+      return this.db ? await this.db.all("keputusan") : [];
+    } catch (err) {
+      this.failed(err);
+      return [];
+    }
+  }
+
   async feedback(id: number, feedback: Feedback) {
     if (!this.db) return;
     try {
@@ -181,11 +208,13 @@ export class HistoryPanel {
       return;
     }
     const { evaluasi, jeda, rekomendasi, koreksi_label, kss } = stores;
-    const file = toExport(stores, Date.now());
+    const keputusan = await this.decisions();
+    const file = toExport(stores, Date.now(), keputusan);
     downloadFile(JSON.stringify(file), `equilibre-riwayat-${fileStamp(new Date())}.json`, "application/json");
     this.actionNote.textContent =
       `Downloaded: ${evaluasi.length} assessments, ${jeda.length} breaks, ${rekomendasi.length} advice, ` +
-      `${koreksi_label.length} corrections, ${kss.length} KSS. The file stays on this device until you share it.`;
+      `${koreksi_label.length} corrections, ${kss.length} KSS, ${keputusan.length} plans. ` +
+      "The file stays on this device until you share it.";
   }
 
   // Two clicks within CLEAR_CONFIRM_MS, no browser dialog.
@@ -195,7 +224,7 @@ export class HistoryPanel {
       this.clearArmedUntil = now + CLEAR_CONFIRM_MS;
       this.clearButton.textContent = "Click again to delete";
       this.actionNote.textContent =
-        "All history on this device will be deleted: assessments, breaks, advice, corrections and KSS. Your calibration baseline stays.";
+        "All history on this device will be deleted: assessments, breaks, advice, corrections, KSS and plans. Your calibration baseline stays.";
       setTimeout(() => {
         if (Date.now() >= this.clearArmedUntil) this.disarm();
       }, CLEAR_CONFIRM_MS);
