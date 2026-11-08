@@ -25,6 +25,7 @@ import {
   type KeyValueStore,
 } from "./calibration.ts";
 import { ACCOUNTS, currentAccount, scopeKey, signOut, type Account } from "./auth.ts";
+import { toWallClock } from "./clock.ts";
 import { DecisionLog } from "./decisionLog.ts";
 import { DEMO, DEMO_NOTE, demoCallout, LOCAL_BACKEND, NO_BACKEND, onlineNote, probeBackend, type Backend } from "./demo.ts";
 import { loadDevMode, saveDevMode, showDebugLink } from "./devMode.ts";
@@ -390,9 +391,10 @@ let breakState: BreakState | null = null;
 let lastCameraBreak: number | null = null; // wall clock end of the last break counted from the camera
 let breakMarked = false; // a break was marked by hand in this session
 
-// Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock.
+// Local history (IndexedDB). The pipeline clock is performance.now(); records use the wall clock, reached through
+// the present on both clocks, not performance.timeOrigin, which lags Date.now() after a sleep (clock.ts).
 const SESSION = Math.round(performance.timeOrigin);
-const wallClock = (t: number) => Math.round(performance.timeOrigin + t);
+const wallClock = (t: number) => toWallClock(t, performance.now(), Date.now());
 
 const sessionLog: FrameSignal[] = [];
 const bodyLog: BodySample[] = [];
@@ -578,8 +580,8 @@ function renderSinceBreak() {
 
 // Google Tasks import in Settings (plan P20 W2.1); "Plan my next hour" reads tasksPanel.current.
 // The local decision log of "Plan my next hour" (plan P20 W2.7): in the history database, never sent. A Google Tasks
-// read while connected tells whether a planned task is still open; a disconnect is no read, and it forgets the
-// watched tasks, so another account's list is never compared with them.
+// read while connected tells whether a planned task is still open; a disconnect is no read, and it and a new token
+// from the Google window forget the watched tasks, so another account's list is never compared with them.
 const decisionLog = new DecisionLog(panel.decisionStore());
 // The answers to "What kind of work is this?": per account on this laptop like the history and the baseline (D-78),
 // the demo's sample tasks apart. "Delete all history" removes this account's (and the demo's) too.
@@ -592,8 +594,8 @@ panel.onCleared = () => {
   planPanel.render();
 };
 
-export const tasksPanel = new TasksPanel((tasks) => {
-  void decisionLog.googleTasksChanged(tasksPanel.connected ? new Set(tasks.map((t) => t.id)) : null, Date.now());
+export const tasksPanel = new TasksPanel((tasks, newGrant) => {
+  void decisionLog.googleTasksChanged(tasksPanel.connected ? new Set(tasks.map((t) => t.id)) : null, Date.now(), newGrant);
   planPanel.tasksChanged();
 });
 
@@ -1748,13 +1750,17 @@ router.onChange(onPage);
 
 byId("download-log").addEventListener("click", () => {
   const started = new Date(performance.timeOrigin);
-  const csv = framesToCsv(sessionLog, bodyLog, performance.timeOrigin, [
+  // wallClock(0): the page-open time as the wall clock sees it now, so the clock column matches the user's watch
+  // after a sleep too (clock.ts).
+  const csv = framesToCsv(sessionLog, bodyLog, wallClock(0), [
     `Equilibre log sesi, halaman dibuka ${started.toISOString()}`,
     `window_ms=${WINDOW_MS} eval_interval_ms=${EVAL_INTERVAL_MS} detect_interval_ms=${NORMAL_INTERVAL_MS} ` +
       `hemat_daya_interval_ms=${SAVING_INTERVAL_MS} body_interval_ms=${bodyDetection ? BODY_INTERVAL_MS : 0} ` +
       `tidur_menit=${TIDUR_MENIT} label=${COMBINED ? "gabungan" : "rules"}`,
     // When power saving was on (sebab not null) or off (null); calibration always ran at detect_interval_ms.
     `hemat_daya=${JSON.stringify(powerLog)}`,
+    // The size the camera delivered (640×480 is asked, not forced): eye_dist_px and QUALITY.minEyeDistPx are in it.
+    `kamera=${video.videoWidth}x${video.videoHeight}`,
     `baseline=${JSON.stringify(baseline)}`,
   ]);
   downloadFile(csv, `equilibre-sesi-${fileStamp(new Date())}.csv`, "text/csv");
