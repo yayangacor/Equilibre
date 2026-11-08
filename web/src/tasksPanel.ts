@@ -54,8 +54,9 @@ export class TasksPanel {
     try {
       // The popup needs the click's user activation: reuse the loaded library when there is one.
       const lib = gisReady() ?? (await loadGis());
-      this.token = await requestToken(lib);
-      await this.load();
+      // The new token is kept only once the first read worked: a failed read leaves the panel as it was, with the
+      // error shown, never "connected, no open tasks" (review B, 8 Nov).
+      await this.load(await requestToken(lib));
     } catch (error) {
       this.fail(error);
     } finally {
@@ -64,11 +65,12 @@ export class TasksPanel {
   }
 
   private async refresh() {
-    if (!this.token || this.token.expiresAt - Date.now() < RENEW_BEFORE_MS) return this.connect();
+    const token = this.token;
+    if (!token || token.expiresAt - Date.now() < RENEW_BEFORE_MS) return this.connect();
     if (this.busy) return;
     this.setBusy(true, "Reading your tasks…");
     try {
-      await this.load();
+      await this.load(token);
     } catch (error) {
       this.fail(error);
     } finally {
@@ -76,10 +78,12 @@ export class TasksPanel {
     }
   }
 
-  private async load() {
-    if (!this.token) return;
+  // Reads the tasks with this token, then keeps both.
+  private async load(token: TasksToken) {
     this.status.textContent = "Reading your tasks…";
-    this.tasks = await readTasks(this.token.value);
+    const tasks = await readTasks(token.value);
+    this.token = token;
+    this.tasks = tasks;
     this.onChange(this.tasks);
     const lists = new Set(this.tasks.map((t) => t.listId)).size;
     this.status.textContent =
