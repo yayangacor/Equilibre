@@ -98,6 +98,11 @@ export const JAWABAN_LIMITS = { langkahMax: 4, menitMax: 60, teksMax: 200, alasa
 // "t3" in a sentence, also "t3nya" or "(t3)"; not inside a word ("at3") and not a longer number ("t1234").
 // web/src/rencana.ts uses the same pattern to put the titles in.
 export const MARKER = /\bt(\d{1,3})(?!\d)/gi;
+// Sleep in any sentence: the plan never suggests a nap, not even a short one (NOTES D-27, user 22 Sep), whatever the
+// model writes. "tertidur" (the label) is one word and does not match. web/src/rencana.ts refuses the same.
+export const SLEEP_WORDS = /\b(?:tidur|terlelap|nap|naps|napping|sleep|sleeping)\b/i;
+// "25 menit", "25-minute", "25 min": minutes named in a step must be that step's own (the rules' minutes).
+export const MINUTES = /(\d+)\s*-?\s*(?:menit|minutes?|mins?)\b/gi;
 
 export type RencanaLangkah = { jenis: (typeof LANGKAH_JENIS)[number]; menit: number | null; tugas_id: string | null; teks: string };
 export type RencanaJawaban = { langkah: RencanaLangkah[]; tugas_id: string | null; alasan: string; sumber: string[] };
@@ -158,11 +163,16 @@ export function parseRencanaReply(reply: string, input: RencanaInput): Result<Re
     for (const m of teks.value.matchAll(MARKER)) {
       if (`t${m[1]}` !== chosen.value) return { ok: false, error: `${at}.teks names ${m[0]}; a step may name only the chosen task.` };
     }
+    for (const m of teks.value.matchAll(MINUTES)) {
+      if (Number(m[1]) !== menit) return { ok: false, error: `${at}.teks says "${m[0]}", but the step has ${menit ?? "no"} minutes.` };
+    }
+    if (SLEEP_WORDS.test(teks.value)) return { ok: false, error: `${at}.teks mentions sleep; the plan never suggests a nap.` };
     langkah.push({ jenis: s.jenis, menit, tugas_id: id.value, teks: teks.value });
   }
 
   const alasan = text(r.alasan, "alasan", L.alasanMax, ids);
   if (!alasan.ok) return alasan;
+  if (SLEEP_WORDS.test(alasan.value)) return { ok: false, error: "alasan mentions sleep; the plan never suggests a nap." };
 
   const sumberRaw = r.sumber ?? [];
   if (!Array.isArray(sumberRaw) || sumberRaw.length > L.sumberMax) return { ok: false, error: `sumber must be a list of at most ${L.sumberMax}` };

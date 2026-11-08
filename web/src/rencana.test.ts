@@ -4,7 +4,9 @@ import type { ImportedTask } from "./googleTasks.ts";
 import { PHASES } from "./phase.ts";
 import {
   MARKER,
+  MINUTES,
   NOT_FOLLOWED,
+  SLEEP_WORDS,
   offlinePlan,
   REASON_TEXT,
   RENCANA_FIELDS,
@@ -79,6 +81,8 @@ describe("the request body: identical to the server's whitelist", () => {
     expect(TUGAS_FIELDS).toEqual(server.TUGAS_FIELDS);
     expect(RENCANA_LIMITS).toEqual(server.RENCANA_LIMITS);
     expect([MARKER.source, MARKER.flags]).toEqual([server.MARKER.source, server.MARKER.flags]);
+    expect([SLEEP_WORDS.source, SLEEP_WORDS.flags]).toEqual([server.SLEEP_WORDS.source, server.SLEEP_WORDS.flags]);
+    expect([MINUTES.source, MINUTES.flags]).toEqual([server.MINUTES.source, server.MINUTES.flags]);
     expect(server.FASE).toEqual(PHASES);
     expect(server.SIFAT).toEqual([...SIFAT, NOT_ASSESSED]);
     expect(server.BEBAN).toEqual([...BEBAN, NOT_ASSESSED]);
@@ -202,6 +206,24 @@ describe("requestPlan", () => {
     expect(unreadable.asal).toBe("offline");
     // Positive control: the unchanged answer is shown as the server's.
     expect((await requestPlan(request(), backend(() => jsonReply(serverPlan)).fetcher)).asal).toBe("server");
+  });
+
+  it("does not show a server plan whose sentences name another task, other minutes, or sleep", async () => {
+    const [walk, work] = serverPlan.langkah;
+    const bodies = [
+      { ...serverPlan, langkah: [walk, { ...work, teks: "Kerjakan t3 dulu." }] },
+      { ...serverPlan, langkah: [{ ...walk, teks: "Jalan dulu, lalu t4." }, work] },
+      { ...serverPlan, langkah: [walk, { ...work, teks: "Kerjakan t2 selama 40 menit." }] },
+      { ...serverPlan, langkah: [{ ...walk, teks: "Tidur siang sebentar dulu." }, work] },
+      { ...serverPlan, alasan: "Power nap singkat bisa membantu sebelum t2." },
+    ];
+    for (const body of bodies) {
+      const plan = await requestPlan(request(), backend(() => jsonReply(body)).fetcher);
+      expect(plan).toMatchObject({ asal: "offline", sebab: NOT_FOLLOWED, tugas_id: "t2" });
+    }
+    // Positive control: the chosen task in the walk step and the rules' minutes in English pass.
+    const fine = { ...serverPlan, langkah: [{ ...walk, teks: "Take a 5-minute walk, then t2." }, work] };
+    expect((await requestPlan(request(), backend(() => jsonReply(fine)).fetcher)).asal).toBe("server");
   });
 });
 

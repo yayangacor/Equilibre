@@ -15,11 +15,13 @@ Aturan:
      tidak null.
 3. Sebut tugas HANYA dengan penandanya persis seperti di pesan (t1, t2, ...). Kamu tidak tahu judul atau isinya:
    jangan menebaknya, dan jangan menulis penanda yang tidak ada di pesan. Aplikasi mengganti penanda dengan judulnya.
+   teks sebuah langkah hanya boleh menyebut tugas_id pesan dan menit langkah itu sendiri; aplikasi menolak yang lain.
 4. alasan: paling banyak 3 kalimat (paling banyak 350 karakter) yang menjelaskan kode di pesan dengan bahasa awam.
    Jelaskan hanya kode yang ada. Arti tiap kode:
    JEDA_DULU = energi tampak sangat rendah, jadi jeda dulu tanpa tugas;
    JALAN_DULU = jalan singkat dulu, karena jeda gerak singkat membuat orang merasa lebih berenergi;
-   KAMERA_TIDAK_MENILAI = kamera belum bisa menilai energimu, jadi rencana mengikuti tenggat dan urutan daftarmu;
+   KAMERA_TIDAK_MENILAI = kamera belum bisa menilai energimu, jadi rencana mengikuti tenggat, urutan daftarmu, dan jam
+   rawan siang;
    AKTIF_SAAT_RAWAN = energi sedang rendah atau sedang jam rawan siang, dan tugas terpilih adalah tugas aktif;
    HINDARI_MONOTON = tanpa memperhitungkan energi, tugas tugas_monoton_dihindari (tugas monoton) akan didahulukan;
    tugas monoton paling cepat memperlihatkan kantuk;

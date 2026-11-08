@@ -147,6 +147,25 @@ describe("parseRencanaReply: what the LLM must answer", () => {
     expect(errorFor({ langkah: withTexts("Jalan kaki 5 menit.", "Mulai tugasnya sekarang.") })).toBeNull();
   });
 
+  it("refuses other minutes than the step's, and any mention of sleep (never a nap, NOTES D-27)", () => {
+    const withTexts = (walk: string, work: string) => [
+      { ...answer.langkah[0], teks: walk },
+      { ...answer.langkah[1], teks: work },
+    ];
+    expect(errorFor({ langkah: withTexts("Jalan kaki 5 menit dulu.", "Kerjakan t2 selama 40 menit.") })).toContain(
+      'langkah[1].teks says "40 menit", but the step has 25 minutes',
+    );
+    expect(errorFor({ langkah: withTexts("Take a 10-minute walk.", "Kerjakan t2.") })).toContain('says "10-minute"');
+    expect(errorFor({ langkah: withTexts("Tidur siang 15 menit dulu.", "Kerjakan t2.") })).toContain(
+      "langkah[0].teks says \"15 menit\"",
+    );
+    expect(errorFor({ langkah: withTexts("Tidur sebentar dulu.", "Kerjakan t2.") })).toContain("langkah[0].teks mentions sleep");
+    expect(errorFor({ alasan: "Power nap 10 menit bisa membantu." })).toContain("alasan mentions sleep");
+    // Positive control: the step's own minutes in either language, and "tertidur" (the label word) is not sleep advice.
+    expect(errorFor({ langkah: withTexts("Take a 5-minute walk.", "Kerjakan t2 selama 25 menit.") })).toBeNull();
+    expect(errorFor({ alasan: "Kamu sempat tampak tertidur, jadi jalan dulu bisa membantu." })).toBeNull();
+  });
+
   it("names a task exactly when the rules give one (NOTES D-84)", () => {
     const veryLow: RencanaInput = { ...LOW, fase: "rendah berat" };
     const pause = { langkah: [{ jenis: "jeda", menit: 10, tugas_id: null, teks: "Jeda aktif 10 menit." }], alasan: "Energi sangat rendah." };

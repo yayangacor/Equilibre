@@ -16,6 +16,10 @@ export const TUGAS_FIELDS = ["id", "sifat", "beban", "hari_ke_tenggat", "posisi"
 export const RENCANA_LIMITS = { tugasMax: 50, hariMax: 365, menitSejakJedaMax: 24 * 60 } as const;
 // "t3" in the server's sentences; same pattern as server/src/rencana.ts, which checks every marker against the ids sent.
 export const MARKER = /\bt(\d{1,3})(?!\d)/gi;
+// Same patterns as the server's reply check: no sleep advice in any sentence (NOTES D-27), and minutes named in a step
+// are that step's own.
+export const SLEEP_WORDS = /\b(?:tidur|terlelap|nap|naps|napping|sleep|sleeping)\b/i;
+export const MINUTES = /(\d+)\s*-?\s*(?:menit|minutes?|mins?)\b/gi;
 // Two Langflow runs at most on the server (primary, then fallback), as the Vercel proxy allows 75 s.
 export const RENCANA_TIMEOUT_MS = 90_000;
 
@@ -94,9 +98,11 @@ export type Plan = {
 export const REASON_TEXT: Readonly<Record<ReasonCode, string>> = {
   JEDA_DULU: "Your energy looks very low, so a break comes first and no task is suggested.",
   JALAN_DULU: "A short walk first: regular movement breaks help people feel less tired.",
-  KAMERA_TIDAK_MENILAI: "The camera could not judge your energy, so the plan follows your due dates and your list.",
+  // Also given in the slump hours, where the plan takes the low-energy row (taskMatcher.ts): "the time of day" covers it.
+  KAMERA_TIDAK_MENILAI:
+    "The camera could not judge your energy, so the plan follows your due dates, your list and the time of day.",
   AKTIF_SAAT_RAWAN: "Active work suits a low-energy time better than routine work (a hypothesis we are testing).",
-  HINDARI_MONOTON: "A routine task would have come first, but routine work is harder to keep up when energy is low.",
+  HINDARI_MONOTON: "A routine task would have come first, but routine work is harder to keep up at a low-energy time.",
   SIAP_FOKUS: "You look ready to focus, so a demanding task comes first.",
   TENGGAT_HARI_INI: "It is due today or overdue.",
   TENGGAT_DEKAT: "It is due in the next few days.",
@@ -151,10 +157,22 @@ function fromServer(body: unknown, req: RencanaRequest, local: MatchResult): Pla
   if (!steps.every((s) => isObject(s) && isText(s.jenis) && isText(s.teks) && (s.tugas_id === null || isText(s.tugas_id)))) {
     return offlinePlan(req, UNREADABLE, local);
   }
+  // The sentences too: a step names no other task than the chosen one and no other minutes than the rules', and
+  // nothing suggests sleep. Otherwise the card would say one thing in its heading and another in its text.
+  const sentenceFollows = (teks: string, step: MatchStep) =>
+    !SLEEP_WORDS.test(teks) &&
+    [...teks.matchAll(MARKER)].every((m) => `t${m[1]}` === local.tugas_id) &&
+    [...teks.matchAll(MINUTES)].every((m) => Number(m[1]) === step.menit);
   const same =
     (body.tugas_id ?? null) === local.tugas_id &&
     steps.length === local.langkah.length &&
-    steps.every((s, i) => s.jenis === local.langkah[i].jenis && s.tugas_id === local.langkah[i].tugas_id);
+    steps.every(
+      (s, i) =>
+        s.jenis === local.langkah[i].jenis &&
+        s.tugas_id === local.langkah[i].tugas_id &&
+        sentenceFollows(s.teks as string, local.langkah[i]),
+    ) &&
+    !SLEEP_WORDS.test(body.alasan);
   if (!same) return offlinePlan(req, NOT_FOLLOWED, local);
   return {
     asal: "server",
