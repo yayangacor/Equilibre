@@ -224,7 +224,7 @@ export class HistoryPanel {
       this.clearArmedUntil = now + CLEAR_CONFIRM_MS;
       this.clearButton.textContent = "Click again to delete";
       this.actionNote.textContent =
-        "All history on this device will be deleted: assessments, breaks, advice, corrections, KSS and plans. Your calibration baseline stays.";
+        "All history on this device will be deleted: assessments, breaks, advice, corrections, KSS, plans and task kinds. Your calibration baseline stays.";
       setTimeout(() => {
         if (Date.now() >= this.clearArmedUntil) this.disarm();
       }, CLEAR_CONFIRM_MS);

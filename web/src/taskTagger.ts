@@ -394,7 +394,8 @@ export function toAbstractTasks(tasks: readonly ImportedTask[], today: string, m
 
 // ── Persistence ─────────────────────────────────────────────────────────────────
 
-export type TagMemoryStore = { load(): TagMemory; save(memory: TagMemory): boolean };
+// clear(): "Delete all history" (main.ts) removes the answers too.
+export type TagMemoryStore = { load(): TagMemory; save(memory: TagMemory): boolean; clear(): void };
 
 export const TAG_MEMORY_KEY = "equilibre.rubrik-tugas.v1";
 const MAX_KEY_LENGTH = { corrections: 200, personal: 60 } as const;
@@ -460,6 +461,13 @@ export function localTagStore(storage: KeyValueStore | null): TagMemoryStore {
         return false;
       }
     },
+    clear() {
+      try {
+        storage?.removeItem(TAG_MEMORY_KEY);
+      } catch {
+        // blocked site data: nothing was stored either
+      }
+    },
   };
 }
 
@@ -471,6 +479,9 @@ export function memoryTagStore(initial: TagMemory = emptyTagMemory()): TagMemory
     save(memory) {
       current = memory;
       return true;
+    },
+    clear() {
+      current = emptyTagMemory();
     },
   };
 }

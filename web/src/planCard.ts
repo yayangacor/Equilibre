@@ -7,10 +7,11 @@ import type { QualityLevel } from "./quality.ts";
 import { RENCANA_LIMITS, type Plan } from "./rencana.ts";
 import type { Label } from "./rules.ts";
 import { PLAN, type StepKind } from "./taskMatcher.ts";
-import { tagTask, type Rubric, type TagMemory } from "./taskTagger.ts";
+import { localTagStore, memoryTagStore, tagTask, type Rubric, type TagMemory, type TagMemoryStore } from "./taskTagger.ts";
 
 // What the Dashboard card "Plan my next hour" shows (plan P20 W2.6), from the state of this laptop. Pure: no DOM, no
-// storage, no network; planPanel.ts renders it, rencana.ts builds the request and asks the server.
+// storage of its own (scopedStore and tagStores wrap the one main.ts hands over), no network; planPanel.ts renders it,
+// rencana.ts builds the request and asks the server.
 // Readings where the plan and the research report are silent (the simpler one each time):
 // - Task source: connected Google Tasks always win, even with no open task; the demo account's sample tasks are used
 //   only while Google is not connected, so the two are never mixed. Without either, the card asks to connect.
@@ -80,12 +81,36 @@ export function kindOf(task: ImportedTask, today: string, memory: TagMemory): (t
 }
 
 // The sample tasks' answers live under their own key, so a demo never teaches the real dictionary.
-export function scopedStore(base: KeyValueStore, suffix: string): KeyValueStore {
-  const key = (k: string) => `${k}@${suffix}`;
+// suffix as a function is read at every call (null: no suffix).
+export function scopedStore(base: KeyValueStore, suffix: string | (() => string | null)): KeyValueStore {
+  const key = (k: string) => {
+    const s = typeof suffix === "string" ? suffix : suffix();
+    return s === null ? k : `${k}@${s}`;
+  };
   return {
     getItem: (k) => base.getItem(key(k)),
     setItem: (k, v) => base.setItem(key(k), v),
     removeItem: (k) => base.removeItem(key(k)),
+  };
+}
+
+export type TagStores = { google: TagMemoryStore; sample: TagMemoryStore; clear(): void };
+
+// Where the rubric answers live on this laptop (review A, 8 Nov). The Google tasks' answers belong to the signed-in
+// account, like the history and the baseline (D-78): key "…@<account id>", as auth.ts scopeKey; without an account the
+// laptop's own key. owner() is read at every call, since main.ts knows the account only once it has started. The demo's
+// sample tasks keep theirs apart (demo: "demo-rina"). clear(): "Delete all history" removes this account's answers and
+// the demo's, never another account's.
+export function tagStores(base: KeyValueStore | null, owner: () => string | null, demo: string | null): TagStores {
+  const google = base ? localTagStore(scopedStore(base, owner)) : memoryTagStore();
+  const sample = base && demo ? localTagStore(scopedStore(base, demo)) : memoryTagStore();
+  return {
+    google,
+    sample,
+    clear() {
+      google.clear();
+      sample.clear();
+    },
   };
 }
 

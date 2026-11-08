@@ -16,6 +16,7 @@ import {
   RUBRIC_CHOICES,
   scopedStore,
   sourceLine,
+  tagStores,
   tasksToAsk,
 } from "./planCard.ts";
 import type { Label } from "./rules.ts";
@@ -146,6 +147,45 @@ describe("one-tap rubric", () => {
     expect([...data.keys()]).toEqual([`${TAG_MEMORY_KEY}@demo-rina`]);
     expect(localTagStore(base).load().personal.size).toBe(0);
     expect(demo.load().personal.get("petty")).toEqual({ sifat: "aktif", beban: "ringan" });
+  });
+});
+
+describe("where the rubric answers are kept", () => {
+  it("per signed-in account; Delete all history removes this account's and the demo's, never another's (review A, 8 Nov)", () => {
+    const data = new Map<string, string>();
+    const base = {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+      removeItem: (k: string) => void data.delete(k),
+    };
+    let owner: string | null = "account-a";
+    const stores = tagStores(base, () => owner, "demo-rina");
+    const lunch = REAL[1]; // "Lunch with Bima": an unknown verb, learned as "lunch"
+    stores.google.save(rememberTag(emptyTagMemory(), lunch, { sifat: "aktif", beban: "ringan" }));
+    stores.sample.save(rememberTag(emptyTagMemory(), SAMPLE[4], { sifat: "monoton", beban: "ringan" }));
+    expect([...data.keys()].sort()).toEqual([`${TAG_MEMORY_KEY}@account-a`, `${TAG_MEMORY_KEY}@demo-rina`]);
+
+    // Another account on the same laptop sees none of it, and keeps its own.
+    owner = "account-b";
+    expect(stores.google.load().personal.size).toBe(0);
+    expect(tasksToAsk(REAL, TODAY, stores.google.load()).map((a) => a.id)).toEqual([lunch.id]);
+    stores.google.save(rememberTag(emptyTagMemory(), lunch, { sifat: "monoton", beban: "ringan" }));
+    owner = "account-a";
+    expect(stores.google.load().personal.get("lunch")).toEqual({ sifat: "aktif", beban: "ringan" });
+
+    stores.clear(); // account A's "Delete all history" in the demo
+    expect([...data.keys()]).toEqual([`${TAG_MEMORY_KEY}@account-b`]);
+    expect(stores.google.load().corrections.size).toBe(0);
+
+    // Without an account (no sign-in configured, a ?kode= test): the laptop's own key.
+    owner = null;
+    stores.google.save(rememberTag(emptyTagMemory(), lunch, { sifat: "aktif", beban: "ringan" }));
+    expect(data.has(TAG_MEMORY_KEY)).toBe(true);
+    // No storage at all: in memory, and clear() empties it.
+    const none = tagStores(null, () => "account-a", null);
+    none.google.save(rememberTag(emptyTagMemory(), lunch, { sifat: "aktif", beban: "ringan" }));
+    none.clear();
+    expect(none.google.load().personal.size).toBe(0);
   });
 });
 

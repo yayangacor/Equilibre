@@ -61,7 +61,7 @@ import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import { DEFAULT_SLUMP, slumpWindow, type SlumpWindow } from "./phase.ts";
-import { historyDayKeys, scopedStore } from "./planCard.ts";
+import { historyDayKeys, tagStores } from "./planCard.ts";
 import { PlanPanel } from "./planPanel.ts";
 import {
   detectIntervalMs,
@@ -87,7 +87,6 @@ import type { QualityState } from "./quality.ts";
 import { heroCopy, lastAssessedNote, limitedNote, UNASSESSED, type HeroState } from "./statusCopy.ts";
 import { TanyaPanel } from "./tanyaPanel.ts";
 import { TasksPanel } from "./tasksPanel.ts";
-import { localTagStore, memoryTagStore } from "./taskTagger.ts";
 import { browserOf, osOf, parseCode, testDbSuffix } from "./userTest.ts";
 import { UserTestPanel } from "./userTestPanel.ts";
 import { dismissWalk, initialWalkState, stepWalk, WALK_TEXT } from "./walkScheduler.ts";
@@ -576,10 +575,15 @@ function renderSinceBreak() {
 // read while connected tells whether a planned task is still open; a disconnect is no read, and it forgets the
 // watched tasks, so another account's list is never compared with them.
 const decisionLog = new DecisionLog(panel.decisionStore());
+// The answers to "What kind of work is this?": per account on this laptop like the history and the baseline (D-78),
+// the demo's sample tasks apart. "Delete all history" removes this account's (and the demo's) too.
+const taskKinds = tagStores(store, () => account?.id ?? null, DEMO_PERSONA ? `demo-${DEMO_PERSONA}` : null);
 const clearedBefore = panel.onCleared;
 panel.onCleared = () => {
   clearedBefore();
   decisionLog.forget();
+  taskKinds.clear();
+  planPanel.render();
 };
 
 export const tasksPanel = new TasksPanel((tasks) => {
@@ -593,10 +597,7 @@ export const tasksPanel = new TasksPanel((tasks) => {
 export const planPanel = new PlanPanel({
   tasks: () => ({ connected: tasksPanel.connected, tasks: tasksPanel.current }),
   sample: DEMO_PERSONA ? (today) => demoTasks(DEMO_PERSONA, today) : null,
-  tags: {
-    google: store ? localTagStore(store) : memoryTagStore(),
-    sample: store && DEMO_PERSONA ? localTagStore(scopedStore(store, `demo-${DEMO_PERSONA}`)) : memoryTagStore(),
-  },
+  tags: taskKinds,
   live: () => {
     const off = calibration !== null || paused;
     return {

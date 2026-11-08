@@ -372,6 +372,23 @@ describe("persistence", () => {
     };
     expect(localTagStore(broken).load().personal.size).toBe(0);
     expect(localTagStore(broken).save(memory)).toBe(false);
+    const blocked = { ...broken, removeItem: () => {
+      throw new Error("blocked");
+    } };
+    expect(() => localTagStore(blocked).clear()).not.toThrow();
+    expect(() => localTagStore(null).clear()).not.toThrow();
+  });
+
+  it("clear() removes the stored answers (Delete all history)", () => {
+    const storage = fakeStorage();
+    const store = localTagStore(storage);
+    store.save(rememberTag(emptyTagMemory(), task("a", "Lunch with Dina"), { sifat: "aktif", beban: "ringan" }));
+    store.clear();
+    expect(storage.data.has(TAG_MEMORY_KEY)).toBe(false);
+    expect(store.load().personal.size).toBe(0);
+    const inMemory = memoryTagStore(rememberTag(emptyTagMemory(), task("a", "Write spec"), { sifat: "aktif", beban: "berat" }));
+    inMemory.clear();
+    expect(inMemory.load().corrections.size).toBe(0);
   });
 
   it("serializes to entries, never to the titles", () => {
