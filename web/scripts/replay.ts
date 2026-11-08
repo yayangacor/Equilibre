@@ -156,10 +156,13 @@ for (const f of live) {
     const context = { t: opened + f.t, sesi: opened, menitSejakJeda, hematDaya: fpsFlag !== undefined };
     records.push(toEvaluationRecord(shown, evaluation, context));
   }
-  const target = autoTarget(shown?.label ?? null, saran !== null);
-  const auto = stepAutoSend(autoState, target, opened + f.t, true);
-  autoState = auto.state;
-  if (auto.send) autoSends.push(`${f.waktu.slice(0, 8)} ${target}`);
+  // As main.ts maybeAutoSend: nothing is sent about a state the camera could not read, and the episode goes on.
+  if (assessed.level !== "tidak-dinilai") {
+    const target = autoTarget(shown?.label ?? null, saran !== null);
+    const auto = stepAutoSend(autoState, target, opened + f.t, true);
+    autoState = auto.state;
+    if (auto.send) autoSends.push(`${f.waktu.slice(0, 8)} ${target}`);
+  }
   console.log(
     `${f.waktu.slice(0, 8)} | ${fps.toFixed(1).padStart(4)} ${pct(feat.perclos)} ${fixed(feat.kedip_per_menit, 7)} ` +
       `${fixed(feat.durasi_kedip_ms, 5)}ms ${String(feat.mata_tertutup_lama).padStart(4)} ${String(feat.menguap).padStart(7)}  ` +
