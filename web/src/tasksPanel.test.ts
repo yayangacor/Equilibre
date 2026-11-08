@@ -68,7 +68,7 @@ describe("Connect", () => {
     await settle();
     expect(panel.connected).toBe(true);
     expect(panel.current).toEqual([TASK]);
-    expect(onChange).toHaveBeenCalledWith([TASK]);
+    expect(onChange).toHaveBeenCalledWith([TASK], true);
     expect(byId("tasks-status").textContent).toBe("Connected. 1 open tasks from 1 list.");
   });
 
@@ -83,5 +83,34 @@ describe("Connect", () => {
     expect(panel.connected).toBe(true);
     expect(panel.current).toEqual([TASK]);
     expect(byId("tasks-status").textContent).toBe("Google Tasks did not answer. Try again in a moment.");
+  });
+});
+
+describe("Refresh", () => {
+  it("renewing an expiring token goes through the Google window and says so; a plain Refresh does not (review, 8 Nov)", async () => {
+    const onChange = vi.fn();
+    const panel = new TasksPanel(onChange);
+    const OTHER: ImportedTask = { ...TASK, id: "GT-zz99", title: "Another account's task" };
+    vi.mocked(requestToken).mockResolvedValueOnce({ value: "token-a", expiresAt: Date.now() + 30_000 }); // < 1 min left
+    vi.mocked(readTasks).mockResolvedValueOnce([TASK]);
+    byId("tasks-connect").click();
+    await settle();
+    expect(onChange).toHaveBeenLastCalledWith([TASK], true);
+
+    // The token is about to expire: Refresh opens the Google window again, where another account can be picked.
+    vi.mocked(requestToken).mockResolvedValueOnce({ value: "token-b", expiresAt: Date.now() + 3_600_000 });
+    vi.mocked(readTasks).mockResolvedValueOnce([OTHER]);
+    byId("tasks-refresh").click();
+    await settle();
+    expect(requestToken).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith([OTHER], true);
+
+    // Control: with the new token still valid, Refresh only reads, and the listener is told it is no new grant.
+    vi.mocked(readTasks).mockResolvedValueOnce([OTHER]);
+    byId("tasks-refresh").click();
+    await settle();
+    expect(requestToken).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith([OTHER], false);
+    expect(panel.connected).toBe(true);
   });
 });

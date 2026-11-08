@@ -29,9 +29,11 @@ export class TasksPanel {
   private readonly list = byId<HTMLUListElement>("tasks-list");
   private readonly count = byId("tasks-count");
 
-  private readonly onChange: (tasks: readonly ImportedTask[]) => void;
+  // newGrant: the tasks came with a token from the Google window (Connect, or Refresh renewing an expiring token).
+  // That window can switch to another signed-in Google account, and the token does not say which (review, 8 Nov).
+  private readonly onChange: (tasks: readonly ImportedTask[], newGrant: boolean) => void;
 
-  constructor(onChange: (tasks: readonly ImportedTask[]) => void = () => {}) {
+  constructor(onChange: (tasks: readonly ImportedTask[], newGrant: boolean) => void = () => {}) {
     this.onChange = onChange;
     this.connectButton.addEventListener("click", () => void this.connect());
     this.refreshButton.addEventListener("click", () => void this.refresh());
@@ -56,7 +58,7 @@ export class TasksPanel {
       const lib = gisReady() ?? (await loadGis());
       // The new token is kept only once the first read worked: a failed read leaves the panel as it was, with the
       // error shown, never "connected, no open tasks" (review B, 8 Nov).
-      await this.load(await requestToken(lib));
+      await this.load(await requestToken(lib), true);
     } catch (error) {
       this.fail(error);
     } finally {
@@ -70,7 +72,7 @@ export class TasksPanel {
     if (this.busy) return;
     this.setBusy(true, "Reading your tasks…");
     try {
-      await this.load(token);
+      await this.load(token, false);
     } catch (error) {
       this.fail(error);
     } finally {
@@ -79,12 +81,12 @@ export class TasksPanel {
   }
 
   // Reads the tasks with this token, then keeps both.
-  private async load(token: TasksToken) {
+  private async load(token: TasksToken, newGrant: boolean) {
     this.status.textContent = "Reading your tasks…";
     const tasks = await readTasks(token.value);
     this.token = token;
     this.tasks = tasks;
-    this.onChange(this.tasks);
+    this.onChange(this.tasks, newGrant);
     const lists = new Set(this.tasks.map((t) => t.listId)).size;
     this.status.textContent =
       this.tasks.length === 0 ? "Connected. No open tasks found." : `Connected. ${this.tasks.length} open tasks from ${lists} ${lists === 1 ? "list" : "lists"}.`;
@@ -95,7 +97,7 @@ export class TasksPanel {
     const token = this.token;
     this.token = null;
     this.tasks = [];
-    this.onChange(this.tasks);
+    this.onChange(this.tasks, false);
     this.render();
     this.status.textContent = "Disconnected. Equilibre no longer has access to your tasks.";
     if (token) await revokeToken(token.value);

@@ -208,6 +208,22 @@ describe("the decision log over a store", () => {
     expect(store.rows.get(planB)!.tidak_terbuka_60).toBe(true);
   });
 
+  it("forgets the watched task on a new grant from the Google window: Refresh may have switched accounts (review, 8 Nov)", async () => {
+    const store = new MemoryStore();
+    const log = new DecisionLog(store);
+    const t = at(14, 10);
+    const planA = (await log.planned(planFor(REAL, t).record, "GT-aa11"))!;
+    // Refresh with an expiring token opens the Google window; account B is picked, no disconnect in between.
+    await log.googleTasksChanged(new Set(["GT-zz99"]), t + 5 * MIN, true);
+    await log.googleTasksChanged(new Set(["GT-zz99"]), t + 10 * MIN); // a plain Refresh afterwards
+    expect(store.rows.get(planA)!.tidak_terbuka_60).toBeNull();
+
+    // Positive control: the same list from a plain Refresh (the token still valid) marks it closed.
+    const planB = (await log.planned(planFor(REAL, t + 11 * MIN).record, "GT-aa11"))!;
+    await log.googleTasksChanged(new Set(["GT-zz99"]), t + 15 * MIN);
+    expect(store.rows.get(planB)!.tidak_terbuka_60).toBe(true);
+  });
+
   it("fills label_30 from the history, for plans of earlier sessions too, once each", async () => {
     const store = new MemoryStore();
     const log = new DecisionLog(store);

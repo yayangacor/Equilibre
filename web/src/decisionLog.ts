@@ -22,8 +22,8 @@ import type { AbstractTask } from "./taskTagger.ts";
 //                        null when none was stored (camera off, tab closed, paused); t_cek_30 says it was looked up
 //   tidak_terbuka_60     the chosen task was no longer open at a Google Tasks refresh within 60 minutes. The Google id
 //                        it needs lives in memory only, so it stays null after the tab closes, without a refresh in
-//                        those 60 minutes, after a disconnect (the next account may be another), for the demo's
-//                        sample tasks, and for plans without a task.
+//                        those 60 minutes, after a disconnect or a new grant from the Google window (the next
+//                        account may be another), for the demo's sample tasks, and for plans without a task.
 // Readings where the plan is silent (the simpler one each time):
 // - "diterima" and "mulai ≤ 30 mnt" (accepted, started within 30 min) are not observable without new input or a
 //   write scope on Google Tasks; "Fits" and "I finished it" are the closest the card has, so no separate field.
@@ -167,9 +167,10 @@ export class DecisionLog {
   // Every change of the Google Tasks connection (tasksPanel.ts): open, the task ids of a read while connected; null,
   // a disconnect. A disconnect forgets what is watched, since the next connection may be another account, whose list
   // never holds this one's task: its plans keep tidak_terbuka_60 as it was (null when no read came), never "closed"
-  // (review A, 8 Nov).
-  async googleTasksChanged(open: ReadonlySet<string> | null, now: number): Promise<void> {
-    if (open === null) {
+  // (review A, 8 Nov). newGrant: the read came with a token from the Google window (Refresh renewing an expiring
+  // token opens it too), where another signed-in account can be picked; the token does not say which, so the same.
+  async googleTasksChanged(open: ReadonlySet<string> | null, now: number, newGrant = false): Promise<void> {
+    if (open === null || newGrant) {
       this.forget();
       return;
     }
