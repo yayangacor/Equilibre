@@ -5,12 +5,12 @@ import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 // Light on the face (plan P20 W1.5, ported from branch final-h6-h7, P17 H17; W1.6c glare on the lenses): how
 // bright the face is, how much of it is overexposed, how dark the eye areas are against it, and how much of
 // each eye area is blown out. Measured on the device about once a second (main.ts reads a few pixels of the
-// video, nothing is kept). Without a face it reads the middle of the frame, so a dark room is not taken for
+// video, nothing is kept). Without a face it reads the whole frame, so a dark room is not taken for
 // leaving the desk. quality.ts turns a window of samples into "too dark" or "glare" instead of a guess.
 
 export type LightSample = {
   t: number; // ms, same clock as FrameSignal.t
-  face: boolean; // false: the middle of the frame was read, no face was found
+  face: boolean; // false: the whole frame was read, no face was found
   luma: number; // mean brightness, 0–255 (Rec. 601)
   clipped: number; // share of those pixels at LIGHT.overexposed or brighter
   eyes: number; // mean brightness of the two eye areas ÷ luma; NaN without a face or when luma is 0
@@ -61,9 +61,10 @@ export function faceBoxes(
   return { face, eyes: [eyes[0], eyes[1]] };
 }
 
-// The middle half of the frame, read when no face is found.
-export const frameMiddle = (width: number, height: number): Box | null =>
-  clip({ x: width / 4, y: height / 4, w: width / 2, h: height / 2 }, width, height);
+// The whole frame, read when no face is found: a dark room is dark everywhere. The middle alone is the head when it
+// lies on the desk, and dark hair there read as "too dark", which held "asleep" and "away" (review C, 8 Nov).
+export const wholeFrame = (width: number, height: number): Box | null => clip({ x: 0, y: 0, w: width, h: height }, width, height);
+
 
 // Inside the frame, at least 2 × 2 pixels; null when nothing of it is left.
 function clip(b: Box, width: number, height: number): Box | null {

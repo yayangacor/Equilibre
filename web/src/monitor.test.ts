@@ -220,3 +220,30 @@ describe("Monitor: why a window could not be read", () => {
     expect(steps.at(-1)?.assessed).toMatchObject({ level: "tidak-dinilai", reason: "cahaya" });
   });
 });
+
+describe("Monitor: light without a face (review C, 8 Nov)", () => {
+  // Head on the desk with the tidur=1 demo timing; a light sample of the frame (no face) every second.
+  const headDownWithLight = (luma: number) => {
+    const monitor = create(1);
+    play(monitor, 60, upright);
+    const shown: Label[] = [];
+    for (let t = 60_000 + FRAME_MS; t <= 300_000; t += FRAME_MS) {
+      if (t % 500 === 0) monitor.pushBody({ t, ...still });
+      if (t % 1000 === 0) monitor.pushLight({ t, face: false, luma, clipped: 0, eyes: NaN, eyeGlare: NaN });
+      monitor.pushFrame(noFace(t));
+      if (t % EVAL_MS === 0) {
+        monitor.evaluate(t);
+        shown.push(monitor.labelState.shown?.label ?? ("-" as Label));
+      }
+    }
+    return shown;
+  };
+
+  it("still says tertidur when the room is lit (the whole frame is read, not the head in its middle)", () => {
+    expect(headDownWithLight(90)).toContain("tertidur");
+  });
+
+  it("holds the label in a dark room instead of calling it sleep (control)", () => {
+    expect(headDownWithLight(20)).not.toContain("tertidur");
+  });
+});

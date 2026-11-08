@@ -1,6 +1,6 @@
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { describe, expect, it } from "vitest";
-import { brightness, faceBoxes, frameMiddle, LIGHT, lightWindow, toLightSample, type LightSample } from "./light.ts";
+import { brightness, faceBoxes, LIGHT, lightWindow, toLightSample, wholeFrame, type LightSample } from "./light.ts";
 import { LEFT_EYE, RIGHT_EYE } from "./signals.ts";
 
 // 478 landmarks on a face filling x 0.3–0.7, y 0.2–0.8 of the frame, the eyes as two 0.1-wide slits at y 0.4.
@@ -85,8 +85,9 @@ describe("light: brightness", () => {
     expect(Number.isNaN(dark.eyes)).toBe(true);
   });
 
-  it("reads the middle of the frame when no face is found", () => {
-    expect(frameMiddle(640, 480)).toEqual({ x: 160, y: 120, w: 320, h: 240 });
+  it("reads the whole frame when no face is found (a head on the desk fills the middle, review C 8 Nov)", () => {
+    expect(wholeFrame(640, 480)).toEqual({ x: 0, y: 0, w: 640, h: 480 });
+    expect(wholeFrame(1, 480)).toBeNull();
     const s = toLightSample(7, { luma: 12, clipped: 0 }, null);
     expect(s).toMatchObject({ face: false, luma: 12 });
     expect([s.eyes, s.eyeGlare].every(Number.isNaN)).toBe(true);

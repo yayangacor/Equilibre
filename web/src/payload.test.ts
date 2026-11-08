@@ -11,7 +11,7 @@ import {
   toFlowInput,
 } from "../../server/src/features.ts";
 import type { WindowFeatures } from "./features.ts";
-import { toAnalyzePayload } from "./payload.ts";
+import { toAnalyzePayload, withoutEyeNumbers } from "./payload.ts";
 import { ADVICE, TANDA as WEB_TANDA, type Evaluation } from "./rules.ts";
 
 const evaluation: Evaluation = {
@@ -176,5 +176,18 @@ describe("status decided on the server", () => {
   it("rejects menit_lelah_60 outside the hour", () => {
     expect(parseFeatures({ label: "lelah", menit_lelah_60: 61 }).ok).toBe(false);
     expect(parseFeatures({ label: "lelah", saran_istirahat_panjang: true }).ok).toBe(false); // server-side only
+  });
+});
+
+describe("eye numbers when the eyes could not be read (terbatas-mata)", () => {
+  it("leaves out every eye number and keeps the rest, which the server still accepts", () => {
+    const full = toAnalyzePayload(evaluation, features, 1, 0);
+    const limited = withoutEyeNumbers(full);
+    for (const key of ["perclos", "kedip_per_menit", "durasi_kedip_ms", "mata_tertutup_lama"]) expect(limited).not.toHaveProperty(key);
+    expect(limited).toMatchObject({ label: full.label, tanda: full.tanda, menguap: full.menguap, menit_sejak_jeda: 1 });
+    expect(parseFeatures(limited).ok).toBe(true);
+    // Control: the full payload has them.
+    expect(full).toHaveProperty("perclos");
+    expect(full).toHaveProperty("mata_tertutup_lama", 1);
   });
 });

@@ -11,7 +11,7 @@ export type AnalyzePayload = {
   perclos?: number;
   kedip_per_menit?: number;
   durasi_kedip_ms?: number;
-  mata_tertutup_lama: number;
+  mata_tertutup_lama?: number; // left out with the other eye numbers when the eyes could not be read
   menguap: number;
   pct_kepala_menunduk?: number;
   pct_wajah_hilang?: number;
@@ -45,4 +45,16 @@ export function toAnalyzePayload(
     menit_sejak_jeda: round(clamp(menitSejakJeda, 24 * 60), 0),
     menit_lelah_60: round(clamp(menitLelah60, 60), 1),
   };
+}
+
+// "Limited check" because the eyes could not be read (quality.ts "terbatas-mata": glasses, glare, eyes hidden): the
+// label came from yawns only, so the eye numbers of that window are not sent and the advice cannot lean on them
+// (review C, 8 Nov). The stored history keeps them (history.ts), as the Debug page shows them.
+export function withoutEyeNumbers(p: AnalyzePayload): AnalyzePayload {
+  const out: AnalyzePayload = { ...p };
+  delete out.perclos;
+  delete out.kedip_per_menit;
+  delete out.durasi_kedip_ms;
+  delete out.mata_tertutup_lama;
+  return out;
 }

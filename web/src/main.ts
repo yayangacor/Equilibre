@@ -45,7 +45,7 @@ import {
 } from "./features.ts";
 import { GREETING, initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { LOCALE } from "./format.ts";
-import { brightness, faceBoxes, frameMiddle, LIGHT, toLightSample, type Box, type LightSample } from "./light.ts";
+import { brightness, faceBoxes, LIGHT, wholeFrame, toLightSample, type Box, type LightSample } from "./light.ts";
 import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME, openHistory } from "./historyDb.ts";
 import { DEMO_ACCOUNTS, demoHistory, demoNote, demoTasks, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
@@ -58,7 +58,7 @@ import { eyeState, liveTiles, yawning } from "./live.ts";
 import { drawFaceMesh, LiveView } from "./liveView.ts";
 import { Monitor, type EvaluationStep } from "./monitor.ts";
 import { overlayFit } from "./overlayFit.ts";
-import { toAnalyzePayload, type AnalyzePayload } from "./payload.ts";
+import { toAnalyzePayload, withoutEyeNumbers, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import { DEFAULT_SLUMP, slumpWindow, type SlumpWindow } from "./phase.ts";
 import { historyDayKeys, tagStores } from "./planCard.ts";
@@ -460,15 +460,21 @@ function onFrame(s: FrameSignal) {
     renderFeatures();
     renderSinceBreak();
   }
-  if (s.t - lastEvalT >= EVAL_INTERVAL_MS) {
-    lastEvalT = s.t;
-    const step = monitor.evaluate(s.t);
-    ({ latest, hold, menitLelah, saran, assessed, lastAssessedT } = step);
-    recordEvaluation(step, s.t);
-    renderStatus();
-    renderPayload();
-    maybeAutoSend();
-  }
+  if (s.t - lastEvalT >= EVAL_INTERVAL_MS) evaluateAt(s.t);
+}
+
+// Also called from the detection loop when no frame has come for EVAL_INTERVAL_MS (camera taken by another app,
+// track ended, frozen driver): the window then has no frames and reads "Can't assess", instead of the last label
+// staying up as if it were current (review C, 8 Nov).
+function evaluateAt(t: number) {
+  if (!monitor || calibration) return;
+  lastEvalT = t;
+  const step = monitor.evaluate(t);
+  ({ latest, hold, menitLelah, saran, assessed, lastAssessedT } = step);
+  recordEvaluation(step, t);
+  renderStatus();
+  renderPayload();
+  maybeAutoSend();
 }
 
 function maybeAutoSend() {
@@ -801,7 +807,7 @@ function recordEvaluation(step: EvaluationStep, t: number) {
 }
 
 // Light on the face (plan P20 W1.5), once a second: a few pixels of the video, scaled down and read here, then
-// dropped; only the numbers go on (LightSample). Without a face, the middle of the frame.
+// dropped; only the numbers go on (LightSample). Without a face, the whole frame.
 const lightCanvas = document.createElement("canvas");
 lightCanvas.width = 32;
 lightCanvas.height = 16;
@@ -818,12 +824,12 @@ function measureLight(result: FaceLandmarkerResult, t: number): LightSample | nu
   const boxes = landmarks ? faceBoxes(landmarks, video.videoWidth, video.videoHeight) : null;
   // Eye crops 32 × 16 (research report §2.4): a lens reflection is a few pixels, so they are not scaled down further.
   if (boxes) return toLightSample(t, read(boxes.face, 16, 16), boxes.eyes.map((b) => read(b, 32, 16)));
-  const middle = frameMiddle(video.videoWidth, video.videoHeight);
-  return middle ? toLightSample(t, read(middle, 16, 16), null) : null;
+  const frame = wholeFrame(video.videoWidth, video.videoHeight);
+  return frame ? toLightSample(t, read(frame, 16, 16), null) : null;
 }
 
 function renderLight(l: LightSample) {
-  const eyes = l.face ? ` · eyes ${show(l.eyes, (v) => fmt2.format(v))}× · lens glare ${asPct(l.eyeGlare)}` : " · no face, frame middle";
+  const eyes = l.face ? ` · eyes ${show(l.eyes, (v) => fmt2.format(v))}× · lens glare ${asPct(l.eyeGlare)}` : " · no face, whole frame";
   signalRows.light(`${Math.round(l.luma)} · glare ${asPct(l.clipped)}${eyes}`, l.luma / 255);
 }
 
@@ -1018,7 +1024,8 @@ function renderStatus() {
 function currentPayload() {
   const shown = monitor?.labelState.shown;
   if (!shown || !features || !breakState) return null;
-  return toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()), menitLelah);
+  const payload = toAnalyzePayload(shown, features, minutesSinceBreak(breakState, performance.now()), menitLelah);
+  return assessed?.level === "terbatas-mata" ? withoutEyeNumbers(payload) : payload;
 }
 
 // The server answers 422 for "tidak di depan layar" (nothing to recommend while away),
@@ -1291,10 +1298,12 @@ function runDetection({ landmarker, segmenter }: Detectors) {
   };
 
   let lastLightT = -Infinity;
+  let lastFrameT = -Infinity;
   const tick = () => {
     const now = performance.now();
     if (!paused && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
+      lastFrameT = now;
       const result = landmarker.detectForVideo(video, now);
       if (segmenter && now - lastBodyT >= BODY_INTERVAL_MS) {
         lastBodyT = now;
@@ -1326,6 +1335,8 @@ function runDetection({ landmarker, segmenter }: Detectors) {
       } else if (router.page === "dashboard") renderLive(result, signal);
       else if (DEBUG || router.page === "debug") renderDebug(result, grid);
       fpsFrames++;
+    } else if (!paused && now - lastFrameT >= EVAL_INTERVAL_MS && now - lastEvalT >= EVAL_INTERVAL_MS) {
+      evaluateAt(now);
     }
     if (now - fpsWindowStart >= 1000) {
       fpsOutput.textContent = ((fpsFrames * 1000) / (now - fpsWindowStart)).toFixed(1);
