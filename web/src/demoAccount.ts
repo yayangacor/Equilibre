@@ -209,34 +209,35 @@ function windowNumbers(label: Label, rng: Random) {
   return { tanda, skor, poin, nums };
 }
 
+// The demo account's canned advice, in English like the flows (NOTES D-104), and only what the advice prompt allows.
 const ADVICE = {
   "perlu jeda singkat": {
     minutes: 5,
     texts: [
-      "Ayo jeda 5 menit. Kamu bisa mengistirahatkan mata dengan melihat benda jauh atau melakukan peregangan ringan.",
-      "Ambil jeda 5 menit: lihat benda sejauh 6 meter selama 20 detik, lalu regangkan bahu dan leher.",
+      "Take a 5-minute break. Rest your eyes by looking at something far away, or do some light stretching.",
+      "Take a 5-minute break: look at something 6 metres away for 20 seconds, then stretch your shoulders and neck.",
     ],
     sources: ["permenkes-48-2016-k3-perkantoran.md", "albulescu-2022-micro-break.md", "aao-20-20-20.md"],
   },
   "perlu jeda": {
     minutes: 10,
     texts: [
-      "Jeda 10 menit dulu. Berdiri, berjalan sebentar, dan minum air sebelum lanjut bekerja.",
-      "Kamu perlu jeda 10 menit. Tinggalkan layar, regangkan badan, lalu kembali dengan tugas yang lebih ringan.",
+      "Take a 10-minute break first. Look away from the screen at something far away, then stretch your back and shoulders.",
+      "You need a 10-minute break. Rest your eyes away from the screen and stretch before you go on.",
     ],
     sources: ["permenkes-48-2016-k3-perkantoran.md", "niosh-kewaspadaan-kerja.md", "albulescu-2022-micro-break.md"],
   },
 } as const;
 
 const REASON: Record<Tanda, string> = {
-  mata_sering_tertutup: "Mata kamu lebih sering tertutup dari biasanya.",
-  kedipan_lambat: "Kedipan matamu lebih lambat dari biasanya.",
-  menguap: "Kamu beberapa kali menguap.",
-  mata_terpejam_lama: "Mata kamu terpejam 1 detik atau lebih.",
-  kedipan_sering: "Kamu berkedip lebih sering dari biasanya.",
-  tertidur_mata_terpejam: "Mata kamu terpejam beberapa menit.",
-  tertidur_mata_tak_terlihat: "Mata kamu tidak terlihat beberapa menit.",
-  pola_kedip: "Pola kedipanmu mirip orang yang mengantuk.",
+  mata_sering_tertutup: "Your eyes were closed more often than usual.",
+  kedipan_lambat: "Your blinks were slower than usual.",
+  menguap: "You yawned a few times.",
+  mata_terpejam_lama: "Your eyes stayed closed for 1 second or longer.",
+  kedipan_sering: "You blinked more often than usual.",
+  tertidur_mata_terpejam: "Your eyes stayed closed for several minutes.",
+  tertidur_mata_tak_terlihat: "Your eyes were not seen for several minutes.",
+  pola_kedip: "Your blinking looked like that of a drowsy person.",
 };
 
 type DayResult = DemoHistory;
