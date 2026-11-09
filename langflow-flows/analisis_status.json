@@ -1,11 +1,11 @@
 {
   "id": "4ca947eb-77e3-4a3e-9762-598498a91f20",
   "name": "analisis_status",
-  "description": "Input: JSON fitur kelelahan (label, skor, perclos, kedip_per_menit, menguap, menit_sejak_jeda). Output: JSON {status, rekomendasi, alasan} dalam Bahasa Indonesia.",
+  "description": "Input: JSON fatigue features (label, skor, perclos, kedip_per_menit, menguap, menit_sejak_jeda). Output: JSON {status, rekomendasi, alasan} in English.",
   "endpoint_name": "analisis_status",
   "mcp_enabled": true,
   "action_name": "analisis_status",
-  "action_description": "Menganalisis status kelelahan kerja pengguna dari data agregat, lalu memberi rekomendasi relief singkat. Input: string JSON berisi label (normal / lelah ringan / lelah / tidak di depan layar), skor (0-1), perclos (0-1), kedip_per_menit, menguap, dan menit_sejak_jeda. Output: JSON {status, rekomendasi, alasan} dalam Bahasa Indonesia.",
+  "action_description": "Analyzes the user's work fatigue state from aggregate data, then gives a short relief recommendation. Input: a JSON string with label (normal / lelah ringan / lelah / tidak di depan layar), skor (0-1), perclos (0-1), kedip_per_menit, menguap and menit_sejak_jeda. Output: JSON {status, rekomendasi, alasan} in English.",
   "data": {
     "nodes": [
       {

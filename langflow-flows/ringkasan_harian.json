@@ -5,7 +5,7 @@
   "endpoint_name": "ringkasan_harian",
   "mcp_enabled": true,
   "action_name": "ringkasan_harian",
-  "action_description": "Merangkum kondisi kerja pengguna hari ini dari angka riwayat Equilibre di perangkatnya: menit per status (normal, lelah ringan, lelah, tertidur, tidak di depan layar), jumlah jeda, dan rata-rata KSS. Input: JSON {status, label, hari_ini} persis seperti DATA_HARI_INI. Output: JSON {jawaban, sumber: []}. Tanpa diagnosis.",
+  "action_description": "Summarizes the user's working day from the Equilibre history numbers on their device: minutes per state (Normal, Mildly tired, Tired, Asleep, Away), number of breaks and the average KSS. Input: JSON {status, label, hari_ini} exactly as DATA_HARI_INI. Output: JSON {jawaban, sumber: []} in English. No diagnosis.",
   "data": {
     "nodes": [
       {

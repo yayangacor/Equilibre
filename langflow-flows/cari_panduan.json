@@ -5,7 +5,7 @@
   "endpoint_name": "cari_panduan",
   "mcp_enabled": true,
   "action_name": "cari_panduan",
-  "action_description": "Menjawab pertanyaan tentang kelelahan kerja, jeda, dan kesehatan kerja di depan layar hanya dari knowledge base Equilibre (catatan bersumber WHO, NIOSH, Permenkes 48/2016, dan lainnya). Input: satu pertanyaan dalam Bahasa Indonesia. Output: JSON {jawaban, sumber}; sumber = nama file catatan yang dipakai, [] kalau pertanyaan di luar knowledge base.",
+  "action_description": "Answers questions about work fatigue, breaks and health when working at a screen, only from the Equilibre knowledge base (notes based on WHO, NIOSH, Permenkes 48/2016 and others). Input: one question, as the user wrote it. Output: JSON {jawaban, sumber} in English; sumber = file names of the notes used, [] when the question is outside the knowledge base.",
   "data": {
     "nodes": [
       {
