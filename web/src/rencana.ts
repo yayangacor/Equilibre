@@ -148,6 +148,12 @@ const UNREADABLE = "The server's plan could not be read, so the plan made on thi
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isText = (v: unknown): v is string => typeof v === "string";
 
+// The reason may not claim a state the rules did not see. Session 19 (9 Nov, the first live runs): for the 14:10 slump
+// with low energy (JALAN_DULU, AKTIF_SAAT_RAWAN) watsonx Mistral wrote "You look ready to focus" twice, the second time
+// with the prompt forbidding it. Only SIAP_FOKUS allows the phrase. Browser only: the codes are this laptop's.
+export const READY_WORDS = /\bready to focus\b|\bsiap fokus\b/i;
+const claimsReady = (alasan: string, kode: readonly string[]) => READY_WORDS.test(alasan) && !kode.includes("SIAP_FOKUS");
+
 // The server checked the reply (server/src/rencana.ts); checked again here for shape, and against this laptop's Task
 // Matcher: the LLM explains the rules' choice and never makes its own (research §3.4), so another task or other steps
 // mean the server's plan is not used. The minutes are the rules' too; the model only writes the sentences.
@@ -172,7 +178,8 @@ function fromServer(body: unknown, req: RencanaRequest, local: MatchResult): Pla
         s.tugas_id === local.langkah[i].tugas_id &&
         sentenceFollows(s.teks as string, local.langkah[i]),
     ) &&
-    !SLEEP_WORDS.test(body.alasan);
+    !SLEEP_WORDS.test(body.alasan) &&
+    !claimsReady(body.alasan, local.kode);
   if (!same) return offlinePlan(req, NOT_FOLLOWED, local);
   return {
     asal: "server",

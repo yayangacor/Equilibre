@@ -226,6 +226,9 @@ describe("requestPlan", () => {
       const plan = await requestPlan(request(), backend(() => jsonReply(body)).fetcher);
       expect(plan).toMatchObject({ asal: "offline", sebab: NOT_FOLLOWED, tugas_id: "t2" });
     }
+    // The reason claims a state the rules did not see (session 19: live watsonx Mistral at the 14:10 slump).
+    const ready = { ...serverPlan, alasan: "You look ready to focus, so an active task comes first." };
+    expect(await requestPlan(request(), backend(() => jsonReply(ready)).fetcher)).toMatchObject({ asal: "offline", sebab: NOT_FOLLOWED });
     // Positive control: the chosen task in the walk step and the rules' minutes in English pass.
     const fine = { ...serverPlan, langkah: [{ ...walk, teks: "Take a 5-minute walk, then t2." }, work] };
     expect((await requestPlan(request(), backend(() => jsonReply(fine)).fetcher)).asal).toBe("server");
