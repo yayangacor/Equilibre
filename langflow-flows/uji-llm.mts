@@ -106,6 +106,7 @@ function readBack(fresh: Transaction[]) {
 }
 
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).filter((x) => x.trim() !== "").length;
+const durationPattern = (minutes: number) => new RegExp(`\\b${minutes}[\\s-]*(menit|min(ute)?s?)\\b`, "i");
 
 function checks(s: Scenario, input: FlowInput, text: string, konteks: string[]) {
   const reply = parseJsonReply(text);
@@ -124,7 +125,8 @@ function checks(s: Scenario, input: FlowInput, text: string, konteks: string[]) 
     sumber_di_luar_konteks: sumber ? sumber.filter((f) => !konteks.includes(f)) : [],
     kalimat_rekomendasi: rekomendasi ? sentences(rekomendasi) : null,
     kalimat_alasan: alasan ? sentences(alasan) : null,
-    menyebut_durasi: input.durasi_jeda_menit ? new RegExp(`\\b${input.durasi_jeda_menit}\\s*menit`, "i").test(all) : null,
+    // "5 minutes", "5-minute", "5 min" since the flow answers in English (NOTES D-104); "5 menit" for older answers.
+    menyebut_durasi: input.durasi_jeda_menit ? durationPattern(input.durasi_jeda_menit).test(all) : null,
     // Flagged for manual review (a match can be a negation), not an automatic failure.
     pola_dilarang: patterns.filter((p) => new RegExp(p, "i").test(all)),
   };

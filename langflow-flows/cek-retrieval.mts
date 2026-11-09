@@ -1,7 +1,8 @@
 // Which notes the Knowledge node returns for one knowledge base, through a partial build of
 // analisis_status that stops at the Knowledge node (NOTES G-40): no LLM, one embedding call per query.
 // Queries: the 5 per status that the server sends (PANDUAN_QUERIES), 3 questions like the ones Bob
-// passes to cari_panduan, and an off-topic control. Compared with v2, whose top 3 per status are taken
+// passes to cari_panduan, in Indonesian and in English, and an off-topic control in each language.
+// Compared with v2, whose top 3 per status are taken
 // from the 19-scenario run of 26 Sep (NOTES D-39); v2 itself cannot be searched any more without a
 // watsonx key (G-81). The flow is not changed: the build gets the edited flow data in memory only.
 // Scores are -distance and only comparable within one knowledge base.
@@ -23,14 +24,19 @@ const PAUSE_MS = 1_000;
 const V2_RUN = "mistral-20260926-121240.json";
 // P05 step 2 checked these on the first knowledge base; only the start of the 2nd and 3rd question
 // was written down, so their wording here is reconstructed. Expected: the note at the top.
+// The UI is English (NOTES D-78) and so is Ask (D-104), so the same questions in English too: the notes stay
+// Indonesian, and an English question has to find the same note across languages.
 const QUESTIONS = [
   { query: "kenapa harus istirahat mata", top: "aao-20-20-20.md" },
   { query: "saya mengantuk saat bekerja, apa yang bisa saya lakukan supaya segar", top: "niosh-kewaspadaan-kerja.md" },
   { query: "berapa banyak air yang perlu saya minum setiap hari", top: "eu-432-2012-air-minum.md" },
+  { query: "why should I rest my eyes", top: "aao-20-20-20.md" },
+  { query: "I get sleepy at work, what can I do to feel fresh", top: "niosh-kewaspadaan-kerja.md" },
+  { query: "how much water should I drink every day", top: "eu-432-2012-air-minum.md" },
 ];
-// Negative control: off-topic, so its best score should be worse than the best score of every query
-// above (retrieval still returns top_k notes; refusing is the prompt's job).
-const CONTROL = "resep rendang";
+// Negative controls: off-topic, so the best score of each should be worse than the best score of every
+// query above (retrieval still returns top_k notes; refusing is the prompt's job).
+const CONTROLS = ["resep rendang", "rendang recipe"];
 
 type Row = { file: string | null; score: number | null };
 type Field = { value?: unknown; options?: unknown[] };
@@ -123,15 +129,18 @@ async function compare() {
     console.log(`tanya "${q.query}"`);
     console.log(`${"".padEnd(24)} ${fmt(rows)} | harapan teratas ${short(q.top)}: ${rows[0]?.file === q.top ? "ya" : "TIDAK"}`);
   }
-  const control = await retrieve(CONTROL);
-  const controlBest = control[0]?.score ?? null;
   const worst = Math.min(...bestRelevant);
-  const below = controlBest !== null && bestRelevant.length > 0 && controlBest < worst;
-  console.log(`kontrol "${CONTROL}": ${fmt(control)}`);
-  console.log(
-    `${"".padEnd(24)} teratas ${controlBest?.toFixed(3)} vs teratas query relevan ${worst.toFixed(3)}..${Math.max(...bestRelevant).toFixed(3)}: ` +
-      (below ? "lebih buruk dari semua (sesuai)" : "TIDAK lebih buruk dari semua"),
-  );
+  for (const query of CONTROLS) {
+    const control = await retrieve(query);
+    await pause();
+    const controlBest = control[0]?.score ?? null;
+    const below = controlBest !== null && bestRelevant.length > 0 && controlBest < worst;
+    console.log(`kontrol "${query}": ${fmt(control)}`);
+    console.log(
+      `${"".padEnd(24)} teratas ${controlBest?.toFixed(3)} vs teratas query relevan ${worst.toFixed(3)}..${Math.max(...bestRelevant).toFixed(3)}: ` +
+        (below ? "lebih buruk dari semua (sesuai)" : "TIDAK lebih buruk dari semua"),
+    );
+  }
   if (problems > 0) console.log(`${problems} query tidak mengembalikan ${PANDUAN_TOP_K} catatan berskor.`);
 }
 
