@@ -31,15 +31,17 @@ export function snoozeGreeting(state: GreetingState, now: number): GreetingState
 
 // Speaks up only when the shown label turns "lelah" or "tertidur", or when the long-rest advice
 // appears (plan P13 scope 5). Waking from "tertidur" to "lelah" is not news, and nothing is said
-// while snoozed; a change that happened during the snooze is not said afterwards either.
+// while snoozed; a change that happened during the snooze is not said afterwards either. quiet: "I'm in a meeting" is
+// on (NOTES D-106): the label is still followed, so nothing is said during the meeting or replayed after it.
 export function stepGreeting(
   state: GreetingState,
   label: Label | null,
   advice: boolean,
   now: number,
+  quiet = false,
 ): { state: GreetingState; say: string | null } {
   const next: GreetingState = { ...state, label, advice };
-  if (now < state.snoozeUntil) return { state: next, say: null };
+  if (quiet || now < state.snoozeUntil) return { state: next, say: null };
   if (advice && !state.advice) return { state: next, say: GREETING_TEXT.istirahat };
   if (label === state.label) return { state: next, say: null };
   if (label === "tertidur") return { state: next, say: GREETING_TEXT.tertidur };

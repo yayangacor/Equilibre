@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ImportedTask } from "./googleTasks.ts";
 import {
   askedWord,
+  bracketPrefix,
   daysUntil,
   dueBucket,
   emptyTagMemory,
@@ -154,11 +155,38 @@ describe("unknown verbs", () => {
   });
 
   it("asks about nothing when the title has no word", () => {
-    for (const title of ["", "🎉🎉", "2026", "[ProjectX]"]) {
+    for (const title of ["", "🎉🎉", "2026", "[]", "[ 🎉 ]"]) {
       const tag = tagTask(task("x", title), "2026-11-08", new Map(), new Map());
       expect(tag.source).toBe("unknown");
       expect(tag.verb).toBeNull();
     }
+    // A "[…]" label alone has no word either, but it is the group the answer is learned under (D-107).
+    expect(tagTask(task("x", "[ProjectX]"), "2026-11-08", new Map(), new Map())).toMatchObject({
+      source: "unknown",
+      verb: "[projectx]",
+    });
+  });
+
+  it("learns a \"[…]\" label as one group, apart from words and from other labels (O2, user 9 Nov, D-107)", () => {
+    expect(bracketPrefix("  [Algorithm  and Programming] - [Sesi 30]")).toEqual({
+      key: "[algorithm and programming]",
+      text: "[Algorithm and Programming]",
+    });
+    expect(bracketPrefix("[Pemrograman Lanjut]")?.key).toBe("[pemrograman lanjut]");
+    expect(bracketPrefix("Sesi 30 [Algorithm]")).toBeNull(); // only a leading label groups
+    expect(bracketPrefix("[🎉]")).toBeNull();
+    const rubric = { sifat: "aktif", beban: "berat" } as const;
+    const memory = rememberTag(emptyTagMemory(), task("a1", "[Algorithm and Programming] - Sesi 30"), rubric);
+    // Learned under the label, not under "sesi", so other courses' sessions stay unknown.
+    expect([...memory.personal.keys()]).toEqual(["[algorithm and programming]"]);
+    const tagOf = (title: string) => tagTask(task("other", title), "2026-11-08", memory.corrections, memory.personal);
+    expect(tagOf("[Algorithm and Programming] - Sesi 31")).toMatchObject({ sifat: "aktif", beban: "berat", source: "personal" });
+    expect(tagOf("[Algorithm Design] - Sesi 2").source).toBe("unknown");
+    expect(tagOf("Sesi 31").source).toBe("unknown");
+    // The label only fills what the words cannot tell: a verb in the title still decides.
+    expect(tagOf("[Algorithm and Programming] Email the class").source).toBe("lexicon");
+    // A label key never matches as a word.
+    expect(findVerb("algorithm and programming", memory.personal)).toBeNull();
   });
 
   it("does not trip over words that are names on Object.prototype", () => {

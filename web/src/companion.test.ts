@@ -56,6 +56,21 @@ describe("companion greeting", () => {
     expect(say("lelah", GREETING.minGapMs)).toBe(GREETING_TEXT.lelah);
   });
 
+  it("says nothing during a meeting and does not replay it afterwards; outside a meeting it speaks (D-106)", () => {
+    let state = initialGreetingState();
+    const say = (label: Label, quiet: boolean, advice = false) => {
+      const out = stepGreeting(state, label, advice, 1_000, quiet);
+      state = out.state;
+      return out.say;
+    };
+    expect(say("lelah", true)).toBeNull();
+    expect(say("tertidur", true, true)).toBeNull();
+    expect(state).toMatchObject({ label: "tertidur", advice: true }); // still followed
+    expect(say("tertidur", false, true)).toBeNull(); // meeting over: nothing new, nothing replayed
+    expect(say("normal", false)).toBeNull();
+    expect(say("lelah", false)).toBe(GREETING_TEXT.lelah); // control: the same change outside a meeting
+  });
+
   it("says nothing while snoozed, and does not catch up on changes made during the snooze", () => {
     const snoozed = snoozeGreeting(initialGreetingState(), 1_000);
     const during = run([["normal"], ["lelah"], ["tertidur", true]], snoozed, 1_000 + GREETING.snoozeMs - 1);

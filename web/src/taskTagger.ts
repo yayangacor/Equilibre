@@ -229,7 +229,7 @@ function matchAt(stemsOf: string[][], i: number, lexicon: Lexicon): { key: strin
 // At one position a personal entry wins over the lexicon.
 export function findVerb(title: string, personal: ReadonlyMap<string, Rubric> = new Map()): VerbMatch | null {
   const stemsOf = titleWords(title).map(stems);
-  const own = lexiconOf(personal);
+  const own = lexiconOf(new Map([...personal].filter(([key]) => !isGroupKey(key))));
   for (let i = 0; i < stemsOf.length; i++) {
     const mine = matchAt(stemsOf, i, own);
     if (mine) return { key: mine.key, rubric: mine.rubric, source: "personal" };
@@ -258,6 +258,20 @@ export const STOP_WORDS: ReadonlySet<string> = new Set([
 export function askedWord(title: string): string | null {
   return titleWords(title).find((w) => /^\p{L}{2,}$/u.test(w) && !STOP_WORDS.has(w)) ?? null;
 }
+
+// A leading "[…]" label, the way people group their own tasks ("[Algorithm and Programming] - [Sesi 30]", user 9 Nov:
+// each person names tasks differently, NOTES D-107). titleWords() drops such labels, so a title made only of them has
+// no word to learn and was asked about task by task. The label is kept whole as one key, normalized like titleWords
+// ("[algorithm and programming]"), so two courses that share a first word stay apart; text = the label as typed, for
+// the question. A key starts with "[", which no title word can, so it never matches as a verb (isGroupKey).
+export function bracketPrefix(title: string): { key: string; text: string } | null {
+  const m = /^\s*\[([^\]]*)\]/.exec(title);
+  if (!m) return null;
+  const words = m[1].normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase().match(/[\p{L}\p{N}]+/gu);
+  return words ? { key: `[${words.join(" ")}]`, text: `[${m[1].trim().replace(/\s+/g, " ")}]` } : null;
+}
+
+export const isGroupKey = (key: string) => key.startsWith("[");
 
 // ── Due date ────────────────────────────────────────────────────────────────────
 
@@ -306,8 +320,9 @@ export type TaskTag = {
   source: TagSource; // "unknown": belum dinilai, ask once
 };
 
-// today: the local calendar day, "YYYY-MM-DD" (history.ts dayKey). corrections: per task id; personal: verb → rubric.
-// A correction of this task wins, then the personal dictionary, then the lexicon.
+// today: the local calendar day, "YYYY-MM-DD" (history.ts dayKey). corrections: per task id; personal: verb → rubric,
+// and a "[…]" label → rubric (bracketPrefix). A correction of this task wins, then a word of the title (personal
+// dictionary, then lexicon), then the title's "[…]" label: the label only fills what the words cannot tell.
 export function tagTask(
   task: ImportedTask,
   today: string,
@@ -316,7 +331,9 @@ export function tagTask(
 ): TaskTag {
   const found = findVerb(task.title, personal);
   const own = corrections.get(task.id);
-  const rubric = own ?? found?.rubric ?? null;
+  const prefix = bracketPrefix(task.title);
+  const group = found || !prefix ? undefined : personal.get(prefix.key);
+  const rubric = own ?? found?.rubric ?? group ?? null;
   const hari = daysUntil(today, task.due);
   return {
     id: task.id,
@@ -325,9 +342,16 @@ export function tagTask(
     tenggat: dueBucket(hari),
     hari_ke_tenggat: hari,
     urutan: task.order,
-    verb: found?.key ?? askedWord(task.title),
-    source: own ? "correction" : (found?.source ?? "unknown"),
+    verb: learnedKey(task.title, found),
+    source: own ? "correction" : found ? found.source : group ? "personal" : "unknown",
   };
+}
+
+// What an answer for this title is learned under: the word that matched, else its "[…]" label, else the first
+// word (askedWord). The label goes before the first word, so "[Algorithm and Programming] - Sesi 30" does not teach
+// "sesi" to every course (D-107).
+function learnedKey(title: string, found: VerbMatch | null): string | null {
+  return found?.key ?? bracketPrefix(title)?.key ?? askedWord(title);
 }
 
 // ── What the user confirmed or corrected ────────────────────────────────────────
@@ -356,7 +380,7 @@ export function rememberTag(memory: TagMemory, task: Pick<ImportedTask, "id" | "
   corrections.delete(task.id); // re-inserted last: the newest survives the cap
   corrections.set(task.id, rubric);
   const personal = new Map(memory.personal);
-  const verb = findVerb(task.title, memory.personal)?.key ?? askedWord(task.title);
+  const verb = learnedKey(task.title, findVerb(task.title, memory.personal));
   if (verb !== null) {
     personal.delete(verb);
     personal.set(verb, rubric);

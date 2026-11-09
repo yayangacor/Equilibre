@@ -9,6 +9,7 @@ import {
   chooseTasks,
   chosenTask,
   historyDayKeys,
+  liveNow,
   kindOf,
   phaseInputFrom,
   phaseView,
@@ -18,6 +19,7 @@ import {
   sourceLine,
   tagStores,
   tasksToAsk,
+  type CameraNow,
 } from "./planCard.ts";
 import type { Label } from "./rules.ts";
 import { emptyTagMemory, localTagStore, rememberTag, TAG_MEMORY_KEY, tagTask } from "./taskTagger.ts";
@@ -91,7 +93,9 @@ describe("which tasks the card plans with", () => {
 
 describe("one-tap rubric", () => {
   it("asks only about tasks the lexicon could not tag, once: the answer is remembered for the task and its verb", () => {
-    expect(tasksToAsk(SAMPLE, TODAY, emptyTagMemory())).toEqual([{ id: "sample-rina-5", title: "Petty cash for November" }]);
+    expect(tasksToAsk(SAMPLE, TODAY, emptyTagMemory())).toEqual([
+      { id: "sample-rina-5", title: "Petty cash for November", count: 1, label: "Petty cash for November" },
+    ]);
     const memory = rememberTag(emptyTagMemory(), SAMPLE[4], { sifat: "monoton", beban: "ringan" });
     expect(tasksToAsk(SAMPLE, TODAY, memory)).toEqual([]);
     // The verb was learned too: a new task with it is not asked about.
@@ -101,11 +105,43 @@ describe("one-tap rubric", () => {
   });
 
   it("asks about the first few in the user's order, and only about tasks a plan would send", () => {
-    const unknown = Array.from({ length: 60 }, (_, i) => google(`id${i}`, `Zorbify thing ${i}`, 59 - i));
-    expect(tasksToAsk(unknown, TODAY, emptyTagMemory()).map((a) => a.title)).toEqual(["Zorbify thing 59", "Zorbify thing 58", "Zorbify thing 57"]);
+    const words = ["Zorbify", "Quandle", "Mirvex", "Plonk", "Darvish"];
+    const unknown = Array.from({ length: 60 }, (_, i) => google(`id${i}`, `${words[i % 5]} ${i}`, 59 - i));
+    expect(tasksToAsk(unknown, TODAY, emptyTagMemory()).map((a) => a.title)).toEqual(["Darvish 59", "Plonk 58", "Mirvex 57"]);
     expect(ASK_MAX).toBe(3);
+    // One word, one question: the 50 tasks a plan sends share "zorbify", so a single answer tags them all (D-107).
+    const same = Array.from({ length: 60 }, (_, i) => google(`z${i}`, `Zorbify thing ${i}`, 59 - i));
+    expect(tasksToAsk(same, TODAY, emptyTagMemory())).toEqual([
+      { id: "z59", title: "Zorbify thing 59", count: 50, label: "Zorbify thing 59 · 49 more with “zorbify”" },
+    ]);
     const late = [...Array.from({ length: 50 }, (_, i) => google(`k${i}`, `Write part ${i}`, i)), google("late", "Zorbify", 50)];
     expect(tasksToAsk(late, TODAY, emptyTagMemory())).toEqual([]);
+  });
+
+  it("asks once per \"[…]\" group, the way the user names tasks (O2, user 9 Nov, D-107)", () => {
+    // The user's real shape: no verb, only bracketed labels, which titleWords() drops.
+    const courses = ["Algorithm and Programming", "Deep Learning", "Data Mining", "Data Structures"];
+    const tasks = Array.from({ length: 24 }, (_, i) => google(`c${i}`, `[${courses[i % 4]}] - [Sesi ${i + 1}]`, i));
+    const asked = tasksToAsk(tasks, TODAY, emptyTagMemory());
+    expect(asked.map((a) => a.label)).toEqual([
+      "[Algorithm and Programming] · 6 tasks",
+      "[Deep Learning] · 6 tasks",
+      "[Data Mining] · 6 tasks",
+    ]);
+    // One tap tags the whole course, and only it: "Data Mining" and "Data Structures" share a first word, not a label.
+    const memory = rememberTag(emptyTagMemory(), tasks[2], { sifat: "aktif", beban: "berat" });
+    const kinds = tasks.map((t) => kindOf(t, TODAY, memory)?.text ?? null);
+    expect(kinds.filter((_, i) => i % 4 === 2)).toEqual(Array(6).fill("Active, demanding"));
+    expect(kinds.filter((_, i) => i % 4 !== 2)).toEqual(Array(18).fill(null));
+    expect(tasksToAsk(tasks, TODAY, memory).map((a) => a.label)).toEqual([
+      "[Algorithm and Programming] · 6 tasks",
+      "[Deep Learning] · 6 tasks",
+      "[Data Structures] · 6 tasks",
+    ]);
+    // The plan sends the course's kind, never the label (D-90).
+    const req = toRencanaRequest({ fase: "biasa", jam_rawan: false }, 10, tasks, TODAY, memory);
+    expect(JSON.stringify(req.body)).not.toMatch(/Algorithm|Mining|Sesi/i);
+    expect(req.body.tugas.filter((t) => t.sifat === "aktif")).toHaveLength(6);
   });
 
   it("lets the plan's task be changed even when the lexicon tagged it, kept as its answer (D-89, review B, 8 Nov)", () => {
@@ -201,6 +237,37 @@ describe("the phase the plan is made for", () => {
       "2026-11-27",
       "2026-11-26",
     ]);
+  });
+
+  it("a label held from before the camera stopped is not the energy now (O1): every off state plans as not assessed", () => {
+    const held = { label: "normal" as const, quality: "nilai" as const, menitSejakJeda: 30 };
+    const on: CameraNow = {
+      calibrating: false,
+      paused: false,
+      cameraOff: false,
+      cameraProblem: false,
+      calibrated: true,
+      sinceFrameMs: 200,
+      evalIntervalMs: EACH,
+    };
+    // Control: the camera reading now keeps the label, and the phase is judged from it.
+    expect(liveNow(held, on)).toEqual(held);
+    expect(energyPhase(phaseInputFrom(liveNow(held, on), [], [], AT_1410, EACH)).reason).toBe("not-enough-evidence");
+    const off: Partial<CameraNow>[] = [
+      { calibrating: true },
+      { paused: true },
+      { cameraOff: true },
+      { cameraProblem: true },
+      { calibrated: false },
+      { sinceFrameMs: EACH },
+      { sinceFrameMs: Infinity },
+    ];
+    for (const change of off) {
+      const live = liveNow(held, { ...on, ...change });
+      expect(live, JSON.stringify(change)).toEqual({ label: null, quality: null, menitSejakJeda: 30 });
+      const phase = energyPhase(phaseInputFrom(live, [], [], AT_1410, EACH));
+      expect(phase, JSON.stringify(change)).toMatchObject({ fase: "tidak tahu", reason: "no-label" });
+    }
   });
 
   it("not assessed (no label yet, or the quality gate) still plans, and says the camera is not behind it", () => {

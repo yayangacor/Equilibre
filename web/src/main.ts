@@ -62,7 +62,7 @@ import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, withoutEyeNumbers, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import { DEFAULT_SLUMP, slumpWindow, type SlumpWindow } from "./phase.ts";
-import { historyDayKeys, tagStores } from "./planCard.ts";
+import { historyDayKeys, liveNow, tagStores } from "./planCard.ts";
 import { PlanPanel } from "./planPanel.ts";
 import {
   detectIntervalMs,
@@ -365,6 +365,7 @@ let detecting = false;
 let bodyDetection = false; // the segmenter loaded
 let cameraProblem: string | null = null; // why the camera or the model is not running
 let cameraOff = false; // waiting for "Turn on camera" on a first visit (P17 C5)
+let lastFrameT = -Infinity; // performance.now() of the last camera frame read (detection loop)
 let paused = false; // the user paused monitoring: camera off, nothing read or stored (D-78)
 
 // Rolling window + label (only while calibrated and not calibrating).
@@ -606,14 +607,21 @@ export const planPanel = new PlanPanel({
   tasks: () => ({ connected: tasksPanel.connected, tasks: tasksPanel.current }),
   sample: DEMO_PERSONA ? (today) => demoTasks(DEMO_PERSONA, today) : null,
   tags: taskKinds,
-  live: () => {
-    const off = calibration !== null || paused;
-    return {
-      label: off ? null : (monitor?.labelState.shown?.label ?? null),
-      quality: off ? null : (assessed?.level ?? null),
-      menitSejakJeda: liveMinutesSinceBreak(),
-    };
-  },
+  // The label and quality only while the camera reads the user now (O1, user 9 Nov): a camera that is off, denied,
+  // or stopped sending frames plans as "Not assessed", not from the label the monitor still holds.
+  live: () =>
+    liveNow(
+      { label: monitor?.labelState.shown?.label ?? null, quality: assessed?.level ?? null, menitSejakJeda: liveMinutesSinceBreak() },
+      {
+        calibrating: calibration !== null,
+        paused,
+        cameraOff,
+        cameraProblem: cameraProblem !== null,
+        calibrated: baseline !== null,
+        sinceFrameMs: performance.now() - lastFrameT,
+        evalIntervalMs: EVAL_INTERVAL_MS,
+      },
+    ),
   // The KSS answer counts for 15 minutes (phase.ts), so today and yesterday are enough for it.
   history: async (days) => {
     const [evaluasi, kss] = await Promise.all([
@@ -644,6 +652,7 @@ const tanyaPanel = new TanyaPanel({
 // ── Picture-in-Picture window (D-78): the state, its reason, Pause and Recalibrate ─────────
 
 let greeting = initialGreetingState();
+let inMeeting = false; // "I'm in a meeting": this tab only, forgotten when it closes (D-106: also quiets the greetings)
 
 const companion = new PipCompanion({
   debug: DEBUG,
@@ -728,7 +737,7 @@ function renderCompanion() {
   // While the camera cannot read, the nudges keep the last label: nothing new to say, and nothing to repeat later.
   const shown =
     calibration || !baseline || paused ? null : unassessed() ? greeting.label : (monitor?.labelState.shown?.label ?? null);
-  const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now());
+  const step = stepGreeting(greeting, shown, saran !== null && !calibration, Date.now(), inMeeting);
   greeting = step.state;
   companion.render(companionView());
   if (step.say) {
@@ -746,7 +755,6 @@ const meetingNote = byId("meeting-note");
 // The personal slump hour comes from 7 days of history and moves slowly: read again every 10 minutes.
 const WALK_SLUMP_REFRESH_MS = 10 * 60_000;
 let walk = initialWalkState();
-let inMeeting = false; // "I'm in a meeting": this tab only, forgotten when it closes
 let walkSlump: SlumpWindow = DEFAULT_SLUMP;
 let walkSlumpAt: number | null = null;
 let lastGreetingAt = 0; // a greeting in the PiP window is not covered by a walk nudge while it shows
@@ -783,7 +791,7 @@ function renderWalk() {
   walkText.textContent = walk.shown ? WALK_TEXT[walk.shown.trigger] : "";
   meetingButton.textContent = inMeeting ? "Meeting over" : "I'm in a meeting";
   meetingButton.setAttribute("aria-pressed", String(inMeeting));
-  meetingNote.textContent = inMeeting ? "No walk reminders until you press Meeting over. Closing this tab turns it off." : "";
+  meetingNote.textContent = inMeeting ? "No walk reminders or tiredness nudges until you press Meeting over. Closing this tab turns it off." : "";
 }
 
 byId("walk-dismiss").addEventListener("click", () => {
@@ -1302,7 +1310,7 @@ function runDetection({ landmarker, segmenter }: Detectors) {
   };
 
   let lastLightT = -Infinity;
-  let lastFrameT = -Infinity;
+  lastFrameT = -Infinity;
   const tick = () => {
     const now = performance.now();
     if (!paused && video.readyState >= 2 && video.currentTime !== lastVideoTime) {

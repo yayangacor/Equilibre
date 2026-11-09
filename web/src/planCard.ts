@@ -7,7 +7,17 @@ import type { QualityLevel } from "./quality.ts";
 import { RENCANA_LIMITS, type Plan } from "./rencana.ts";
 import type { Label } from "./rules.ts";
 import { PLAN, type StepKind } from "./taskMatcher.ts";
-import { localTagStore, memoryTagStore, tagTask, type Rubric, type TagMemory, type TagMemoryStore } from "./taskTagger.ts";
+import {
+  askedWord,
+  bracketPrefix,
+  localTagStore,
+  memoryTagStore,
+  rememberTag,
+  tagTask,
+  type Rubric,
+  type TagMemory,
+  type TagMemoryStore,
+} from "./taskTagger.ts";
 
 // What the Dashboard card "Plan my next hour" shows (plan P20 W2.6), from the state of this laptop. Pure: no DOM, no
 // storage of its own (scopedStore and tagStores wrap the one main.ts hands over), no network; planPanel.ts renders it,
@@ -54,16 +64,38 @@ export const RUBRIC_CHOICES: readonly { rubric: Rubric; text: string }[] = [
 ];
 export const ASK_MAX = 3;
 
-export type AskItem = { id: string; title: string };
+// id, title: the task the answer is stored for (rememberTag). count: the open "belum dinilai" tasks one answer tags,
+// itself included. label: what the question shows.
+export type AskItem = { id: string; title: string; count: number; label: string };
 
 // Tasks the plan would send as "belum dinilai": only the first RENCANA_LIMITS.tugasMax, as toRencanaRequest sends.
+// One question per group (NOTES D-107, user 9 Nov: everyone names tasks their own way, so the kind cannot be read
+// from the title): an answer is learned under the task's "[…]" label or first word (rememberTag), so the tasks it
+// would tag anyway are asked about once, with their number, instead of one by one.
 export function tasksToAsk(tasks: readonly ImportedTask[], today: string, memory: TagMemory, max = ASK_MAX): AskItem[] {
-  return [...tasks]
+  const unknown = (m: TagMemory) => (task: ImportedTask) => tagTask(task, today, m.corrections, m.personal).source === "unknown";
+  let open = [...tasks]
     .sort((a, b) => a.order - b.order)
     .slice(0, RENCANA_LIMITS.tugasMax)
-    .filter((task) => tagTask(task, today, memory.corrections, memory.personal).source === "unknown")
-    .slice(0, max)
-    .map((task) => ({ id: task.id, title: task.title }));
+    .filter(unknown(memory));
+  const items: AskItem[] = [];
+  while (open.length > 0 && items.length < max) {
+    const task = open[0];
+    const after = rememberTag(memory, task, RUBRIC_CHOICES[0].rubric); // any answer tags the same tasks
+    const covered = new Set(open.filter((t) => !unknown(after)(t)));
+    items.push({ id: task.id, title: task.title, count: covered.size, label: askLabel(task, covered.size) });
+    open = open.filter((t) => !covered.has(t));
+  }
+  return items;
+}
+
+// "[Algorithm and Programming] · 8 tasks", "Zorbify thing 3 · 4 more with “zorbify”", or the title alone.
+export function askLabel(task: Pick<ImportedTask, "title">, count: number): string {
+  if (count <= 1) return task.title;
+  const prefix = bracketPrefix(task.title);
+  if (prefix) return `${prefix.text} · ${count} tasks`;
+  const word = askedWord(task.title);
+  return word ? `${task.title} · ${count - 1} more with “${word}”` : `${task.title} · ${count - 1} more`;
 }
 
 // "Change" next to the plan's task (D-89: the user changes any value with one tap, not only an unknown verb's): the
@@ -128,6 +160,26 @@ export function historyDayKeys(now: number, days: number = SLUMP.historyDays): s
 }
 
 export type LiveState = { label: Label | null; quality: QualityLevel | null; menitSejakJeda: number | null };
+
+// Whether the camera is reading the user right now. Only then the shown label and quality describe "now"; otherwise
+// the plan is made as "Not assessed" (O1, user 9 Nov: the camera was off with no baseline, yet the card said "Energy:
+// Steady", from a label still held by the monitor). sinceFrameMs: time since the last camera frame was read.
+export type CameraNow = {
+  calibrating: boolean;
+  paused: boolean;
+  cameraOff: boolean; // the first visit's "Turn on camera" not pressed yet
+  cameraProblem: boolean; // permission denied, no camera, ?kamera=0, a failed start
+  calibrated: boolean; // a baseline exists
+  sinceFrameMs: number;
+  evalIntervalMs: number;
+};
+
+export const cameraReading = (c: CameraNow): boolean =>
+  !c.calibrating && !c.paused && !c.cameraOff && !c.cameraProblem && c.calibrated && c.sinceFrameMs < c.evalIntervalMs;
+
+// The live state the plan is made from: the label and quality only while the camera reads the user.
+export const liveNow = (raw: LiveState, camera: CameraNow): LiveState =>
+  cameraReading(camera) ? raw : { ...raw, label: null, quality: null };
 
 export function phaseInputFrom(
   live: LiveState,

@@ -114,6 +114,23 @@ function panel(over: Partial<PlanDeps> = {}) {
   return { panel: new PlanPanel(deps), records, tags, onTaskDone, taskDone, completeTask: deps.completeTask };
 }
 
+describe("the rubric question, once per group (O2, user 9 Nov, D-107)", () => {
+  it("asks about each \"[…]\" course once with its number of tasks, and one tap tags the whole course", () => {
+    const courses = ["Algorithm and Programming", "Deep Learning"];
+    const sessions = Array.from({ length: 12 }, (_, i) => task(`c${i}`, `[${courses[i % 2]}] - [Sesi ${i + 1}]`, i));
+    const { panel: card, tags } = panel({ tasks: () => ({ connected: true, tasks: sessions }) });
+    card.tasksChanged();
+    const ask = byId("plan-ask");
+    expect(texts(ask)).toContain("[Algorithm and Programming] · 6 tasks");
+    expect(texts(ask)).toContain("[Deep Learning] · 6 tasks");
+    expect(buttons(ask, "Active, demanding")).toHaveLength(2); // two questions, not twelve
+    buttons(ask, "Active, demanding")[0].click();
+    expect(texts(ask)).not.toContain("[Algorithm and Programming] · 6 tasks");
+    expect(texts(ask)).toContain("[Deep Learning] · 6 tasks");
+    expect([...tags.google.load().personal.keys()]).toEqual(["[algorithm and programming]"]);
+  });
+});
+
 describe("Kind: … Change on the plan's task", () => {
   it("shows the task's kind, opens the four kinds, saves the pick, and the next plan sends the new kind", async () => {
     const { records, tags } = panel();

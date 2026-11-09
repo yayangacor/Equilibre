@@ -188,7 +188,7 @@ export class PlanPanel {
     this.ask.hidden = items.length === 0 && this.saved === null;
     this.ask.replaceChildren();
     if (items.length > 0) {
-      this.ask.append(el("p", "What kind of work is this? Asked once, kept on this laptop.", "choices-label"));
+      this.ask.append(el("p", "What kind of work is it? Asked once per group, kept on this laptop.", "choices-label"));
       for (const item of items) this.ask.append(this.askRow(item, store));
       const later = el("button", "Not now", "btn text");
       (later as HTMLButtonElement).type = "button";
@@ -203,12 +203,12 @@ export class PlanPanel {
 
   private askRow(item: AskItem, store: TagMemoryStore): HTMLElement {
     const row = el("div", "", "rubric-item");
-    row.append(el("p", item.title, "rubric-title"), this.choiceRow(item, store, null));
+    row.append(el("p", item.label, "rubric-title"), this.choiceRow(item, store, null));
     return row;
   }
 
   // The four kinds, one tap each; current: the kind the task has now (pressed), null when not assessed.
-  private choiceRow(item: AskItem, store: TagMemoryStore, current: Rubric | null): HTMLElement {
+  private choiceRow(item: Pick<AskItem, "id" | "title">, store: TagMemoryStore, current: Rubric | null): HTMLElement {
     const choices = el("div", "", "choice-row");
     for (const choice of RUBRIC_CHOICES) {
       const button = el("button", choice.text, "btn outline rubric-choice") as HTMLButtonElement;
@@ -220,7 +220,7 @@ export class PlanPanel {
     return choices;
   }
 
-  private answer(item: AskItem, rubric: Rubric, store: TagMemoryStore) {
+  private answer(item: Pick<AskItem, "id" | "title">, rubric: Rubric, store: TagMemoryStore) {
     const ok = store.save(rememberTag(store.load(), item, rubric));
     this.saved = ok
       ? `Saved on this laptop.${this.shown ? " Plan again to use it." : ""}`
