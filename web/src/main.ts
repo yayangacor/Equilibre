@@ -626,6 +626,8 @@ export const planPanel = new PlanPanel({
   server: () => backend.saran,
   offlineReason: DEMO_NOTE.rencana,
   onTaskDone: () => walkTick(true),
+  // "I finished it" on a Google task ticks it off in Google Tasks, browser to Google only (W2.8, D-103).
+  completeTask: (task) => tasksPanel.complete(task),
   log: decisionLog,
   session: SESSION,
 });

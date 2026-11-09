@@ -61,9 +61,14 @@ const byId = (id: string) => elements.get(id)!;
 beforeEach(() => {
   elements = new Map(["plan-source", "plan-note", "plan-connect", "plan-ask", "plan-make", "plan-out"].map((id) => [id, new FakeElement()]));
   vi.stubGlobal("document", { getElementById: (id: string) => elements.get(id) ?? null, createElement: () => new FakeElement() });
+  // 10:00 local, outside the default slump hours 13:00–16:00 (phase.ts), where the task step names its minutes and
+  // these tests failed every afternoon. Only Date is faked, so settle()'s timers still run.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 9, 10, 0, 0));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -81,9 +86,12 @@ function calmHistory(): EvaluationRecord[] {
   return Array.from({ length: 90 }, (_, i) => ({ t: now - (89 - i) * 10_000, label: "normal", dinilai: true }) as unknown as EvaluationRecord);
 }
 
-function panel() {
+function panel(over: Partial<PlanDeps> = {}) {
   const records: DecisionRecord[] = [];
   const tags = { google: memoryTagStore(), sample: memoryTagStore() };
+  const onTaskDone = vi.fn();
+  const taskDone = vi.fn(async () => {});
+  const completeTask = vi.fn<PlanDeps["completeTask"]>(async () => ({ ticked: true, message: "Ticked off in Google Tasks." }));
   const deps: PlanDeps = {
     tasks: () => ({ connected: true, tasks: TASKS }),
     sample: null,
@@ -93,15 +101,17 @@ function panel() {
     evalIntervalMs: 10_000,
     server: () => false,
     offlineReason: "No backend in this test.",
-    onTaskDone: () => {},
+    onTaskDone,
+    completeTask,
     log: {
       planned: async (record) => records.push(record),
       answered: async () => {},
-      taskDone: async () => {},
+      taskDone,
     },
     session: 1,
+    ...over,
   };
-  return { panel: new PlanPanel(deps), records, tags };
+  return { panel: new PlanPanel(deps), records, tags, onTaskDone, taskDone, completeTask: deps.completeTask };
 }
 
 describe("Kind: … Change on the plan's task", () => {
@@ -149,5 +159,74 @@ describe("Kind: … Change on the plan's task", () => {
     byId("plan-make").click();
     await settle();
     expect(records[1].tugas.find((t) => t.id === "t1")).toMatchObject({ sifat: "aktif", beban: "berat" });
+  });
+});
+
+describe("I finished it: ticking the task off in Google Tasks (W2.8)", () => {
+  it("one click ticks the plan's Google task off once, inside the click, and still does the local steps", async () => {
+    const { completeTask, onTaskDone, taskDone } = panel();
+    byId("plan-make").click();
+    await settle();
+    const out = byId("plan-out");
+    const done = button(out, "I finished it");
+    done.click();
+    // Synchronously from the click: the first tick opens Google's window, which needs the click (NOTES G-74).
+    expect(completeTask).toHaveBeenCalledTimes(1);
+    expect(completeTask).toHaveBeenCalledWith(REPORT);
+    expect(texts(out)).toContain("Ticking it off in Google Tasks…");
+    expect(onTaskDone).toHaveBeenCalledTimes(1);
+    expect(taskDone).toHaveBeenCalledTimes(1);
+    expect(done.disabled).toBe(true);
+    done.click(); // a second click on the same plan does nothing new
+    await settle();
+    expect(completeTask).toHaveBeenCalledTimes(1);
+    expect(onTaskDone).toHaveBeenCalledTimes(1);
+    expect(texts(byId("plan-out"))).toEqual(expect.arrayContaining(["Marked as done.", "Ticked off in Google Tasks."]));
+  });
+
+  it("a tick Google refused shows why and never claims it was ticked (negative control)", async () => {
+    const message = "Not ticked off: Equilibre may not change your tasks. Tick it off in Google Tasks.";
+    const { onTaskDone } = panel({ completeTask: async () => ({ ticked: false, message }) });
+    byId("plan-make").click();
+    await settle();
+    button(byId("plan-out"), "I finished it").click();
+    await settle();
+    const shown = texts(byId("plan-out"));
+    expect(shown).toContain(message);
+    expect(shown).toContain("Marked as done.");
+    expect(shown.some((t) => t.startsWith("Ticked off"))).toBe(false);
+    expect(onTaskDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("a tick that throws still leaves the task marked done locally", async () => {
+    const { onTaskDone, taskDone } = panel({
+      completeTask: () => {
+        throw new Error("boom");
+      },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    byId("plan-make").click();
+    await settle();
+    button(byId("plan-out"), "I finished it").click();
+    await settle();
+    expect(onTaskDone).toHaveBeenCalledTimes(1);
+    expect(taskDone).toHaveBeenCalledTimes(1);
+    expect(texts(byId("plan-out"))).toContain("Not ticked off in Google Tasks. Tick it off there.");
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("the demo's sample tasks are never sent to Google", async () => {
+    const sample = [task("sample-rina-1", "Write Q3 report for Dina", 0), task("sample-rina-2", "Lunch with Bima", 1)];
+    const { completeTask, onTaskDone } = panel({ tasks: () => ({ connected: false, tasks: [] }), sample: () => sample });
+    byId("plan-make").click();
+    await settle();
+    expect(byId("plan-source").textContent).toBe("Sample tasks · 2");
+    button(byId("plan-out"), "I finished it").click();
+    await settle();
+    expect(completeTask).not.toHaveBeenCalled();
+    expect(onTaskDone).toHaveBeenCalledTimes(1);
+    const shown = texts(byId("plan-out"));
+    expect(shown).toContain("Marked as done.");
+    expect(shown.some((t) => t.includes("Google Tasks"))).toBe(false);
   });
 });

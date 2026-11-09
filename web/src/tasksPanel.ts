@@ -1,14 +1,27 @@
-import { gisReady, type ImportedTask, loadGis, readTasks, requestToken, revokeToken, TasksError, type TasksToken } from "./googleTasks.ts";
+import {
+  completeTask,
+  gisReady,
+  type ImportedTask,
+  loadGis,
+  readTasks,
+  requestToken,
+  revokeToken,
+  TasksError,
+  type TasksErrorKind,
+  type TasksToken,
+} from "./googleTasks.ts";
 
-// Settings card "Google Tasks" (plan P20 W2.1): connect, refresh, disconnect. The token and the tasks live in this
-// object only; nothing is written to storage, so closing the tab forgets both. Titles go to the DOM via textContent.
+// Settings card "Google Tasks" (plan P20 W2.1): connect, refresh, disconnect, and ticking a finished task off for the
+// plan card (W2.8). The token and the tasks live in this object only; nothing is written to storage, so closing the
+// tab forgets both. Titles go to the DOM via textContent.
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const PREVIEW = 8;
 const RENEW_BEFORE_MS = 60_000; // ask Google again when the token has less than a minute left
 
-const MESSAGES: Record<TasksError["kind"], string> = {
+// Connect and Refresh (reads never answer forbidden or missing; anything else reads as api).
+const MESSAGES: Partial<Record<TasksErrorKind, string>> & { api: string } = {
   popup: "Your browser blocked the Google window. Press Connect again.",
   denied: "Google Tasks was not connected.",
   expired: "Google access expired. Press Connect again.",
@@ -16,12 +29,33 @@ const MESSAGES: Record<TasksError["kind"], string> = {
   network: "Google could not be reached. Check your connection.",
 };
 
+// "I finished it" on a Google task (W2.8): one line on the plan card, ticked or why not.
+export type TickResult = { ticked: boolean; message: string };
+
+export const TICKED = "Ticked off in Google Tasks.";
+export const NOT_TICKED: Record<TasksErrorKind | "declined" | "busy" | "gone" | "disconnected", string> = {
+  declined: "Not ticked off in Google Tasks: permission not given. Tick it off there.",
+  denied: "Not ticked off in Google Tasks: permission not given. Tick it off there.",
+  popup: "Not ticked off: your browser blocked the Google window. Tick it off in Google Tasks.",
+  expired: "Not ticked off: Google access expired. Press Refresh in Settings → Google Tasks.",
+  forbidden: "Not ticked off: Equilibre may not change your tasks. Tick it off in Google Tasks.",
+  missing: "Not ticked off: Google Tasks has no such task in this account. It may be deleted, or another account was picked.",
+  api: "Not ticked off: Google Tasks did not answer. Tick it off there.",
+  network: "Not ticked off: Google could not be reached. Tick it off in Google Tasks.",
+  busy: "Not ticked off: Google is still busy with the last task. Tick this one off in Google Tasks.",
+  gone: "Not ticked off: this task is no longer in your Google Tasks list.",
+  disconnected: "Not ticked off: Google Tasks is not connected.",
+};
+
+const sameTask = (a: ImportedTask, b: ImportedTask) => a.id === b.id && a.listId === b.listId;
+
 const dueFormat = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
 export class TasksPanel {
   private token: TasksToken | null = null;
   private tasks: ImportedTask[] = [];
   private busy = false;
+  private ticking = false; // a tick-off is waiting for Google
   private readonly connectButton = byId<HTMLButtonElement>("tasks-connect");
   private readonly refreshButton = byId<HTMLButtonElement>("tasks-refresh");
   private readonly disconnectButton = byId<HTMLButtonElement>("tasks-disconnect");
@@ -87,10 +121,56 @@ export class TasksPanel {
     this.token = token;
     this.tasks = tasks;
     this.onChange(this.tasks, newGrant);
-    const lists = new Set(this.tasks.map((t) => t.listId)).size;
-    this.status.textContent =
-      this.tasks.length === 0 ? "Connected. No open tasks found." : `Connected. ${this.tasks.length} open tasks from ${lists} ${lists === 1 ? "list" : "lists"}.`;
+    this.status.textContent = this.connectedLine();
     this.render();
+  }
+
+  private connectedLine(): string {
+    const lists = new Set(this.tasks.map((t) => t.listId)).size;
+    return this.tasks.length === 0 ? "Connected. No open tasks found." : `Connected. ${this.tasks.length} open tasks from ${lists} ${lists === 1 ? "list" : "lists"}.`;
+  }
+
+  // "I finished it" on the plan card for this Google task (W2.8, D-103): sets its status to completed in Google Tasks,
+  // straight from this tab (completeTask: ids in the URL, only the status in the body). Never called but from that
+  // click. Connect asks for read-only access; the write permission is asked for here the first time, so the Google
+  // window must open inside the click (NOTES G-74): with the library loaded at Connect, requestToken runs before the
+  // first await. Never throws: the result is a line for the card.
+  // A token from that window may be another signed-in Google account (as with Refresh, 5858614): it is kept, for
+  // reads too, only once the PATCH answered 2xx, which a task of this account's list does only for this account. Until
+  // then the panel's token, and what the decision log watches, stay as they were. After a tick the task leaves the
+  // open list here without telling the listener: the shown plan stays, and the next refresh sees the task closed.
+  async complete(task: ImportedTask): Promise<TickResult> {
+    const token = this.token;
+    if (!token) return { ticked: false, message: NOT_TICKED.disconnected };
+    if (!this.tasks.some((t) => sameTask(t, task))) return { ticked: false, message: NOT_TICKED.gone };
+    if (this.ticking) return { ticked: false, message: NOT_TICKED.busy };
+    this.ticking = true;
+    let use = token;
+    try {
+      if (!token.write || token.expiresAt - Date.now() < RENEW_BEFORE_MS) {
+        const granted = await requestToken(gisReady() ?? (await loadGis()), Date.now, true);
+        if (!granted.write) return { ticked: false, message: NOT_TICKED.declined };
+        if (this.token === null) return { ticked: false, message: NOT_TICKED.disconnected }; // Disconnect meanwhile
+        use = granted;
+      }
+      await completeTask(use.value, task);
+      if (use !== token && this.token === token) this.token = use;
+      this.tasks = this.tasks.filter((t) => !sameTask(t, task));
+      this.status.textContent = this.connectedLine();
+      this.render();
+      return { ticked: true, message: TICKED };
+    } catch (error) {
+      const kind = error instanceof TasksError ? error.kind : "api";
+      // The panel's own token failed: Refresh then goes through the Google window (expired), and the next tick asks
+      // for the write permission again (forbidden: it was removed in the Google account).
+      if (use === token && this.token === token) {
+        if (kind === "expired") this.token = { ...token, expiresAt: 0 };
+        if (kind === "forbidden") this.token = { ...token, write: false };
+      }
+      return { ticked: false, message: NOT_TICKED[kind] };
+    } finally {
+      this.ticking = false;
+    }
   }
 
   private async disconnect() {
@@ -106,7 +186,7 @@ export class TasksPanel {
   private fail(error: unknown) {
     const kind = error instanceof TasksError ? error.kind : "api";
     if (kind === "expired") this.token = null;
-    this.status.textContent = MESSAGES[kind];
+    this.status.textContent = MESSAGES[kind] ?? MESSAGES.api;
     this.render();
   }
 

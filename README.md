@@ -35,7 +35,8 @@ ada, belum dicoba pada kamera, akun, atau layanan sungguhan · **Rencana** = bel
 | Skor pola kedip (regresi logistik, UTA-RLDD) | Aktif, hanya ditampilkan di Debug; ikut menentukan label hanya dengan `?label=gabungan` | uji terkunci 6 orang |
 | Kamera yang jujur, bagian fps: PERCLOS berbobot waktu, mata terpejam lama terverifikasi, tanda waktu kedip mati di < 8 fps | Dibangun, cek live belum | harness UTA-RLDD 10/7/5/3 fps: alarm palsu 0,0%; uji kamera nyata belum |
 | Kamera yang jujur, gerbang kualitas: "Can't assess" (wajah, cahaya, silau, kacamata), "Limited check", "Last assessed N min ago" | Dibangun, cek live belum | unit test saja (CSV UTA-RLDD tidak memuat pose, cahaya, atau kacamata); uji kamera nyata belum |
-| Impor Google Tasks, read-only | Dibangun, cek live belum | unit test; belum dicoba dengan akun Google sungguhan |
+| Impor Google Tasks (baca saja) | Dibangun, cek live lolos (9 Nov) | akun Google sungguhan di localhost: 24 tugas terbuka dari 1 daftar; Disconnect dan rekaman jaringan belum |
+| Centang tugas selesai di Google Tasks ("I finished it", izin tulis bertahap) | Dibangun, cek live belum | unit test (URL + body hanya status, satu PATCH per klik, tugas contoh tidak pernah dikirim, kontrol negatif izin ditolak/403/404); popup izin tulis dan PATCH sungguhan belum dicoba |
 | Rubrik tugas di perangkat + fase energi | Dibangun, cek live belum | unit test (58 judul contoh), dicek di browser dengan tugas contoh; belum pada daftar Google Tasks nyata atau dengan kamera menyala |
 | Plan my next hour: Task Matcher di browser (rencana offline) | Dibangun, cek live belum | dicek di browser dengan tugas contoh (`?kamera=0&demo=rina`), tanpa kamera |
 | Plan my next hour: flow Langflow `rencana_kerja` + watsonx | Dibangun, cek live belum | Task Matcher Python cocok 16/16 kasus dengan versi TS; flow belum pernah dijalankan di Langflow, belum ada panggilan LLM |
@@ -76,7 +77,8 @@ flowchart LR
     fb --> kb3
     fr --> kb4[("Knowledge base v4<br/>12 catatan")]
   end
-  gt["Google Tasks API<br/>tasks.readonly"] -- "judul + tenggat<br/>(hanya ke tab ini)" --> tag
+  gt["Google Tasks API<br/>tasks.readonly<br/>(+ tasks saat dicentang)"] -- "judul + tenggat<br/>(hanya ke tab ini)" --> tag
+  plan -- "I finished it: id tugas<br/>+ status completed" --> gt
   label -- "label + angka agregat<br/>+ nama aturan" --> api
   ask["Pertanyaan pengguna<br/>+ angka hari ini"] --> api
   plan -- "fase + t1..tn abstrak<br/>(tanpa judul)" --> api
@@ -104,7 +106,7 @@ flowchart LR
 | `POST /api/analyze` → Langflow | `label`, `skor`, `tanda` (nama aturan; `pola_kedip` hanya dengan `?label=gabungan`), `perclos`, `kedip_per_menit`, `durasi_kedip_ms`, `mata_tertutup_lama`, `menguap`, `pct_kepala_menunduk`, `pct_wajah_hilang`, `menit_sejak_jeda`, `menit_lelah_60` | `server/src/features.ts` menolak field lain dan angka di luar rentang; `tanda` hanya boleh dari daftar tetap |
 | `POST /api/tanya` → Bob → Langflow | teks pertanyaan (3–300 karakter), label terakhir, `menit_lelah_60`, dan angka hari ini (menit per label, jumlah jeda, rata-rata KSS) | `server/src/tanya.ts` menolak field lain dan menyamarkan email serta deret ≥ 9 angka (telepon, NIK, rekening) sebelum pertanyaan diteruskan; nama tidak bisa disaring. Kotak Ask menyebutkan apa yang dikirim di bawahnya, dan jawaban memberi tahu bila ada yang disamarkan |
 | `POST /api/rencana` → Langflow `rencana_kerja`, **hanya saat tombol Plan ditekan** | `fase` (tingkat energi), `jam_rawan` (ya/tidak), `menit_sejak_jeda`, dan tiap tugas sebagai `{id: "t1"…, sifat, beban, hari_ke_tenggat, posisi}` (maks. 50). **Tanpa judul tugas, catatan, atau nama daftar** | `server/src/rencana.ts` menolak kunci asing di dua tingkat dan `id` selain `"t" + (posisi + 1)`; jawaban LLM ditolak bila menyebut tugas selain yang dipilih Task Matcher, menit selain menit langkahnya, atau tidur (server dan browser); judul ditempelkan kembali di browser |
-| Google (`accounts.google.com`, `tasks.googleapis.com`; `oauth2.googleapis.com/revoke` saat Disconnect), hanya setelah pengguna menekan Connect di Settings → Google Tasks | token akses Google (izin `tasks.readonly`) untuk membaca tugas terbuka. Judul dan tanggal tenggat **masuk** ke tab ini dan tidak diteruskan ke mana pun; catatan tugas dibuang | library Google Identity Services baru dimuat saat Connect; token dan tugas hanya di memori (hilang saat tab ditutup); hanya jenis tugas yang dikonfirmasi pengguna yang disimpan, di perangkat |
+| Google (`accounts.google.com`, `tasks.googleapis.com`; `oauth2.googleapis.com/revoke` saat Disconnect), hanya setelah pengguna menekan Connect di Settings → Google Tasks | token akses Google (izin `tasks.readonly`) untuk membaca tugas terbuka. Judul dan tanggal tenggat **masuk** ke tab ini dan tidak diteruskan ke mana pun; catatan tugas dibuang. Saat **I finished it** ditekan pada tugas Google: `PATCH` langsung dari browser ke `tasks.googleapis.com`, id daftar + id tugas di URL dan body `{"status":"completed"}` saja, dengan token berizin `tasks` | library Google Identity Services baru dimuat saat Connect; token dan tugas hanya di memori (hilang saat tab ditutup); hanya jenis tugas yang dikonfirmasi pengguna yang disimpan, di perangkat. Izin tulis diminta bertahap (`include_granted_scopes`) hanya di klik "I finished it", tidak pernah saat Connect atau otomatis; tugas contoh demo tidak pernah dikirim (`googleTasks.test.ts`, `tasksPanel.test.ts`, `planPanel.test.ts`) |
 | Google Sheet pengembang, **hanya mode uji `?kode=`** setelah penguji setuju dan menekan Kirim | riwayat jendela uji (label + angka payload per evaluasi, sebab label ditahan, KSS, koreksi label, jeda), 4 angka baseline kalibrasi, jenis browser/OS, resolusi kamera, fps rata-rata, isian awal, feedback, kode uji; log keputusan rencana tidak ikut | whitelist field di `web/src/userTest.ts` (dites); penerima menolak kode yang tidak terdaftar (`uji-pengguna/Code.gs`); data dihapus paling lambat 30 Nov 2026 (gelombang pertama: 31 Okt), sesuai layar persetujuan |
 | Google (`odml.pa.googleapis.com`), dari library MediaPipe Tasks tiap 60 detik per task | **diblokir.** Metrik kinerja dan pemakaian MediaPipe: jenis task, mode, keluarga OS, versi library, waktu muat, jumlah dan lama inferensi (88–103 byte per kiriman, diukur 29 Okt); tanpa video, gambar, landmark, atau label. MediaPipe tidak punya opsi untuk mematikannya ([Privacy Notice](https://github.com/google-ai-edge/mediapipe#privacy-notice)) | `Content-Security-Policy` `connect-src` di ketiga halaman (`index.html`, `auth.html`, `app.html`) hanya mengizinkan origin sendiri, penerima uji Apps Script, Supabase Auth, serta Google Identity Services (`accounts.google.com/gsi/`) dan Tasks API (`web/src/csp.test.ts`, dengan kontrol negatif) |
 | Supabase Auth (`https://<project>.supabase.co`), saat daftar dan masuk | nama, email, password (disimpan Supabase sebagai hash); Supabase juga mencatat waktu masuk, alamat IP, dan browser di log-nya. Masuk dengan Google: browser pindah ke Google, lalu Google memberi Supabase nama, email, dan tautan foto profil (tanpa password). Halaman akun juga bertanya sekali ke `/auth/v1/settings` (tanpa data pribadi) apakah Google aktif | tidak ada tabel data: riwayat, label, dan baseline tidak pernah dikirim ke Supabase; link uji `?kode=` tidak memakai akun |
@@ -369,7 +371,9 @@ memilih tugas dari sinyal kantuk mengalahkan aturan gratis "tugas berat dulu" ba
 1. **Tugas** (`web/src/googleTasks.ts`, Settings → Google Tasks: Connect / Refresh / Disconnect): token client Google Identity Services
    dengan izin `tasks.readonly`; token dan tugas hanya di memori. Dibaca ≤ 20 daftar dan ≤ 100 tugas terbuka per daftar, dalam urutan
    Google Tasks (subtugas tepat setelah induknya); catatan dibuang, judul dipotong 300 karakter. Tanpa Google, akun demo `?demo=rina`
-   memakai 6 tugas contoh berlabel "Sample tasks", yang tidak pernah dicampur dengan Google Tasks.
+   memakai 6 tugas contoh berlabel "Sample tasks", yang tidak pernah dicampur dengan Google Tasks. **I finished it** pada tugas Google
+   mencentangnya di Google Tasks (`PATCH` status `completed` saja, langsung dari browser). Izin tulis `tasks` diminta bertahap pada klik
+   pertama itu; token dari jendela Google baru dipakai setelah `PATCH`-nya berhasil, karena jendela itu bisa berganti akun Google.
 2. **Rubrik tugas di perangkat** (`taskTagger.ts`): kata kerja di judul (Inggris + Indonesia) → **sifat** aktif/monoton dan **beban**
    berat/ringan; **tenggat** (hari ini / besok / ≤ 3 hari / lainnya) dari tanggal `due`; **urutan** dari posisi di daftar. Kata kerja
    yang tidak dikenal atau ambigu = "belum dinilai" dan ditanya sekali; jenis tugas yang dipilih rencana bisa diubah kapan saja lewat
@@ -470,7 +474,8 @@ Urutan ini sudah ditulis tetapi belum pernah dijalankan pada Langflow sungguhan.
 ditulis sebagai konstanta `GOOGLE_CLIENT_ID` di `web/src/googleTasks.ts`, bukan di `.env`. Untuk project Google Cloud sendiri: aktifkan
 Google Tasks API, buat OAuth client **Web** terpisah dari login Supabase dengan Authorized JavaScript origins `http://localhost:5173`
 (dan domain demo), tambahkan test user selama status Testing, lalu ganti konstanta itu. Login Supabase tidak diberi scope Tasks, supaya
-login biasa tidak terkena batas test user.
+login biasa tidak terkena batas test user. Scope yang dipakai: `https://www.googleapis.com/auth/tasks.readonly` saat Connect, dan
+`https://www.googleapis.com/auth/tasks` hanya untuk centang tugas; cantumkan keduanya di OAuth consent screen → Data access.
 
 Parameter URL untuk pengembangan dan uji coba:
 
@@ -515,14 +520,14 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 
 | Uji | Hasil |
 |---|---|
-| Unit test (Vitest) | `npm --prefix web test`: **735 test, 50 file lolos** (9 Nov; rules, fitur, kedip, menguap, kalibrasi, gerbang kualitas, penjaga cahaya, whitelist payload, server `/api/analyze`, `/api/tanya`, dan `/api/rencana`, penerusan Ask, riwayat dan upgrade database, kirim otomatis, sapaan PiP, skor pola kedip, Google Tasks, rubrik tugas (58 judul contoh), fase energi, Task Matcher, kartu rencana dan penolakan kalimat yang menyimpang, tombol ubah jenis tugas, penjadwal jalan, log keputusan, jam dinding setelah laptop tidur, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
+| Unit test (Vitest) | `npm --prefix web test`: **748 test, 50 file lolos** (9 Nov; rules, fitur, kedip, menguap, kalibrasi, gerbang kualitas, penjaga cahaya, whitelist payload, server `/api/analyze`, `/api/tanya`, dan `/api/rencana`, penerusan Ask, riwayat dan upgrade database, kirim otomatis, sapaan PiP, skor pola kedip, Google Tasks (impor dan centang tugas), rubrik tugas (58 judul contoh), fase energi, Task Matcher, kartu rencana dan penolakan kalimat yang menyimpang, tombol ubah jenis tugas, penjadwal jalan, log keputusan, jam dinding setelah laptop tidur, layar sambutan sebelum kamera, CSP tiga halaman, galat akun, kembali dari Google, linimasa scan kalibrasi, model Insights, landing). Test kunci dicek dengan mutasi: kode dirusak sengaja → test gagal |
 | Build dan typecheck | `npm --prefix web run build` ✓, `npm --prefix server run typecheck` ✓ |
 | Replay rekaman sesi | Tombol "Unduh log sesi (CSV)" menyimpan angka per frame (tanpa gambar); `cd web && npm run replay -- <csv>` memutarnya lewat pipeline yang sama dengan app. Dipakai untuk menyetel threshold dan membandingkan sebelum/sesudah (`docs/tuning-notes.md`) |
 | Skenario demo (replay rekaman pengembang, hasil kode sebelum perubahan kamera 7 Nov) | kerja normal: `lelah` palsu 9 → **0** jendela setelah penyetelan; pura-pura mengantuk → `lelah` (7 jendela); mata terpejam → `tertidur`; kepala di meja dengan wajah tersembunyi → `tertidur`; pergi → `tidak di depan layar`; jaket di kursi tidak pernah jadi `tertidur` (kontrol negatif); HP di pangkuan dan HP setinggi dagu → `normal`; HP setinggi dada → `lelah ringan` (Keterbatasan) |
 | Ketahanan fps (UTA-RLDD, 12 orang) | `web/scripts/rldd-robust.ts`, rekaman disubsampel ke 10/7/5/3 fps dengan dan tanpa jeda frame acak: alarm palsu kode sekarang 0,0% di semua fps dengan jam rata (kode lama 0,7 / 1,6 / 8,9 / 67,8%); kantuk tertangkap 10 fps 24,1 → 22,4%, 5 fps 29,5 → 11,2%. Kriteria recall yang dikunci sebelum harness **gagal** dan diterima (rincian di "Kamera yang jujur"). Cek alat ukur: kode lama di 10 fps memberi 1307/1307 jendela identik dengan dataset perbandingan rules sebelumnya |
 | Task Matcher Python vs TS | `langflow-flows/uji-task-matcher.py`: 16/16 kasus dari `web/src/taskMatcher.fixtures.json` cocok, 6/6 masukan buruk ditolak; mutasi "besok = ≤ 3 hari" → 13/16 gagal |
 | Plan my next hour di browser | Chrome, `?kamera=0&demo=rina`, backend mati: rubrik ditanya sekali dan bertahan setelah reload, rencana offline menyebut sebabnya; dengan balasan server tiruan judul menggantikan `t1` dan lencana model + sumber tampil; 0 permintaan `/api/` dalam 40 detik setelah halaman dimuat, 0 galat konsol. Database riwayat versi 1 berisi data → kode baru → versi 2, data lama utuh |
-| Belum diuji | gerbang kualitas dan penjaga cahaya pada kamera nyata (protokol 9 skenario siap); impor Google Tasks dengan akun sungguhan dan rekaman jaringannya; flow `rencana_kerja` di Langflow dan jawaban LLM-nya; fase energi dan penjadwal jalan dengan kamera menyala |
+| Belum diuji | gerbang kualitas dan penjaga cahaya pada kamera nyata (protokol 9 skenario siap); rekaman jaringan Google Tasks dengan akun sungguhan; centang tugas di Google Tasks (popup izin tulis + `PATCH`) dengan akun sungguhan; flow `rencana_kerja` di Langflow dan jawaban LLM-nya; fase energi dan penjadwal jalan dengan kamera menyala |
 | Aturan server tanpa LLM | `node langflow-flows/cek-skenario.mts`: **22/22 skenario** lolos + **7/7 kontrol negatif** tertolak (field asing, status salah, skor tidak cocok label, tanda asing, `pola_kedip` bersama tanda aturan) |
 | Pemilihan LLM | 19 skenario × 2 model di watsonx (`langflow-flows/uji-llm.mts`, jawaban mentah di `langflow-flows/hasil-uji/`): Mistral Small 3.1 JSON terbaca 19/19, `sumber` di luar konteks 0; Granite 4-h-small JSON rusak 2/19 dan menambah sinyal yang tidak ada. Rubrik 1–5: Mistral 19, Granite 14 → Mistral dipakai |
 | Peralihan ke Gemini (28 Okt) | knowledge base v3 vs v2 (`langflow-flows/cek-retrieval.mts`, tanpa LLM): 11 dari 15 catatan 3 teratas per status sama, 3/3 pertanyaan contoh menemukan catatan yang diharapkan di urutan pertama, kueri di luar topik ("resep rendang") skornya lebih buruk dari semua kueri relevan. Lewat `uji-llm.mts` (input dan tweak sama dengan server): 4 skenario `analisis_status` (S01, S13, S15, S22) JSON terbaca 4/4, `sumber` di luar konteks 0, alasan hanya dari `tanda`, 11,8–17,9 detik (batas server 30 detik); 1 pertanyaan `cari_panduan` ("Kenapa mataku perih?") dijawab dari catatan AAO beserta sumbernya dalam 12,8 detik. Lewat server asli (`POST /api/analyze` → Langflow → Gemini, tanpa tweak model): S10 (`lelah`, 3 tanda) dijawab dalam 16,8 detik tanpa cadangan, status dan lama jeda dari server, 3 sumber dari konteks |
@@ -572,8 +577,9 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 - Saran Langflow, rencana dari Langflow, dan Ask Equilibre di demo online hanya jalan saat laptop pengembang menyala (tunnel); di luar
   itu demo online hanya bagian browser.
 - **Plan my next hour:** bobot Task Matcher, menit langkah, dan kamus kata kerja adalah usulan awal ⚠️; belum ada bukti bahwa rencana
-  dari sinyal kantuk lebih baik daripada aturan gratis "tugas berat dulu". Flow `rencana_kerja` belum pernah dijalankan dan Google
-  Tasks belum dicoba dengan akun sungguhan. Google Tasks API tidak punya field prioritas atau durasi, dan `due` hanya tanggal. Selama
+  dari sinyal kantuk lebih baik daripada aturan gratis "tugas berat dulu". Flow `rencana_kerja` belum pernah dijalankan; impor Google
+  Tasks baru dicoba dengan satu akun sungguhan (9 Nov), dan centang tugas di Google Tasks belum. Google Tasks API tidak punya field
+  prioritas atau durasi, dan `due` hanya tanggal. Selama
   OAuth Google berstatus Testing, hanya akun yang didaftarkan sebagai test user yang bisa menyambung (maks. 100), dengan layar
   peringatan "unverified app".
 
@@ -582,7 +588,7 @@ Branch `deploy` adalah penanda rilis untuk hosting dan hanya di-fast-forward dar
 - Uji kamera gerbang kualitas (9 skenario: kacamata, silau, hemat daya, gelap, kontrol positif, HP, menoleh, bicara/tertawa), lalu
   uji pengguna berikutnya (dengan dan tanpa kacamata, cahaya dan kamera berbeda, sesi segar dan rawan kantuk) untuk memutuskan
   penentu label dari hasilnya.
-- Menjalankan flow `rencana_kerja` dan impor Google Tasks pada layanan sungguhan; pilot yang membandingkan rencana dari sinyal kantuk
+- Menjalankan flow `rencana_kerja` dan centang Google Tasks pada layanan sungguhan; pilot yang membandingkan rencana dari sinyal kantuk
   dengan aturan gratis "tugas berat dulu".
 - Ranker XGBoost untuk Task Matcher, dilatih dari log keputusan pilot (bukan data sintetis); judul tugas sebagai sakelar opt-in
   (disamarkan di laptop, pratinjau sebelum kirim, hanya ke watsonx).

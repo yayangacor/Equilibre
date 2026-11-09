@@ -25,10 +25,12 @@ import type { AbstractTask } from "./taskTagger.ts";
 //                        those 60 minutes, after a disconnect or a new grant from the Google window (the next
 //                        account may be another), for the demo's sample tasks, and for plans without a task.
 // Readings where the plan is silent (the simpler one each time):
-// - "diterima" and "mulai ≤ 30 mnt" (accepted, started within 30 min) are not observable without new input or a
-//   write scope on Google Tasks; "Fits" and "I finished it" are the closest the card has, so no separate field.
-// - "no longer open" counts completed and deleted alike (the read-only API only lists open tasks). Once seen closed it
-//   stays true; a refresh that still lists it gives false.
+// - "diterima" and "mulai ≤ 30 mnt" (accepted, started within 30 min) are not observable without new input; "Fits"
+//   and "I finished it" are the closest the card has, so no separate field. The write permission on Google Tasks
+//   (W2.8) is used only to tick a task off from "I finished it", never to read anything more.
+// - "no longer open" counts completed and deleted alike (reads list only open tasks). A task ticked off from the card
+//   leaves the in-memory list at once but is seen closed only at the next refresh, as one ticked off in Google Tasks.
+//   Once seen closed it stays true; a refresh that still lists it gives false.
 // - The label 30 minutes later is the shown label, carried over or judged; dinilai_30 tells which.
 
 export type DecisionRecord = Stamp & {

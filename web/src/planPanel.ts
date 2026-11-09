@@ -21,6 +21,7 @@ import {
   type TaskChoice,
 } from "./planCard.ts";
 import { offlinePlan, requestPlan, toRencanaRequest } from "./rencana.ts";
+import type { TickResult } from "./tasksPanel.ts";
 import { rememberTag, type Rubric, type TagMemoryStore } from "./taskTagger.ts";
 
 // Dashboard card "Plan my next hour" (plan P20 W2.6). Thin DOM over planCard.ts: the view is built there.
@@ -49,6 +50,9 @@ export type PlanDeps = {
   server: () => boolean; // the backend can answer now (the online demo asks /api/health first, NOTES D-80)
   offlineReason: string; // why the plan is offline when the backend cannot answer
   onTaskDone: () => void; // "I finished it": the walk scheduler suggests a short walk (W2.5)
+  // "I finished it" on a task from Google Tasks: ticks it off there (W2.8, tasksPanel.ts complete). Called inside the
+  // click, since the first time it opens Google's window for the write permission.
+  completeTask: (task: ImportedTask) => Promise<TickResult>;
   log: Pick<DecisionLog, "planned" | "answered" | "taskDone">; // the local decision log (W2.7), nothing sent
   session: number; // the page load, the history's `sesi`
 };
@@ -56,6 +60,7 @@ export type PlanDeps = {
 // done: "I finished it" was pressed for this plan's task. google: the tasks came from Google Tasks.
 // logId: this plan's record in the decision log; null when the history could not store it.
 // task: the chosen task, for "Change" (D-89); null for a break or no task.
+// tick: what came of ticking the task off in Google Tasks (W2.8); null before "I finished it" and for sample tasks.
 type Shown = {
   view: PlanView;
   phase: PhaseView;
@@ -65,6 +70,7 @@ type Shown = {
   google: boolean;
   logId: number | null;
   task: ImportedTask | null;
+  tick: string | null;
 };
 
 export class PlanPanel {
@@ -143,6 +149,7 @@ export class PlanPanel {
         google: choice.kind === "google",
         logId,
         task: chosenTask(plan.tugas_id, req.peta, choice.tasks),
+        tick: null,
       };
       this.saved = null;
       this.changing = false;
@@ -301,29 +308,54 @@ export class PlanPanel {
     this.out.replaceChildren(card);
   }
 
-  // "I finished it" on the "Next" step: the walk after the task (research §3.3). Google Tasks is read-only here, so the
-  // task is not ticked off there.
+  // "I finished it" on the "Next" step: the walk after the task (research §3.3) and the decision log's t_selesai, and
+  // for a task from Google Tasks, ticking it off there (W2.8, D-103). Once per plan: the button stays off after it.
+  // The tick goes first, since the first one opens Google's window, which needs this click (NOTES G-74); whatever
+  // Google answers, the local steps happen. The demo's sample tasks are never sent to Google.
   private doneAction(): HTMLElement {
     const box = el("div", "", "plan-done");
     const button = el("button", "I finished it", "btn outline") as HTMLButtonElement;
     button.type = "button";
     const note = el("p", "", "helper");
+    const tick = el("p", "", "helper");
     const update = () => {
       const done = this.shown?.done ?? false;
       button.disabled = done;
       button.setAttribute("aria-pressed", String(done));
-      note.textContent = done ? `Marked as done.${this.shown?.google ? " Tick it off in Google Tasks too." : ""}` : "";
+      note.textContent = done ? "Marked as done." : "";
+      tick.textContent = this.shown?.tick ?? "";
     };
     button.addEventListener("click", () => {
-      if (!this.shown || this.shown.done) return;
-      this.shown.done = true;
-      if (this.shown.logId !== null) void this.deps.log.taskDone(this.shown.logId, Date.now());
+      const shown = this.shown;
+      if (!shown || shown.done) return;
+      shown.done = true;
+      if (shown.google && shown.task) this.tickOff(shown, shown.task);
+      if (shown.logId !== null) void this.deps.log.taskDone(shown.logId, Date.now());
       update();
       this.deps.onTaskDone();
     });
     update();
-    box.append(button, note);
+    box.append(button, note, tick);
     return box;
+  }
+
+  private tickOff(shown: Shown, task: ImportedTask) {
+    shown.tick = "Ticking it off in Google Tasks…";
+    let pending: Promise<TickResult>;
+    try {
+      pending = this.deps.completeTask(task);
+    } catch (err) {
+      pending = Promise.reject(err);
+    }
+    void pending
+      .catch((err: unknown): TickResult => {
+        console.error("Task not ticked off:", err);
+        return { ticked: false, message: "Not ticked off in Google Tasks. Tick it off there." };
+      })
+      .then((result) => {
+        shown.tick = result.message;
+        if (this.shown === shown) this.render(); // the source line counts the open tasks again
+      });
   }
 
   private why(text: string): HTMLElement {
