@@ -198,12 +198,18 @@ export class UserTestPanel {
         ? "A small Picture-in-Picture window opens when calibration starts. Keep it open until the end: without " +
           "it, monitoring stops when you switch to another app."
         : "This browser has no Picture-in-Picture window, so monitoring stops when this tab is not visible. Use Chrome if you can.",
-      "At the end, answer 5 short questions, then press Send.",
+      `At the end, answer ${FEEDBACK_QUESTIONS.length} short questions, then press Send.`,
     ]);
     const sent = el(
       "p",
       "The state and summary numbers every 10 s (e.g. blink length, percent of time with eyes closed), your sleepiness checks (KSS), " +
         "state corrections, breaks, calibration numbers, browser and operating system, the answers below, your feedback, and the test code.",
+    );
+    // NOTES D-105: the decision log goes out only after this card has named it (TestState.setuju_keputusan).
+    const plans = el(
+      "p",
+      'If you use "Plan my next hour": the plans it made (kinds of tasks, never their titles), whether the chosen task got ' +
+        'done, and your "Fits" / "Doesn\'t fit" answers.',
     );
     const never = el("p", "Video, photos, face landmarks, your name and your email. Video is processed only in your browser.");
     const rights = el(
@@ -252,6 +258,7 @@ export class UserTestPanel {
       todo,
       el("h3", "What is sent, after you press Send at the end"),
       sent,
+      plans,
       el("h3", "What is never sent"),
       never,
       rights,

@@ -118,7 +118,7 @@ export class HistoryPanel {
     };
   }
 
-  // Every decision record, for the export. Kept out of allRecords(), which the user test submission reads.
+  // Every decision record, for the export and a ?kode= user test submission (main.ts, NOTES D-105).
   async decisions(): Promise<DecisionRecord[]> {
     try {
       return this.db ? await this.db.all("keputusan") : [];

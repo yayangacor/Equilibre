@@ -1,12 +1,16 @@
 import type { KeyValueStore } from "./calibration.ts";
 import type { Baseline } from "./calibration.ts";
+import type { DecisionRecord } from "./decisionLog.ts";
 import type { BreakRecord, EvaluationRecord, KssRecord, LabelCorrectionRecord } from "./history.ts";
+import { REASON_CODES } from "./taskMatcher.ts";
+import type { AbstractTask } from "./taskTagger.ts";
 
 // Remote user test (plans/P08, NOTES D-57): a tester opens the hosted demo on their own laptop with a
 // personal link (?kode=EQ-XXXX), agrees to the test, calibrates, works for TEST_MINUTES with a KSS
 // rating every 15 minutes, answers a short feedback form and sends one submission to the Google
 // Sheet behind UJI_URL (Apps Script, equilibre/uji-pengguna/). Only what SUBMISSION_KEYS and the
-// *_KEYS lists name is sent: labels and numbers, never video, images or face landmarks. Pure
+// *_KEYS lists name is sent: labels and numbers, never video, images or face landmarks, and of the
+// "Plan my next hour" decision log only the abstract tasks t1..tn, never a title (NOTES D-105, D-90). Pure
 // functions here; the card on the page is userTestPanel.ts.
 
 // Apps Script web app (/exec) that receives submissions. Empty until it is deployed (P08 step 5):
@@ -144,6 +148,9 @@ export function checkIntake(answers: Partial<Record<IntakeKey, string>>, jamTidu
 export type TestState = {
   kode: string;
   setuju: number | null; // consent given (wall clock)
+  // The consent card named the "Plan my next hour" decision log (from app uji-3, NOTES D-105). A tester who agreed on
+  // an earlier card and sends after an update keeps false: the decision log is not sent for them.
+  setuju_keputusan: boolean;
   isian: Intake | null;
   mulai: number | null; // first calibration after consent finished: the test clock starts
   selesai: number | null; // finished early, or when the feedback form was first shown after TEST_MINUTES
@@ -159,6 +166,7 @@ export type Phase = "persetujuan" | "kalibrasi" | "berjalan" | "feedback" | "ter
 export const freshState = (kode: string): TestState => ({
   kode,
   setuju: null,
+  setuju_keputusan: false,
   isian: null,
   mulai: null,
   selesai: null,
@@ -192,8 +200,9 @@ export function elapsedMinutes(s: TestState, now: number): number {
 export const canFinishEarly = (s: TestState, now: number) =>
   phase(s, now) === "berjalan" && elapsedMinutes(s, now) >= EARLY_FINISH_MINUTES;
 
+// The consent card (userTestPanel.ts) names the decision log, so agreeing to it covers sending it.
 export const consent = (s: TestState, isian: Intake, t: number): TestState =>
-  s.setuju === null ? { ...s, setuju: t, isian } : s;
+  s.setuju === null ? { ...s, setuju: t, setuju_keputusan: true, isian } : s;
 
 // Only a calibration finished after consent starts the clock, so every tester calibrates under test conditions.
 export const calibrated = (s: TestState, t: number): TestState =>
@@ -233,6 +242,7 @@ export function loadTestState(store: KeyValueStore, kode: string): TestState {
     return {
       kode,
       setuju: time(v.setuju),
+      setuju_keputusan: v.setuju_keputusan === true,
       isian: v.isian && typeof v.isian === "object" ? v.isian : null,
       mulai: time(v.mulai),
       selesai: time(v.selesai),
@@ -282,6 +292,35 @@ export const CORRECTION_KEYS = [
   "alasan",
 ] as const satisfies readonly (keyof LabelCorrectionRecord)[];
 export const BREAK_KEYS = ["sesi", "mulai", "selesai", "menit", "pemicu"] as const satisfies readonly (keyof BreakRecord)[];
+// The "Plan my next hour" decision log (decisionLog.ts, plan P20 W2.7), sent since 9 Nov after the consent card names
+// it (NOTES D-105, the user's answer to Q-25): every field of a record but its database id and day key, each task cut
+// to DECISION_TASK_KEYS. A record never held a title, a list name or a Google task id (D-90); picking by name keeps
+// anything a later version stores on the device.
+export const DECISION_KEYS_SENT = [
+  "sesi",
+  "t",
+  "fase",
+  "jam_rawan",
+  "menit_sejak_jeda",
+  "tugas",
+  "tugas_id",
+  "kode",
+  "asal",
+  "model",
+  "cocok",
+  "t_cocok",
+  "t_selesai",
+  "label_30",
+  "dinilai_30",
+  "t_cek_30",
+  "tidak_terbuka_60",
+] as const satisfies readonly (keyof DecisionRecord)[];
+export const DECISION_TASK_KEYS = ["id", "sifat", "beban", "hari_ke_tenggat", "posisi"] as const satisfies readonly (keyof AbstractTask)[];
+// ⚠️ At most one plan per test minute, the first ones of the window: theirs are the outcomes most complete at the send
+// (the label 30 minutes later). With RENCANA_LIMITS.tugasMax tasks each the plans are ±0.26 MB and a full test ±0.4 MB,
+// against the receiver's 2 MB (Code.gs MAX_CHARS, measured in receiver.test.ts). Without the cap, "Plan again" every
+// few seconds would get the whole submission refused, history and feedback too.
+export const DECISIONS_MAX = TEST_MINUTES;
 
 export const SUBMISSION_KEYS = [
   "format",
@@ -302,6 +341,7 @@ export const SUBMISSION_KEYS = [
   "kss",
   "koreksi_label",
   "jeda",
+  "keputusan",
 ] as const;
 
 // sebab_ditahan values sent with a test. "wajah" and "cahaya" (plan P20 W1.4) may go out since 7 Nov (NOTES D-101,
@@ -318,6 +358,21 @@ function pick<T extends object, K extends keyof T>(record: T, keys: readonly K[]
   const out = {} as Pick<T, K>;
   for (const key of keys) if (record[key] !== undefined) out[key] = record[key];
   return out;
+}
+
+// "t3", as toAbstractTasks numbers them. Anything else in an id field (a Google id, after some bug) goes out as null.
+const ABSTRACT_ID = /^t\d{1,3}$/;
+const abstractId = (id: unknown) => (typeof id === "string" && ABSTRACT_ID.test(id) ? id : null);
+
+function sentDecision(r: DecisionRecord) {
+  const tasks: readonly AbstractTask[] = Array.isArray(r.tugas) ? r.tugas : [];
+  const codes: readonly string[] = Array.isArray(r.kode) ? r.kode : [];
+  return {
+    ...pick(r, DECISION_KEYS_SENT),
+    tugas: tasks.map((task) => ({ ...pick(task, DECISION_TASK_KEYS), id: abstractId(task.id) })),
+    tugas_id: abstractId(r.tugas_id),
+    kode: codes.filter((c) => (REASON_CODES as readonly string[]).includes(c)),
+  };
 }
 
 export type Device = {
@@ -374,12 +429,16 @@ export type TestRecords = {
   kss: readonly KssRecord[];
   koreksi_label: readonly LabelCorrectionRecord[];
   jeda: readonly BreakRecord[];
+  keputusan: readonly DecisionRecord[];
 };
 
 // The "app" column of the Sheet. uji-2 (28 Oct): feedback adds manfaat, consent names the evidence use and 30 November.
-export const APP_VERSION = "uji-2";
+// uji-3 (9 Nov, NOTES D-105): consent names the "Plan my next hour" plans, which the submission carries as keputusan.
+export const APP_VERSION = "uji-3";
 
-// One submission per tester: the records inside the test window only, each cut down to its *_KEYS.
+// One submission per tester: the records inside the test window only, each cut down to its *_KEYS. The plans: those
+// shown inside the window (their outcomes as stored at the send), at most DECISIONS_MAX, and none without the consent
+// that named them.
 export function toSubmission(
   s: TestState,
   feedback: TestFeedback,
@@ -410,6 +469,13 @@ export function toSubmission(
     kss: records.kss.filter((r) => inside(r.t)).map((r) => pick(r, KSS_KEYS)),
     koreksi_label: records.koreksi_label.filter((r) => inside(r.t)).map((r) => pick(r, CORRECTION_KEYS)),
     jeda: records.jeda.filter((r) => r.selesai >= from && r.mulai <= to).map((r) => pick(r, BREAK_KEYS)),
+    keputusan: s.setuju_keputusan
+      ? records.keputusan
+          .filter((r) => inside(r.t))
+          .sort((a, b) => a.t - b.t)
+          .slice(0, DECISIONS_MAX)
+          .map(sentDecision)
+      : [],
   } satisfies Record<(typeof SUBMISSION_KEYS)[number], unknown>;
 }
 

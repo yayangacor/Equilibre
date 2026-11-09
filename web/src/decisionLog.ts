@@ -8,8 +8,9 @@ import type { AbstractTask } from "./taskTagger.ts";
 // Local decision log of "Plan my next hour" (plan P20 W2.7, research report §3.5): one record per plan shown, with what
 // the Task Matcher decided from and what came of it, as training data for a later ranker (XGBoost, NOTES D-83). Kept
 // in the history database (historyDb.ts store "keputusan"): per account, the ?riwayat= test database, 30 days, in
-// "Download history (JSON)", emptied by "Delete all history". Nothing of it is sent: not to the server, and not in a
-// ?kode= user test submission (userTest.ts never reads this store; sending it needs the user's decision, NOTES D-01).
+// "Download history (JSON)", emptied by "Delete all history". Nothing of it goes to the server. A ?kode= user test
+// submission carries the plans shown inside the test window, after the consent card has named them (NOTES D-105,
+// userTest.ts DECISION_KEYS_SENT); outside that test mode it stays on the device.
 //
 // The features are the request body field by field, as sent to /api/rencana (or as the offline plan used it): the
 // phase, the slump flag, minutes since the last break, and the abstract tasks t1..tn. Never a title, a list name or a

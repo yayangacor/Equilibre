@@ -535,7 +535,11 @@ const userTest: UserTestPanel | null = TEST_CODE
         if (!calibration) calibButton.click();
       },
       openCompanion: PipCompanion.supported() ? () => openCompanion() : null,
-      records: () => panel.allRecords(),
+      // The decision log goes with the history (NOTES D-105); toSubmission keeps the test window and the consent.
+      records: async () => {
+        const all = await panel.allRecords();
+        return all ? { ...all, keputusan: await panel.decisions() } : null;
+      },
       device: (from, to) => ({
         browser: browserOf(navigator.userAgent),
         os: osOf(navigator.userAgent),

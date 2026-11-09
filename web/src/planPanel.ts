@@ -364,7 +364,8 @@ export class PlanPanel {
     return why;
   }
 
-  // "Fits / Doesn't fit": stored with this plan's record in the decision log (W2.7), nothing is sent.
+  // "Fits / Doesn't fit": stored with this plan's record in the decision log (W2.7); sent only with a ?kode= user test,
+  // after its consent (NOTES D-105).
   private feedback(): HTMLElement {
     const box = el("div", "", "feedback");
     box.append(el("span", "This plan:", "choices-label"));

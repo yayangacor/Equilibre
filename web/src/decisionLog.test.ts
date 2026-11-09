@@ -20,7 +20,7 @@ import { SUBMISSION_KEYS } from "./userTest.ts";
 
 // The local decision log of "Plan my next hour" (plan P20 W2.7): the record's shape (no title, list name or task id),
 // the outcomes (label 30 minutes later, the task no longer open at a refresh within 60 minutes, the answers), and that
-// it is in the export but not in the user test submission.
+// it is in the export and, after consent, in the user test submission (NOTES D-105).
 
 const TODAY = "2026-11-10";
 const at = (h: number, min = 0, s = 0) => new Date(2026, 10, 10, h, min, s).getTime();
@@ -255,7 +255,7 @@ describe("export and the user test", () => {
     expect(toExport(empty, at(15, 0)).keputusan).toEqual([]);
   });
 
-  it("a ?kode= user test submission has no decision log (needs the user's decision, NOTES D-01)", () => {
-    expect(SUBMISSION_KEYS as readonly string[]).not.toContain("keputusan");
+  it("a ?kode= user test submission carries it after consent (NOTES D-105; the fields and the window: userTest.test.ts)", () => {
+    expect(SUBMISSION_KEYS as readonly string[]).toContain("keputusan");
   });
 });

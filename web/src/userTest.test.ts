@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Baseline, KeyValueStore } from "./calibration.ts";
+import type { DecisionRecord } from "./decisionLog.ts";
+import { toDecisionRecord } from "./decisionLog.ts";
+import type { ImportedTask } from "./googleTasks.ts";
 import type { BreakRecord, EvaluationRecord, KssRecord, LabelCorrectionRecord } from "./history.ts";
+import { offlinePlan, toRencanaRequest, TUGAS_FIELDS } from "./rencana.ts";
+import { emptyTagMemory } from "./taskTagger.ts";
 import {
   APP_VERSION,
   BREAK_KEYS,
@@ -11,6 +16,9 @@ import {
   checkIntake,
   consent,
   CORRECTION_KEYS,
+  DECISION_KEYS_SENT,
+  DECISION_TASK_KEYS,
+  DECISIONS_MAX,
   elapsedMinutes,
   EVALUATION_KEYS,
   FEEDBACK_QUESTIONS,
@@ -56,6 +64,27 @@ const feedback = checkFeedback(
   { label_sesuai: 4, alarm_palsu: "1-2 kali", kantuk_terlewat: "tidak mengantuk", mengganggu: 2, manfaat: 4, mau_pakai: 4 },
   "  oke  ",
 )!;
+
+// "Plan my next hour" plans as planPanel.ts stores them (decisionLog.ts toDecisionRecord), from Google tasks whose
+// titles, list and ids must never be sent (NOTES D-90, D-105).
+const google = (id: string, title: string, order: number): ImportedTask => ({
+  id,
+  listId: "LIST-Zx81-secret",
+  listTitle: "Client Falcon (private)",
+  title,
+  due: null,
+  parent: null,
+  order,
+});
+const TASKS = [
+  google("GT-aa11", "Write the Falcon pitch for Budi", 0),
+  google("GT-bb22", "Reconcile invoices for PT Sinar", 1),
+  google("GT-cc33", "Call Dewi about the audit", 2),
+];
+function decision(t: number): DecisionRecord {
+  const req = toRencanaRequest({ fase: "rendah ringan", jam_rawan: true }, 45, TASKS, "2026-10-06", emptyTagMemory());
+  return { ...toDecisionRecord(req.body, offlinePlan(req, "offline"), { t, sesi: 5 }), id: 7, cocok: true, t_cocok: t + MIN };
+}
 
 describe("test code", () => {
   it("accepts EQ- plus 4 to 8 letters or digits, case-insensitive", () => {
@@ -198,6 +227,7 @@ describe("submission", () => {
     koreksi_label: [correction(START + 20 * MIN)],
     jeda: [breakRec(START - 10 * MIN, START - 5 * MIN), breakRec(START + 30 * MIN, START + 33 * MIN)],
     rekomendasi: [{ teks: "not part of a submission" }],
+    keputusan: [decision(START - MIN), decision(START + 20 * MIN), decision(START + 61 * MIN)],
   };
   const sub = toSubmission(done, feedback, records as never, {
     perangkat: { browser: "Chrome 140", os: "Windows", kamera: "640x480", fps_rata: 9.8 },
@@ -212,7 +242,8 @@ describe("submission", () => {
     expect(sub.baseline).toEqual({ dibuat: START, kedip_per_menit: 14, durasi_kedip_ms: 151, ear_terbuka: 0.312, ear_terpejam: 0.1 });
     // uji-2 (28 Oct) marks the submissions that carry manfaat; the receiver still checks versi 1, so an old Code.gs takes them.
     expect(sub).toMatchObject({ app: APP_VERSION, versi: 1, feedback: { manfaat: 4 } });
-    expect(APP_VERSION).toBe("uji-2");
+    // uji-3 (9 Nov, NOTES D-105) marks the submissions whose consent named the plans.
+    expect(APP_VERSION).toBe("uji-3");
   });
 
   it("keeps only records inside the test window", () => {
@@ -220,6 +251,7 @@ describe("submission", () => {
     expect(sub.kss.map((k) => k.t)).toEqual([START + 15 * MIN]);
     expect(sub.koreksi_label).toHaveLength(1);
     expect(sub.jeda.map((j) => j.mulai)).toEqual([START + 30 * MIN]);
+    expect(sub.keputusan.map((k) => k.t)).toEqual([START + 20 * MIN]);
   });
 
   it("sends only whitelisted record fields (no id, day key, or anything unexpected)", () => {
@@ -229,6 +261,8 @@ describe("submission", () => {
     expect(allowed(KSS_KEYS, sub.kss)).toBe(true);
     expect(allowed(CORRECTION_KEYS, sub.koreksi_label)).toBe(true);
     expect(allowed(BREAK_KEYS, sub.jeda)).toBe(true);
+    expect(allowed(DECISION_KEYS_SENT, sub.keputusan)).toBe(true);
+    expect(allowed(DECISION_TASK_KEYS, sub.keputusan.flatMap((k) => k.tugas))).toBe(true);
     expect(JSON.stringify(sub)).not.toContain("must never be sent");
     expect(sub.evaluasi[0]).not.toHaveProperty("id");
     expect(sub.evaluasi[0]).not.toHaveProperty("hari");
@@ -239,6 +273,64 @@ describe("submission", () => {
     const withCauses = { ...records, evaluasi: ["fps", "mata", "wajah", "cahaya", "baru"].map(held) };
     const out = toSubmission(done, feedback, withCauses as never, { perangkat: sub.perangkat, baseline, now: START + 62 * MIN });
     expect(out.evaluasi.map((e) => e.sebab_ditahan)).toEqual(["fps", "mata", "wajah", "cahaya", null]);
+  });
+
+  it("carries the plans shown inside the test window, each as stored but its database id and day key (NOTES D-105)", () => {
+    const { id: _id, hari: _hari, ...stored } = records.keputusan[1];
+    expect(sub.keputusan).toEqual([stored]);
+    expect(sub.keputusan[0]).toMatchObject({ fase: "rendah ringan", jam_rawan: true, cocok: true, t_cocok: START + 21 * MIN });
+    expect(sub.keputusan[0].tugas.map((x) => x.id)).toEqual(["t1", "t2", "t3"]);
+    expect(sub.keputusan[0].tugas_id).toMatch(/^t[123]$/);
+    // The task fields are the ones /api/rencana already receives (D-90); a new one needs its own decision (D-01).
+    expect([...DECISION_TASK_KEYS]).toEqual([...TUGAS_FIELDS]);
+  });
+
+  it("never sends a title, a list name or a Google task id, even when a stored plan somehow holds them (negative control)", () => {
+    const clean = decision(START + 5 * MIN);
+    const leaky = {
+      ...clean,
+      judul: TASKS[0].title,
+      daftar: TASKS[0].listTitle,
+      google_id: TASKS[0].id,
+      tugas: clean.tugas.map((x, i) => ({ ...x, judul: TASKS[i].title, listTitle: TASKS[i].listTitle, listId: TASKS[i].listId, google: TASKS[i].id })),
+      tugas_id: TASKS[1].id, // a Google id where "t2" belongs
+      kode: [...clean.kode, TASKS[2].title],
+    } as unknown as DecisionRecord;
+    const out = toSubmission(done, feedback, { ...records, keputusan: [leaky] } as never, { perangkat: sub.perangkat, baseline, now: START + 62 * MIN });
+    const sent = JSON.stringify(out);
+    for (const s of TASKS.flatMap((x) => [x.title, x.listTitle, x.id, x.listId])) {
+      expect(JSON.stringify(leaky)).toContain(s); // positive control: spreading the stored plan would send it
+      expect(sent).not.toContain(s);
+    }
+    expect(out.keputusan[0].tugas).toEqual(clean.tugas);
+    expect(out.keputusan[0].tugas_id).toBeNull();
+    expect(out.keputusan[0].kode).toEqual(clean.kode);
+  });
+
+  it("sends no plans for a tester whose consent card did not name them (agreed on the uji-2 card)", () => {
+    const store = memoryStore();
+    const { setuju_keputusan: _, ...older } = done; // as the uji-2 app saved it
+    store.setItem("equilibre-uji-EQ-7K2M", JSON.stringify(older));
+    const reloaded = loadTestState(store, "EQ-7K2M");
+    expect(reloaded).toMatchObject({ setuju_keputusan: false, id_kiriman: ID, selesai: done.selesai });
+    const out = toSubmission(reloaded, feedback, records as never, { perangkat: sub.perangkat, baseline, now: START + 62 * MIN });
+    expect(out.keputusan).toEqual([]);
+    expect(out.evaluasi).toEqual(sub.evaluasi);
+    // Positive control: the same records after this card's consent.
+    expect(done.setuju_keputusan).toBe(true);
+    expect(sub.keputusan).toHaveLength(1);
+  });
+
+  it("sends at most DECISIONS_MAX plans, the first ones of the window", () => {
+    const many = Array.from({ length: 100 }, (_, i) => decision(START + 59 * MIN - i * 30_000)); // stored newest first
+    const out = toSubmission(done, feedback, { ...records, keputusan: many } as never, { perangkat: sub.perangkat, baseline, now: START + 62 * MIN });
+    expect(DECISIONS_MAX).toBe(60);
+    expect(out.keputusan.map((k) => k.t)).toEqual(
+      many
+        .map((r) => r.t)
+        .sort((a, b) => a - b)
+        .slice(0, DECISIONS_MAX),
+    );
   });
 
   it("refuses to build a submission before the test ended, or without an id", () => {
@@ -299,6 +391,7 @@ describe("sending with retries", () => {
     kss: [],
     koreksi_label: [],
     jeda: [],
+    keputusan: [],
   }, { perangkat: { browser: "x", os: "x", kamera: null, fps_rata: null }, baseline: null, now: START });
   const json = (body: unknown, status = 200) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
   const scripted = (...answers: Response[]) => {

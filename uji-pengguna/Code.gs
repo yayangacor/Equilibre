@@ -1,7 +1,8 @@
 // Equilibre — receiver for the remote user test (plans/P08, NOTES D-57).
 // Bound to the developer's own Google Sheet (Extensions → Apps Script), deployed as a web app.
-// The app (?kode=EQ-XXXX) posts one JSON submission per tester: labels, numbers, KSS, feedback.
-// No video, images or face landmarks ever arrive here. A submission is stored only when its code
+// The app (?kode=EQ-XXXX) posts one JSON submission per tester: labels, numbers, KSS, feedback and, from app
+// uji-3, the plans of "Plan my next hour" with tasks as t1..tn (NOTES D-105). No video, images, face landmarks
+// or task titles ever arrive here. A submission is stored only when its code
 // is listed in the "kode" sheet with "aktif" ticked. Setup: README.md next to this file.
 
 const APP_URL = "https://equilibre-orcin.vercel.app/";
@@ -19,6 +20,8 @@ const HEADERS = {
     "n_evaluasi", "n_kss", "n_koreksi", "n_jeda",
     // Added 28 Oct (app uji-2). New columns go last: rows are written by position, and the rows already stored keep theirs.
     "manfaat",
+    // Added 9 Nov (app uji-3, NOTES D-105): plans in the submission; empty for an earlier app.
+    "n_keputusan",
   ],
   evaluasi: [
     "id_kiriman", "kode", "sesi", "t", "waktu", "label", "label_mentah", "dinilai", "sebab_ditahan", "skor", "poin",
@@ -28,8 +31,17 @@ const HEADERS = {
   kss: ["id_kiriman", "kode", "sesi", "t", "waktu", "kss", "label_tampil", "pengingat"],
   koreksi_label: ["id_kiriman", "kode", "sesi", "t", "waktu", "label_tampil", "label_koreksi", "skor", "alasan"],
   jeda: ["id_kiriman", "kode", "sesi", "mulai", "selesai", "menit", "pemicu"],
+  // One row per plan of "Plan my next hour" (app uji-3). "kode" is the test code, as in every data sheet (hapusKode
+  // finds it by that title); the plan's reason codes are kode_alasan. t, t_cocok, t_selesai and t_cek_30 in ms.
+  keputusan: [
+    "id_kiriman", "kode", "sesi", "t", "waktu", "fase", "jam_rawan", "menit_sejak_jeda", "n_tugas", "tugas_id",
+    "kode_alasan", "asal", "model", "cocok", "t_cocok", "t_selesai", "label_30", "dinilai_30", "t_cek_30",
+    "tidak_terbuka_60",
+  ],
+  // One row per task t1..tn of a plan, joined to keputusan by id_kiriman + t. terpilih: the plan chose this task.
+  keputusan_tugas: ["id_kiriman", "kode", "sesi", "t", "tugas", "sifat", "beban", "hari_ke_tenggat", "posisi", "terpilih"],
 };
-const DATA_SHEETS = ["kiriman", "evaluasi", "kss", "koreksi_label", "jeda"];
+const DATA_SHEETS = ["kiriman", "evaluasi", "kss", "koreksi_label", "jeda", "keputusan", "keputusan_tugas"];
 
 // ── Web app ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +85,8 @@ function doPost(e) {
     const f = sub.feedback || {};
     const p = sub.perangkat || {};
     const b = sub.baseline || {};
+    // Optional: an app before uji-3 sends no plans, and its submission is stored as before.
+    const plans = (Array.isArray(sub.keputusan) ? sub.keputusan : []).filter((r) => r && typeof r === "object");
     append_(ss, "kiriman", [[
       id, new Date(), kode, duplikat, sub.app, time_(sub.mulai), time_(sub.selesai), sub.durasi_menit, sub.selesai_awal,
       i.kacamata, i.kamera, i.cahaya, i.dahi_tertutup, i.jam_tidur,
@@ -81,6 +95,7 @@ function doPost(e) {
       b.kedip_per_menit, b.durasi_kedip_ms, b.ear_terbuka, b.ear_terpejam,
       sub.evaluasi.length, sub.kss.length, sub.koreksi_label.length, sub.jeda.length,
       f.manfaat,
+      Array.isArray(sub.keputusan) ? plans.length : "",
     ]]);
     append_(ss, "evaluasi", sub.evaluasi.map((r) => [
       id, kode, r.sesi, r.t, time_(r.t), r.label, r.label_mentah, r.dinilai, r.sebab_ditahan, r.skor, r.poin,
@@ -94,6 +109,16 @@ function doPost(e) {
       Array.isArray(r.alasan) ? r.alasan.join(" | ") : "",
     ]));
     append_(ss, "jeda", sub.jeda.map((r) => [id, kode, r.sesi, time_(r.mulai), time_(r.selesai), r.menit, r.pemicu]));
+    // Plans last: whatever goes wrong here, the rows above are already stored.
+    append_(ss, "keputusan", plans.map((r) => [
+      id, kode, r.sesi, r.t, time_(r.t), r.fase, r.jam_rawan, r.menit_sejak_jeda,
+      Array.isArray(r.tugas) ? r.tugas.length : "", r.tugas_id, Array.isArray(r.kode) ? r.kode.join(" ") : "",
+      r.asal, r.model, r.cocok, r.t_cocok, r.t_selesai, r.label_30, r.dinilai_30, r.t_cek_30, r.tidak_terbuka_60,
+    ]));
+    append_(ss, "keputusan_tugas", plans.flatMap((r) =>
+      (Array.isArray(r.tugas) ? r.tugas : []).filter((x) => x && typeof x === "object").map((x) => [
+        id, kode, r.sesi, r.t, x.id, x.sifat, x.beban, x.hari_ke_tenggat, x.posisi, r.tugas_id != null && x.id === r.tugas_id,
+      ])));
     return json_({ ok: true, id: id, duplikat: duplikat });
   } catch (err) {
     return json_({ ok: false, error: "Penerima gagal menyimpan: " + err.message });
