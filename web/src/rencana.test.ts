@@ -187,8 +187,13 @@ describe("requestPlan", () => {
       const plan = await requestPlan(request(), backend(() => jsonReply({ error, offline: true }, status)).fetcher);
       expect(plan).toMatchObject({ asal: "offline", sebab: error, tugas_id: "t2" });
     }
-    const html = await requestPlan(request(), backend(() => new Response("<html>502</html>", { status: 502 })).fetcher);
-    expect(html).toMatchObject({ asal: "offline", sebab: "The backend answered HTTP 502." });
+    // A gateway answer without the server's JSON: the backend is down (O3, user 9 Nov); other statuses stay as they are.
+    for (const status of [502, 503, 504]) {
+      const html = await requestPlan(request(), backend(() => new Response(`<html>${status}</html>`, { status })).fetcher);
+      expect(html).toMatchObject({ asal: "offline", sebab: `The backend is not running or can't be reached (HTTP ${status}).` });
+    }
+    const crash = await requestPlan(request(), backend(() => new Response("<html>500</html>", { status: 500 })).fetcher);
+    expect(crash).toMatchObject({ asal: "offline", sebab: "The backend answered HTTP 500." });
   });
 
   it("does not show a server plan that chose another task or other steps than the rules (the LLM never chooses)", async () => {

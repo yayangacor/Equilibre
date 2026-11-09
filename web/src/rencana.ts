@@ -195,6 +195,14 @@ function fromServer(body: unknown, req: RencanaRequest, local: MatchResult): Pla
   };
 }
 
+// A gateway status without the server's own JSON error: the Vite dev proxy (or the tunnel) answered for a backend
+// that is not running (user, 9 Nov: "The backend answered HTTP 502." with the server off).
+const GATEWAY = [502, 503, 504];
+const statusReason = (status: number) =>
+  GATEWAY.includes(status)
+    ? `The backend is not running or can't be reached (HTTP ${status}).`
+    : `The backend answered HTTP ${status}.`;
+
 // One POST /api/rencana (an LLM call on the server, so only when the user asks for a plan). Never throws: every
 // failure gives the offline plan with the reason.
 export async function requestPlan(req: RencanaRequest, fetcher: typeof fetch = fetch): Promise<Plan> {
@@ -212,7 +220,7 @@ export async function requestPlan(req: RencanaRequest, fetcher: typeof fetch = f
   }
   const body: unknown = await res.json().catch(() => null);
   if (!res.ok) {
-    const error = isObject(body) && isText(body.error) ? body.error : `The backend answered HTTP ${res.status}.`;
+    const error = isObject(body) && isText(body.error) ? body.error : statusReason(res.status);
     return offlinePlan(req, error, local);
   }
   return fromServer(body, req, local);
