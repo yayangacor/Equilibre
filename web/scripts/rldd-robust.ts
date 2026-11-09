@@ -11,11 +11,15 @@
 // --cek: the 10 fps "rata" run must give the label of every window that rldd-dataset.ts wrote (instrument check, B4).
 // --banding: pass criteria K1–K3 of this run (new code) against an earlier run (old code).
 // --label: which engine sets the label, as in replay.ts (NOTES D-72); default rules, the app's default.
+// --fitur-jendela=<file.csv>: also write one row per window (every condition) with the window features the
+// Monitor computed, the person's baseline values and the harness's own verdicts, for scripts/rldd-model.ts
+// (plan P20 W1.8). Opt-in: without it the JSON and the console output are what they were.
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { calibrateBlinks } from "../src/blinkScore.ts";
 import { computeBaseline, looksClosed, median, type Baseline } from "../src/calibration.ts";
+import type { WindowFeatures } from "../src/features.ts";
 import { Monitor } from "../src/monitor.ts";
 import { LABELS, lowFpsNote, TANDA, type Label, type Tanda } from "../src/rules.ts";
 import { parseCsv, type Row } from "./session-csv.ts";
@@ -117,6 +121,9 @@ type WindowRow = {
   judged: boolean;
   level: string | null; // quality level the UI shows (quality.ts), null for code without it
   fps: number;
+  features: WindowFeatures; // for --fitur-jendela only
+  skor: number | null; // this evaluation's rules score and points (null = no label), for --fitur-jendela only
+  poin: number | null;
 };
 type VideoRun = { windows: WindowRow[]; long: number[]; blinks: number[]; yawns: number[]; kept: number; recorded: number };
 
@@ -161,6 +168,9 @@ function runVideo(baseline: Baseline, rows: readonly Row[], kept: readonly Row[]
       judged: level === null ? e.latest !== null : !stale,
       level,
       fps: e.features.durasi_jendela_detik > 0 ? e.features.n_frame / e.features.durasi_jendela_detik : 0,
+      features: e.features,
+      skor: e.latest?.skor ?? null,
+      poin: e.latest?.poin ?? null,
     });
   }
   return run;
@@ -292,6 +302,7 @@ const runs = new Map<string, Record<Kelas, Map<string, VideoRun>>>(
 );
 const notes: string[] = [];
 const started = Date.now();
+const baselines = new Map<string, Baseline>(); // person → baseline, for --fitur-jendela
 
 for (const dir of dirs) {
   const source = basename(dir);
@@ -317,6 +328,7 @@ for (const dir of dirs) {
       continue;
     }
     const baseline = engine === "gabungan" ? { ...calibrated, kedip: blinkNorm } : calibrated;
+    baselines.set(person, baseline);
     for (const c of conditions) {
       for (const k of CLASSES) {
         const rand = mulberry32(seedOf(`${person}|${k}|${c.fps}|${c.jam}`));
@@ -433,6 +445,50 @@ const output = {
 };
 writeFileSync(outPath, JSON.stringify(output, null, 1) + "\n");
 
+// ── --fitur-jendela: one row per window, every condition ──────────────────────────
+const windowsPath = flagValue("fitur-jendela");
+if (windowsPath) {
+  const FEATURE_COLUMNS = [
+    "perclos",
+    "kedip_per_menit",
+    "durasi_kedip_ms",
+    "mata_tertutup_lama",
+    "menguap",
+    "pct_kepala_menunduk",
+    "pct_wajah_hilang",
+    "pct_mata_terbuka",
+    "pct_mata_tertutup",
+    "n_frame",
+    "durasi_jendela_detik",
+  ] as const satisfies readonly (keyof WindowFeatures)[];
+  const out = (x: number | string | boolean | null) => (x === null ? "" : typeof x === "boolean" ? (x ? "1" : "0") : String(x));
+  const lines = [
+    [
+      "partisipan", "kelas", "fps", "jam", "t_ms", "kalibrasi", "dinilai", "tingkat", "alarm", "label_mentah", "label_tampil",
+      "skor_mentah", "poin_mentah", "fps_jendela", ...FEATURE_COLUMNS, "base_kedip_per_menit", "base_durasi_kedip_ms",
+    ].join(","),
+  ];
+  for (const c of conditions) {
+    const r = runs.get(key(c))!;
+    for (const k of CLASSES) {
+      for (const [person, run] of r[k]) {
+        const b = baselines.get(person)!;
+        for (const w of run.windows) {
+          lines.push(
+            [
+              person, k, c.fps, c.jam, w.t, w.calibration, w.judged, w.level, w.alarm, w.raw, w.shown, w.skor, w.poin, w.fps,
+              ...FEATURE_COLUMNS.map((f) => w.features[f]), b.blinkPerMin, b.blinkDurationMs,
+            ]
+              .map(out)
+              .join(","),
+          );
+        }
+      }
+    }
+  }
+  writeFileSync(windowsPath, lines.join("\n") + "\n");
+}
+
 const pct = (x: number | null) => (x === null ? "  -  " : `${(x * 100).toFixed(1).padStart(5)}%`);
 const people = results[0] ? Object.keys(results[0].kelas["0"].per_orang).length : 0;
 console.log(`${name}: ${people} orang, label ${engine}, ${((Date.now() - started) / 1000).toFixed(1)} dtk${notes.length ? `\n${notes.join("\n")}` : ""}`);
@@ -478,4 +534,5 @@ if (criteria) {
   for (const line of criteria.info) console.log(`  info ${line}`);
 }
 console.log(`\n→ ${outPath}`);
+if (windowsPath) console.log(`→ ${windowsPath} (fitur per jendela)`);
 if (check && (check.identik !== check.jendela || check.berlebih > 0)) process.exit(2);
