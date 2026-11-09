@@ -3,7 +3,8 @@
 Penguji membuka demo online di laptopnya sendiri dengan link pribadi (`?kode=EQ-XXXX`), menyetujui uji, kalibrasi, bekerja seperti
 biasa 60 menit (boleh berhenti setelah menit 30) sambil mengisi KSS tiap 15 menit, lalu mengisi feedback dan menekan Kirim. Satu
 kiriman berisi label dan angka ringkasan tiap 10 detik, isian KSS, koreksi label, jeda, angka kalibrasi, jenis browser/OS, isian
-awal, dan feedback. Video, gambar, titik wajah, nama, dan email tidak pernah dikirim. Kode di app: `web/src/userTest.ts`
+awal, feedback, serta (sejak `uji-3`) rencana Plan my next hour selama uji dengan tugas `t1..tn`. Video, gambar, titik wajah, nama,
+email, dan judul tugas tidak pernah dikirim. Kode di app: `web/src/userTest.ts`
 (isi kiriman, whitelist field) dan `web/src/userTestPanel.ts` (kartu "Uji coba").
 
 `Code.gs` di folder ini menerima kiriman di Google Sheet milik pengembang. Kiriman hanya disimpan kalau kodenya ada di sheet `kode`
@@ -34,7 +35,7 @@ repo ini.
 
 Penerima lama tetap menerima kiriman app yang lebih baru, tetapi field yang belum dikenalnya dibuang tanpa error. Contohnya `manfaat`
 (app `uji-2`, 28 Okt): perbarui penerima **sebelum** membagikan link. Kolom baru selalu ditambahkan di akhir; judulnya ditulis
-otomatis pada kiriman berikutnya.
+otomatis pada kiriman berikutnya. Contoh lain: `keputusan` (app `uji-3`, 9 Nov).
 
 ## Selama uji
 
@@ -51,11 +52,13 @@ otomatis pada kiriman berikutnya.
 
 | Sheet | Satu baris = | Kolom penting |
 |---|---|---|
-| `kiriman` | satu kiriman | `kode`, `duplikat`, `app`, `durasi_menit`, isian awal, feedback (`manfaat` di kolom terakhir, sejak `uji-2`), perangkat, baseline, jumlah baris |
+| `kiriman` | satu kiriman | `kode`, `duplikat`, `app`, `durasi_menit`, isian awal, feedback (`manfaat` sejak `uji-2`), perangkat, baseline, jumlah baris; `n_keputusan` di kolom terakhir sejak `uji-3` (kosong = app lama) |
 | `evaluasi` | satu evaluasi (tiap 10 detik) | `label`, `label_mentah`, `dinilai`, angka payload, `tanda`, `hemat_daya` |
 | `kss` | satu isian KSS | `kss` (1–9, mencakup 5 menit sebelumnya), `label_tampil`, `pengingat` |
 | `koreksi_label` | satu koreksi | `label_tampil`, `label_koreksi`, `alasan` |
 | `jeda` | satu jeda | `mulai`, `selesai`, `menit`, `pemicu` |
+| `keputusan` | satu rencana | `fase`, `jam_rawan`, `menit_sejak_jeda`, `n_tugas`, `tugas_id`, `kode_alasan`, `asal`, `cocok`, `label_30`, `t_selesai`, `tidak_terbuka_60`; waktu dalam ms |
+| `keputusan_tugas` | satu tugas `t1..tn` dari satu rencana | `tugas`, `sifat`, `beban`, `hari_ke_tenggat`, `posisi`, `terpilih`; digabung lewat `id_kiriman` + `t` |
 
 Semua tabel data punya `id_kiriman` dan `kode`. Teks bebas dari penguji yang diawali `=`, `+`, `-`, atau `@` disimpan sebagai teks,
 bukan rumus.
