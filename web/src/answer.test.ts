@@ -63,6 +63,16 @@ describe("toAnswerView", () => {
     }
   });
 
+  // The prompt says not to make up signs when tanda is empty; the Gemini fallback then left alasan "" (session 20).
+  it("leaves out an empty or blank reason, and keeps a written one (negative control)", () => {
+    for (const alasan of ["", "  "]) {
+      const view = toAnswerView(reply({ status: "perlu jeda aktif", rekomendasi: "x", alasan }));
+      expect(view.kind === "fields" && view.rows.map(([name]) => name)).toEqual(["Status", "Recommendation"]);
+    }
+    const kept = toAnswerView(reply({ rekomendasi: "x", alasan: "Your eyes are closed more often." }));
+    expect(kept.kind === "fields" && kept.rows).toEqual([["Recommendation", "x"], ["Why", "Your eyes are closed more often."]]);
+  });
+
   it("still shows fields the prompt did not ask for, and an empty source list", () => {
     const view = toAnswerView(reply({ rekomendasi: "x", catatan: "tambahan", sumber: [] }));
     expect(view).toMatchObject({ kind: "fields", rows: [["Recommendation", "x"], ["catatan", "tambahan"]], sumber: [] });

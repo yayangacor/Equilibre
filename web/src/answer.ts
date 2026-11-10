@@ -52,7 +52,10 @@ export function toAnswerView(reply: AnalyzeResponse): AnswerView {
   const rows: [string, string][] = [];
   if (result.status !== undefined) rows.push(["Status", asText(result.status)]);
   if (result.rekomendasi !== undefined) rows.push(["Recommendation", asText(result.rekomendasi)]);
-  if (result.alasan !== undefined) rows.push(["Why", asText(result.alasan)]);
+  // An empty reason is what the prompt asks for when there is no sign (rule 3), not a reason to show.
+  if (result.alasan !== undefined && !(typeof result.alasan === "string" && result.alasan.trim() === "")) {
+    rows.push(["Why", asText(result.alasan)]);
+  }
   // 0 ("baik") and null (long rest: stop, no fixed length) have no break length to show.
   if (typeof result.durasi_jeda_menit === "number" && result.durasi_jeda_menit > 0) {
     rows.push(["Break length", `${result.durasi_jeda_menit} min`]);
