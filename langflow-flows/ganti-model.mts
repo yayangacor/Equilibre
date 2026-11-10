@@ -20,12 +20,18 @@ if (!(target in PROFILES)) {
 }
 const profile = PROFILES[target as ProfileName];
 
-type Field = { value?: unknown; options?: unknown[] };
+type Field = { value?: unknown; options?: unknown[]; show?: boolean; advanced?: boolean };
 type Node = { id: string; data: { node: { template: Record<string, Field> } } };
 type Flow = { data: { nodes: Node[] } };
 type Selection = { name?: string; provider?: string };
 
 const template = (flow: Flow, id: string) => flow.data.nodes.find((n) => n.id === id)?.data.node.template;
+
+// Fields Langflow only passes to the component while they are shown: the UI shows them when the provider is
+// IBM WatsonX. A flow last saved under Gemini keeps them hidden, and the node then calls Dallas whatever the
+// URL value says (ringkasan_harian, 10 Nov: 401 "user profile ... 404", NOTES G-41). The UI marks them advanced.
+const WATSONX_FIELDS = ["base_url_ibm_watsonx", "project_id"] as const;
+const hiddenWatsonx = (llm: Record<string, Field> | undefined) => WATSONX_FIELDS.filter((k) => llm?.[k]?.show !== true);
 
 function setup(flow: Flow) {
   const llm = template(flow, LLM_NODE_ID);
@@ -34,6 +40,7 @@ function setup(flow: Flow) {
     model: model ? `${model.name} (${model.provider})` : null,
     maxTokens: llm?.max_tokens?.value ?? null,
     watsonxUrl: llm?.base_url_ibm_watsonx?.value ?? null,
+    hidden: hiddenWatsonx(llm),
     knowledgeBase: template(flow, KNOWLEDGE_NODE_ID)?.knowledge_base?.value ?? null,
   };
 }
@@ -43,7 +50,7 @@ function matches(flow: Flow, name: string) {
   return (
     s.model === `${profile.model.name} (${profile.model.provider})` &&
     s.maxTokens === profile.maxTokens &&
-    (profile.watsonxUrl === undefined || s.watsonxUrl === profile.watsonxUrl) &&
+    (profile.watsonxUrl === undefined || (s.watsonxUrl === profile.watsonxUrl && s.hidden.length === 0)) &&
     (template(flow, KNOWLEDGE_NODE_ID) === undefined || s.knowledgeBase === knowledgeBaseFor(profile, name))
   );
 }
@@ -61,6 +68,12 @@ function apply(flow: Flow, name: string) {
   if (profile.watsonxUrl !== undefined) {
     if (!llm.base_url_ibm_watsonx) throw new Error(`node ${LLM_NODE_ID} tidak punya base_url_ibm_watsonx`);
     llm.base_url_ibm_watsonx.value = profile.watsonxUrl;
+    for (const k of WATSONX_FIELDS) {
+      const field = llm[k];
+      if (!field) throw new Error(`node ${LLM_NODE_ID} tidak punya ${k}`);
+      field.show = true;
+      field.advanced = true;
+    }
   }
   const kb = template(flow, KNOWLEDGE_NODE_ID)?.knowledge_base;
   if (kb) {
@@ -84,7 +97,10 @@ for (const name of FLOWS) {
   }
   const flow = (await res.json()) as Flow;
   const before = setup(flow);
-  console.log(`${name}: ${before.model}, max_tokens ${before.maxTokens}, URL watsonx ${before.watsonxUrl ?? "-"}, knowledge base ${before.knowledgeBase ?? "-"}`);
+  const hidden = (s: ReturnType<typeof setup>) => (s.hidden.length > 0 ? ` (tersembunyi: ${s.hidden.join(", ")})` : "");
+  console.log(
+    `${name}: ${before.model}, max_tokens ${before.maxTokens}, URL watsonx ${before.watsonxUrl ?? "-"}${hidden(before)}, knowledge base ${before.knowledgeBase ?? "-"}`,
+  );
   if (matches(flow, name)) {
     console.log(`${name}: sudah setelan ${target}`);
     continue;
@@ -99,7 +115,7 @@ for (const name of FLOWS) {
   const after = (await (await fetch(`${base}/api/v1/flows/${id}`, { headers: auth })).json()) as Flow;
   const ok = patch.ok && matches(after, name);
   const s = setup(after);
-  console.log(`${name}: PATCH ${patch.status}, dibaca balik ${ok ? "sesuai" : "BERBEDA"}: ${s.model}, max_tokens ${s.maxTokens}, URL watsonx ${s.watsonxUrl ?? "-"}, knowledge base ${s.knowledgeBase ?? "-"}`);
+  console.log(`${name}: PATCH ${patch.status}, dibaca balik ${ok ? "sesuai" : "BERBEDA"}: ${s.model}, max_tokens ${s.maxTokens}, URL watsonx ${s.watsonxUrl ?? "-"}${hidden(s)}, knowledge base ${s.knowledgeBase ?? "-"}`);
   if (!ok) failed++;
 }
 if (!checkOnly && failed === 0) console.log("Berikutnya: export.mjs <flowId> untuk tiap flow, lalu cek-flow.mjs.");
