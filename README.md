@@ -43,7 +43,7 @@ ada, belum dicoba pada kamera, akun, atau layanan sungguhan · **Rencana** = bel
 | Penjadwal jalan singkat | Dibangun, cek live belum | unit test + cek browser tanpa kamera; pemicu berbasis waktu dengan kamera menyala belum |
 | Log keputusan rencana (di perangkat) | Dibangun, cek live belum | upgrade database v1 → v2 dibuktikan di Chrome; "tugas selesai" dengan akun Google nyata belum |
 | Judul tugas ikut dikirim (opt-in, disamarkan, hanya watsonx) | Rencana | – |
-| Model jendela kamera (regresi logistik 6 fitur vs GBDT dangkal, `web/scripts/rldd-model.ts`) | Diuji offline, tidak dipakai | UTA-RLDD, dikembangkan pada 6 orang (LOSO luar + dalam), konfigurasi dibekukan lalu diuji sekali pada 6 orang lain: **gagal** (5 fps: sensitivitas 0,0% vs rules 17,3%); selisih AUROC GBDT − LR di data pengembangan 0,068, CI 95% [−0,055; 0,232] memuat 0. Label tetap dari rules + gerbang kualitas |
+| Model jendela kamera (regresi logistik 6 fitur vs GBDT dangkal, `web/scripts/rldd-model.ts`) | Diuji offline, tidak dipasang (keputusan 9 Nov, D-108) | UTA-RLDD, dikembangkan pada 6 orang (LOSO luar + dalam), konfigurasi dibekukan lalu diuji sekali pada 6 orang lain: **gagal** (5 fps: sensitivitas 0,0% vs rules 17,3%); selisih AUROC GBDT − LR di data pengembangan 0,068, CI 95% [−0,055; 0,232] memuat 0. Label tetap dari rules + gerbang kualitas |
 | Ranker XGBoost untuk Task Matcher | Rencana | butuh log keputusan dari pilot, bukan data sintetis |
 | Backend + Langflow di server sendiri (AI online tanpa laptop) | Rencana | penerusan Ask ke laptop sudah ditulis, tidak aktif |
 | Ringkasan kelompok (≥ 10 orang) untuk perusahaan | Rencana | – |
