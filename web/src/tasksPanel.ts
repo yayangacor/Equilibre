@@ -30,6 +30,12 @@ const RENEW_BEFORE_MS = 60_000; // ask Google again when the token has less than
 export const SYNC_MS = 60_000;
 const SYNC_ON_RETURN_MS = 20_000; // the tab came back: read again if the last read is older than this
 const MEMBERS_SHOWN = 4;
+// The line above the list: kinds are kept per task on this laptop (taskTagger.ts), so only new tasks ask (user 11 Nov).
+export const KIND_NOTE = {
+  idle: "Set a kind so plans fit your energy.",
+  done: "Every task has a kind. Only new tasks will ask.",
+  missing: (n: number) => `${n} ${n === 1 ? "task needs" : "tasks need"} a kind. The ones you set are kept.`,
+};
 export const TOKEN_KEY = "equilibre.google-tasks.token";
 export const LINKED_KEY = "equilibre.google-tasks.linked";
 
@@ -97,6 +103,7 @@ export class TasksPanel {
   private readonly status = byId("tasks-status");
   private readonly list = byId<HTMLUListElement>("tasks-list");
   private readonly count = byId("tasks-count");
+  private readonly kindNote = byId("tasks-kind-note") as HTMLElement | null;
 
   // newGrant: the tasks came with a token from the Google window (Connect, Resume, or Refresh renewing an expiring
   // token). That window can switch to another signed-in Google account, and the token does not say which (review, 8 Nov).
@@ -348,12 +355,17 @@ export class TasksPanel {
     this.disconnectButton.hidden = !connected && !this.linked;
     this.count.textContent = connected ? `${this.tasks.length} open` : "";
     const kinds = this.kinds;
+    let note = KIND_NOTE.idle;
     if (!kinds) {
       this.list.replaceChildren(...this.tasks.map((task) => this.row(task)));
     } else {
       const store = kinds.store();
-      this.list.replaceChildren(...groupTasks(this.tasks, kinds.today(), store.load()).map((group) => this.groupRow(group, store, kinds)));
+      const groups = groupTasks(this.tasks, kinds.today(), store.load());
+      this.list.replaceChildren(...groups.map((group) => this.groupRow(group, store, kinds)));
+      const missing = groups.reduce((n, g) => n + (g.kind === null && !g.mixed ? g.tasks.length : 0), 0);
+      if (this.tasks.length > 0) note = missing > 0 ? KIND_NOTE.missing(missing) : KIND_NOTE.done;
     }
+    if (this.kindNote) this.kindNote.textContent = note;
     this.list.hidden = this.tasks.length === 0;
   }
 

@@ -266,7 +266,7 @@
                 <button id="tasks-disconnect" type="button" class="btn text" hidden>Disconnect</button>
               </div>
             </div>
-            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h471q14.25 0 27 6.37 12.75 6.38 21 17.63l222 296-221 296q-8.25 11.25-21 17.62-12.75 6.38-27 6.38H140Zm0-60h471l195-260-195-260H140v520Zm236-260Z" /></svg>Set a kind so plans fit your energy.</p>
+            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h471q14.25 0 27 6.37 12.75 6.38 21 17.63l222 296-221 296q-8.25 11.25-21 17.62-12.75 6.38-27 6.38H140Zm0-60h471l195-260-195-260H140v520Zm236-260Z" /></svg><span id="tasks-kind-note">Set a kind so plans fit your energy.</span></p>
             <ul id="tasks-list" class="tasks-list" hidden></ul>
             <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Titles stay on this laptop.</p>
           </section>
@@ -395,6 +395,15 @@
                   <span class="setting-title">Sleepiness check reminder</span>
                 </label>
                 <p id="kss-reminder-note" class="helper" aria-live="polite"></p>
+              </div>
+              <div class="setting">
+                <label class="switch">
+                  <input id="plan-alert" type="checkbox" role="switch" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span class="setting-title">Alert me when a plan is made for me</span>
+                </label>
+                <p id="plan-alert-note" class="helper" aria-live="polite"></p>
+                <button id="plan-alert-try" type="button" class="btn outline">Try it</button>
               </div>
               <div class="setting">
                 <label class="switch">

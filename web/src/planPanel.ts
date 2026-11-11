@@ -70,6 +70,9 @@ export type PlanDeps = {
   // Inside the Plan click, before anything is awaited: renews an expired Google access (tasksPanel.ts renewInClick),
   // which may open Google's window only from a click. The plan waits for it, so it uses the tasks read then.
   beforePlan?: () => Promise<void> | null;
+  // A plan made by itself is on the card (planAlert.ts: the sound and the desktop notification, user 11 Nov). Not
+  // called for a plan the user pressed for.
+  onAuto?: (view: PlanView) => void;
   session: number; // the page load, the history's `sesi`
 };
 
@@ -160,6 +163,7 @@ export class PlanPanel {
     const choice = this.choice(today);
     if (choice.kind === "none") return this.render();
     const generation = this.generation;
+    let made: Shown | null = null;
     const live = this.deps.live();
     const server = !auto && this.deps.server();
     this.busy = server ? "server" : "local";
@@ -191,6 +195,7 @@ export class PlanPanel {
         task: chosenTask(plan.tugas_id, req.peta, choice.tasks),
         tick: null,
       };
+      made = this.shown;
       this.saved = null;
       this.changing = false;
     } catch (err) {
@@ -199,6 +204,16 @@ export class PlanPanel {
     } finally {
       this.busy = null;
       this.render();
+    }
+    // Only the plan this call put on the card: a failed or dropped one leaves an earlier plan there.
+    if (auto && made && this.shown === made) this.alert(made.view);
+  }
+
+  private alert(view: PlanView) {
+    try {
+      this.deps.onAuto?.(view);
+    } catch (err) {
+      console.error("Plan alert failed:", err); // the plan is on the card anyway
     }
   }
 

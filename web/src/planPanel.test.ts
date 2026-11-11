@@ -170,6 +170,41 @@ describe("a plan by itself when the state turns Mildly tired or Tired (user 11 N
     expect(records).toHaveLength(2);
   });
 
+  it("the automatic plan calls onAuto once with what the card shows; a pressed plan or a dip within 30 min does not", async () => {
+    const onAuto = vi.fn<NonNullable<PlanDeps["onAuto"]>>();
+    const { panel: card } = panel({ onAuto });
+    // Control: a plan the user pressed for is no alert.
+    byId("plan-make").click();
+    await settle();
+    expect(onAuto).not.toHaveBeenCalled();
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 40, 0));
+    card.labelChanged("normal");
+    card.labelChanged("lelah ringan");
+    await settle();
+    expect(onAuto).toHaveBeenCalledTimes(1);
+    expect(onAuto.mock.calls[0][0].steps.length).toBeGreaterThan(0);
+    expect(texts(byId("plan-out"))).toContain("Suggested at 10:40 · you look tired");
+    // Negative control: a second dip 10 minutes later makes no plan, so no alert.
+    card.labelChanged("normal");
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 50, 0));
+    card.labelChanged("lelah");
+    await settle();
+    expect(onAuto).toHaveBeenCalledTimes(1);
+  });
+
+  it("an alert that throws leaves the automatic plan on the card", async () => {
+    const { panel: card, records } = panel({
+      onAuto: () => {
+        throw new Error("no audio");
+      },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    card.labelChanged("lelah");
+    await settle();
+    expect(records).toHaveLength(1);
+    expect(texts(byId("plan-out"))).toContain(AUTO_NOTE);
+  });
+
   it("no tasks to plan with: nothing is made", async () => {
     const { panel: card, records } = panel({ tasks: () => ({ connected: false, tasks: [] }) });
     card.labelChanged("lelah");

@@ -62,7 +62,18 @@ import { overlayFit } from "./overlayFit.ts";
 import { toAnalyzePayload, withoutEyeNumbers, type AnalyzePayload } from "./payload.ts";
 import { PipCompanion, type CompanionView } from "./pipCompanion.ts";
 import { DEFAULT_SLUMP, slumpWindow, type SlumpWindow } from "./phase.ts";
-import { historyDayKeys, liveNow, tagStores } from "./planCard.ts";
+import {
+  alertChannels,
+  loadPlanAlert,
+  PLAN_NOTIFICATION_TAG,
+  PLAN_SOUND_URL,
+  PLAN_SOUND_VOLUME,
+  planAlertNote,
+  planAlertText,
+  savePlanAlert,
+  type NotifyPermission,
+} from "./planAlert.ts";
+import { historyDayKeys, liveNow, tagStores, type PlanView } from "./planCard.ts";
 import { PlanPanel } from "./planPanel.ts";
 import {
   detectIntervalMs,
@@ -656,15 +667,23 @@ export const planPanel = new PlanPanel({
   completeTask: (task) => tasksPanel.complete(task),
   // Plan after the hour's token ran out: the click renews it first (no consent screen), then plans with fresh tasks.
   beforePlan: () => tasksPanel.renewInClick(),
+  // The plan made by itself when the user looks tired: a sound, and a desktop notification while they are away (user
+  // 11 Nov). Never in a meeting.
+  onAuto: (view) => alertAutoPlan(view),
   log: decisionLog,
   session: SESSION,
 });
 
-// The kind of each task, set on the Tasks page; the plan card counts the ones still missing.
-tasksPanel.useKinds({ store: () => taskKinds.google, today: () => dayKey(Date.now()), onChange: () => planPanel.render() });
+// The kind of each task, set on the Tasks page; the plan card counts the ones still missing. Started from main() once
+// the account is known: the kinds are kept under the account's key, and a Google read that came back before the
+// account did drew every task as "Set kind" from the laptop's own key (user 11 Nov: "I have to set them again").
 // All day (user 11 Nov): this tab's token survives a reload; a minute's sync while it is valid; the Tasks tab renews it.
-tasksPanel.restore(openSession(), store);
-tasksPanel.startSync();
+function startTasks() {
+  tasksPanel.useKinds({ store: () => taskKinds.google, today: () => dayKey(Date.now()), onChange: () => planPanel.render() });
+  tasksPanel.restore(openSession(), store);
+  tasksPanel.startSync();
+  planPanel.render();
+}
 document.addEventListener("click", (event) => {
   if (event.target instanceof Element && event.target.closest('a[href="#tasks"]')) void tasksPanel.renewInClick();
 });
@@ -1905,6 +1924,81 @@ kssReminderToggle.addEventListener("change", () => {
   renderKssReminder();
 });
 
+// ── Plan alert (user 11 Nov): the plan made by itself, with a sound and a desktop notification ──────────
+
+const planAlertToggle = byId<HTMLInputElement>("plan-alert");
+const planAlertNoteEl = byId("plan-alert-note");
+const planAlertTry = byId<HTMLButtonElement>("plan-alert-try");
+let planAlertOn = store ? loadPlanAlert(store) : true;
+let planSound: HTMLAudioElement | null = null;
+
+const notifyPermission = (): NotifyPermission => (typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+
+// The browser may refuse a sound before the page had a click (autoplay, NotAllowedError): then there is no sound,
+// and the plan is on the card anyway.
+function playPlanSound() {
+  try {
+    planSound ??= new Audio(PLAN_SOUND_URL);
+    planSound.volume = PLAN_SOUND_VOLUME;
+    planSound.currentTime = 0;
+    void planSound.play().catch(() => {});
+  } catch {
+    // no audio here
+  }
+}
+
+function showPlanNotification(text: { title: string; body: string }) {
+  try {
+    const note = new Notification(text.title, { body: text.body, tag: PLAN_NOTIFICATION_TAG, silent: true });
+    note.onclick = () => {
+      window.focus();
+      location.hash = "#plan";
+      note.close();
+    };
+  } catch {
+    // no notifications here: the sound and the card remain
+  }
+}
+
+function alertAutoPlan(view: PlanView) {
+  const away = document.visibilityState === "hidden" || !document.hasFocus();
+  const channels = alertChannels({ on: planAlertOn, meeting: inMeeting, away, permission: notifyPermission() });
+  if (channels.sound) playPlanSound();
+  if (channels.notify) showPlanNotification(planAlertText(view));
+}
+
+function renderPlanAlert() {
+  planAlertToggle.checked = planAlertOn;
+  planAlertNoteEl.textContent = planAlertNote(planAlertOn, notifyPermission());
+  planAlertTry.hidden = !planAlertOn;
+}
+
+// Asking for the notification permission only from a click (MDN: browsers refuse it otherwise).
+async function askNotifyPermission() {
+  if (notifyPermission() !== "default") return;
+  try {
+    await Notification.requestPermission();
+  } catch {
+    // an old browser without the promise form: the sound stays
+  }
+}
+
+planAlertToggle.addEventListener("change", () => {
+  planAlertOn = planAlertToggle.checked;
+  if (store) savePlanAlert(store, planAlertOn);
+  renderPlanAlert();
+  if (planAlertOn) void askNotifyPermission().then(renderPlanAlert);
+});
+
+// "Try it": the sound now, the permission question if not answered yet, and a sample notification once allowed.
+planAlertTry.addEventListener("click", () => {
+  playPlanSound();
+  void askNotifyPermission().then(() => {
+    renderPlanAlert();
+    if (notifyPermission() === "granted") showPlanNotification({ title: "You look tired", body: "Your next hour is planned. (Test)" });
+  });
+});
+
 // ── Developer mode (P17 C11, D-74): Debug in the menu ───────────────────────────
 
 function renderDevMode() {
@@ -2135,6 +2229,7 @@ async function main() {
     baselineStore = account ? accountStore(store, account) : store;
     baseline = loadBaseline(baselineStore);
   }
+  startTasks();
   onPage(router.page);
   byId("debug").hidden = !DEBUG;
   renderFeatures();
@@ -2144,6 +2239,7 @@ async function main() {
   renderPower();
   renderAutoSend();
   renderKssReminder();
+  renderPlanAlert();
   renderDevMode();
   if (DEMO) {
     answer.replaceChildren(demoCallout(DEMO_NOTE.checking));
