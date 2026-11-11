@@ -207,6 +207,7 @@ const router = new Router();
 const cameraBox = video.parentElement!;
 const dock = cameraBox.parentElement!;
 const liveSlot = byId("live-slot");
+const tasksSlot = byId("tasks-cam");
 const debugSlot = byId("debug-slot");
 const live = new LiveView({
   tiles: byId("live-tiles"),
@@ -1767,7 +1768,8 @@ function onPage(page: string) {
   if (scan.running) return; // the calibration screen holds the camera until it closes
   const liveOn = page === "dashboard";
   const debugOn = page === "debug";
-  const home = liveOn ? liveSlot : debugOn ? debugSlot : dock;
+  // The Tasks page keeps it in its header: floating, it covered the kind pickers at the right edge (user 11 Nov).
+  const home = liveOn ? liveSlot : debugOn ? debugSlot : page === "tasks" ? tasksSlot : dock;
   if (cameraBox.parentElement !== home) {
     home.prepend(cameraBox);
     if (video.srcObject) void video.play().catch(() => {});

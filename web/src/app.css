@@ -1138,6 +1138,20 @@ abbr.eyebrow {
   gap: 2px;
 }
 
+.tasks-cam {
+  width: 168px;
+  flex: none;
+}
+
+.tasks-cam:empty {
+  display: none;
+}
+
+.tasks-cam .camera video,
+.tasks-cam .camera canvas {
+  border-radius: var(--r);
+}
+
 /* Extended FAB: Back to Dashboard sticks to the bottom of the content column while the list scrolls, a short move
    from the kind pickers, and clear of the camera dock at the window's corner. */
 .fab {

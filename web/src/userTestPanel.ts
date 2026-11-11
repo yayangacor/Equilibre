@@ -375,15 +375,22 @@ export class UserTestPanel {
       el(
         "p",
         `Want your data deleted? Contact the person who gave you the link and mention code ${this.state.kode}. The test history in this browser ` +
-          "can be deleted on the Privacy page (delete all history).",
+          "can be deleted in Settings (Delete all history).",
         "fine",
       ),
     ];
-    if (this.lastSubmission) {
-      const actions = el("div", "", "row");
-      actions.append(button("Download a copy of the results", "btn outline", () => this.download()));
-      parts.push(actions);
-    }
+    const actions = el("div", "", "row");
+    if (this.lastSubmission) actions.append(button("Download a copy of the results", "btn outline", () => this.download()));
+    // The test is kept per code in this browser, so a code sent once opens on this card (user 11 Nov: EQ-TEST, sent
+    // on 31 Oct). Starting again asks for consent again; the earlier submission stays in the Sheet.
+    actions.append(
+      button("Run another test", "btn text", () => {
+        this.lastSubmission = null;
+        this.setState(freshState(this.state.kode));
+        this.render();
+      }),
+    );
+    parts.push(actions);
     return parts;
   }
 

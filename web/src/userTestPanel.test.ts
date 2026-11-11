@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KeyValueStore } from "./calibration.ts";
-import { loadTestState, phase } from "./userTest.ts";
+import { freshState, loadTestState, phase, saveTestState } from "./userTest.ts";
 import { UserTestPanel, type UserTestDeps } from "./userTestPanel.ts";
 
 // The consent card of the ?kode= user test (userTestPanel.ts) over a minimal fake DOM: it names the "Plan my next
@@ -111,5 +111,20 @@ describe("the consent card and the plans (NOTES D-105)", () => {
     expect(saved.setuju).not.toBeNull();
     expect(saved.setuju_keputusan).toBe(true);
     expect(phase(saved, Date.now())).toBe("kalibrasi");
+  });
+});
+
+describe("a code sent before in this browser (user 11 Nov: EQ-TEST opened as already sent)", () => {
+  it("opens on the sent card, and Run another test starts over at consent with nothing stored as sent", () => {
+    const store = memoryStore();
+    saveTestState(store, { ...freshState("EQ-7K2M"), terkirim: { id: "abcdef123456", t: Date.now(), duplikat: false } });
+    open(store);
+    expect(text(body())).toContain("Thank you! Your test results have been sent.");
+    const again = descendants(body()).find((e) => e.textContent === "Run another test");
+    expect(again).toBeDefined();
+    again!.click();
+    expect(text(body())).not.toContain("Thank you!");
+    expect(text(body())).toContain("What is sent");
+    expect(loadTestState(store, "EQ-7K2M").terkirim).toBeNull();
   });
 });
