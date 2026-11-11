@@ -368,7 +368,10 @@ diputuskan server, bukan LLM.
 ## Plan my next hour (Google Tasks + Task Matcher; dibangun, cek live belum)
 
 Kartu di Dashboard yang menjawab "apa yang sebaiknya kukerjakan sekarang?" dari tingkat energi saat ini dan tugas terbuka. Rencana
-hanya dibuat saat tombol **Plan my next hour** ditekan. Prinsipnya dari riset tidur: tugas monoton saat mengantuk berisiko, tugas
+dari server (Langflow) hanya dibuat saat tombol **Plan my next hour** ditekan. Saat label yang tampil masuk *Mildly tired*/*Tired*,
+kartu membuat rencana lokal sendiri ("Suggested … you look tired", tanpa LLM, maks. sekali per 30 menit), dengan bunyi dan, bila
+pengguna sedang di jendela lain, notifikasi desktop berisi langkah pertamanya (Settings → "Alert me when a plan is made for me", nyala
+bawaan; tanpa bunyi dan notifikasi saat mode rapat; notifikasi = sistem operasi, tidak ada yang dikirim). Prinsipnya dari riset tidur: tugas monoton saat mengantuk berisiko, tugas
 aktif menutupi kantuk untuk sementara, dan jeda gerak singkat menaikkan rasa berenergi (kewaspadaan terukur tidak berubah). Bahwa
 memilih tugas dari sinyal kantuk mengalahkan aturan gratis "tugas berat dulu" baru hipotesis untuk pilot.
 
@@ -388,7 +391,9 @@ memilih tugas dari sinyal kantuk mengalahkan aturan gratis "tugas berat dulu" ba
    ("[Algorithm and Programming] - [Sesi 30]") atau kata pertama sama ditanya satu kali dengan jumlah tugasnya, karena tiap orang
    menamai tugas dengan caranya sendiri (uji user 9 Nov); label tidak pernah keluar dari laptop. Jenis tugas yang dipilih rencana bisa diubah kapan saja lewat
    tombol **Kind: … Change** di langkah tugasnya, lalu rencana disusun ulang. Koreksi satu ketukan disimpan di perangkat per tugas dan
-   per akun, dan menambah kamus pribadi (kata umum seperti "the" atau "untuk" tidak ikut dipelajari). Server tidak ikut menentukan.
+   per akun, dan menambah kamus pribadi (kata umum seperti "the" atau "untuk" tidak ikut dipelajari), jadi jenis yang sudah dipilih
+   tetap ada esok hari, termasuk untuk tugas berulang dan sesi baru grup `[…]` yang sama; hanya tugas baru yang ditanya (dites lintas
+   hari pada rantai halaman Tasks). Penyimpanannya per alamat browser: localhost dan demo online tidak berbagi. Server tidak ikut menentukan.
 3. **Fase energi** (`phase.ts`): Siap fokus / Biasa / Rendah ringan / Rendah berat / Tidak tahu, dari label, gerbang kualitas, isian
    KSS ≤ 15 menit terakhir, dan jam. **Jam rawan pribadi** = jam dengan porsi lelah tertinggi di riwayat 7 hari (bawaan 13.00–16.00
    bila data < 3 hari). Bila kamera tidak bisa menilai, fasenya "Tidak tahu" dan rencana menyebutnya, bukan menebak.
@@ -640,7 +645,8 @@ Sumber knowledge base dan lisensinya tercantum di `knowledge/README.md`. Deteksi
 Mono dan Serif lewat paket `@fontsource`). Animasi memakai [GSAP](https://gsap.com) (lisensi GSAP "no charge", bebas untuk
 pemakaian komersial), visualisasi Insights memakai [d3-force](https://github.com/d3/d3-force) (ISC), dan akun memakai
 [supabase-js](https://github.com/supabase/supabase-js) (MIT). Impor tugas memakai Google Identity Services dan Google Tasks API, dimuat
-dari Google saat pengguna menekan Connect (tidak disalin ke repo).
+dari Google saat pengguna menekan Connect (tidak disalin ke repo). Bunyi pemberitahuan rencana (`web/public/sounds/plan-ready.mp3`)
+dari [Pixabay](https://pixabay.com), Pixabay Content License.
 
 ## Lisensi
 
@@ -650,6 +656,8 @@ tetap mengikuti ketentuannya masing-masing:
 - koefisien skor pola kedip (`web/src/blinkScore.ts`), dilatih dari UTA-RLDD: pemakaian ulang mengikuti ketentuan dataset;
 - `@mediapipe/tasks-vision` (Apache-2.0) beserta model di `web/public/models/`, sesuai model card MediaPipe masing-masing;
 - font IBM Plex Sans, Mono, dan Serif (SIL Open Font License 1.1, `web/public/fonts/OFL.txt`);
+- `web/public/sounds/plan-ready.mp3` dari Pixabay (Pixabay Content License: bebas dipakai di dalam karya, tidak untuk diedarkan
+  ulang sebagai file lepas);
 - `gsap` (lisensi GSAP standar "no charge"), `lenis` (MIT), `d3-force` (ISC), `@supabase/supabase-js` (MIT), sebagai
   dependensi npm, tidak disalin ke repo;
 - isi `knowledge/`: parafrase sumber pihak ketiga, lisensi per sumber di `knowledge/README.md`.
