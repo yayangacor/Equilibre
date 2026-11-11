@@ -1,8 +1,8 @@
-// Page navigation (NOTES D-78): four pages in one document, picked by the URL hash (#insights …), so the
+// Page navigation (NOTES D-78): five pages in one document, picked by the URL hash (#insights …), so the
 // query string keeps its dev switches (?debug=1, ?riwayat=uji) and every page stays in the DOM. The camera box
 // lives outside the pages, so the detector keeps reading the video on all of them.
 
-export const PAGES = ["dashboard", "insights", "settings", "debug"] as const;
+export const PAGES = ["dashboard", "tasks", "insights", "settings", "debug"] as const;
 export type Page = (typeof PAGES)[number];
 
 export const isPage = (name: string): name is Page => (PAGES as readonly string[]).includes(name);

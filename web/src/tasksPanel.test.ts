@@ -18,7 +18,7 @@ vi.mock("./googleTasks.ts", async (importOriginal) => {
 });
 
 import { completeTask, readTasks, requestToken, TasksError, type ImportedTask, type TasksToken } from "./googleTasks.ts";
-import { NOT_TICKED, TasksPanel, TICKED } from "./tasksPanel.ts";
+import { LINKED_KEY, NOT_TICKED, TasksPanel, TICKED, TOKEN_KEY } from "./tasksPanel.ts";
 
 class FakeElement {
   textContent = "";
@@ -66,7 +66,7 @@ describe("Connect", () => {
     byId("tasks-connect").click();
     await settle();
     expect(panel.connected).toBe(false);
-    expect(byId("tasks-status").textContent).toBe("Google could not be reached. Check your connection.");
+    expect(byId("tasks-status").textContent).toBe("Can't reach Google. Check your connection.");
     expect(byId("tasks-connect").hidden).toBe(false);
     expect(byId("tasks-count").textContent).toBe("");
     expect(onChange).not.toHaveBeenCalled();
@@ -77,8 +77,8 @@ describe("Connect", () => {
     await settle();
     expect(panel.connected).toBe(true);
     expect(panel.current).toEqual([TASK]);
-    expect(onChange).toHaveBeenCalledWith([TASK], true);
-    expect(byId("tasks-status").textContent).toBe("Connected. 1 open tasks from 1 list.");
+    expect(onChange).toHaveBeenCalledWith([TASK], true, true);
+    expect(byId("tasks-status").textContent).toMatch(/^1 list · synced \d\d:\d\d$/);
   });
 
   it("an API error on a later Refresh keeps the connection and the tasks already read", async () => {
@@ -91,7 +91,7 @@ describe("Connect", () => {
     await settle();
     expect(panel.connected).toBe(true);
     expect(panel.current).toEqual([TASK]);
-    expect(byId("tasks-status").textContent).toBe("Google Tasks did not answer. Try again in a moment.");
+    expect(byId("tasks-status").textContent).toBe("Google Tasks didn't answer. Try again.");
   });
 });
 
@@ -104,7 +104,7 @@ describe("Refresh", () => {
     vi.mocked(readTasks).mockResolvedValueOnce([TASK]);
     byId("tasks-connect").click();
     await settle();
-    expect(onChange).toHaveBeenLastCalledWith([TASK], true);
+    expect(onChange).toHaveBeenLastCalledWith([TASK], true, true);
 
     // The token is about to expire: Refresh opens the Google window again, where another account can be picked.
     vi.mocked(requestToken).mockResolvedValueOnce({ value: "token-b", expiresAt: Date.now() + 3_600_000 });
@@ -112,14 +112,16 @@ describe("Refresh", () => {
     byId("tasks-refresh").click();
     await settle();
     expect(requestToken).toHaveBeenCalledTimes(2);
-    expect(onChange).toHaveBeenLastCalledWith([OTHER], true);
+    expect(onChange).toHaveBeenLastCalledWith([OTHER], true, true);
 
-    // Control: with the new token still valid, Refresh only reads, and the listener is told it is no new grant.
+    // Control: with the new token still valid, Refresh only reads, and the listener is told it is no new grant, and
+    // that the same tasks came back (the plan on screen stays; the decision log still hears of the read).
     vi.mocked(readTasks).mockResolvedValueOnce([OTHER]);
     byId("tasks-refresh").click();
     await settle();
     expect(requestToken).toHaveBeenCalledTimes(2);
-    expect(onChange).toHaveBeenLastCalledWith([OTHER], false);
+    expect(onChange).toHaveBeenLastCalledWith([OTHER], false, false);
+    expect(onChange).toHaveBeenCalledTimes(3);
     expect(panel.connected).toBe(true);
   });
 });
@@ -153,7 +155,7 @@ describe("Tick a finished task off in Google Tasks (W2.8)", () => {
     expect(completeTask).toHaveBeenCalledWith("token-w", TASK);
     expect(panel.current).toEqual([LUNCH]);
     expect(byId("tasks-count").textContent).toBe("1 open");
-    expect(byId("tasks-status").textContent).toBe("Connected. 1 open tasks from 1 list.");
+    expect(byId("tasks-status").textContent).toMatch(/^1 list · synced \d\d:\d\d$/);
     expect(onChange).toHaveBeenCalledTimes(1); // the Connect only: the shown plan stays, the next refresh tells the log
 
     // The token that worked is kept: the next tick needs no Google window, and reads use it too.
@@ -178,7 +180,7 @@ describe("Tick a finished task off in Google Tasks (W2.8)", () => {
     expect(requestToken).toHaveBeenCalledTimes(4);
     expect(completeTask).not.toHaveBeenCalled();
     expect(panel.current).toEqual([TASK, LUNCH]);
-    expect(NOT_TICKED.declined).toBe("Not ticked off in Google Tasks: permission not given. Tick it off there.");
+    expect(NOT_TICKED.declined).toBe("Not ticked off: no permission. Tick it off in Google Tasks.");
   });
 
   it("403 or 404 to a token from the Google window: not ticked, the task stays, that token is not kept (another account?)", async () => {
@@ -198,7 +200,7 @@ describe("Tick a finished task off in Google Tasks (W2.8)", () => {
     expect(requestToken).toHaveBeenCalledTimes(3); // asked again, since the first token was not kept
     expect(completeTask).toHaveBeenCalledTimes(2);
     expect(panel.current).toEqual([TASK, LUNCH]);
-    expect(NOT_TICKED.missing).toContain("another account");
+    expect(NOT_TICKED.missing).toContain("this Google account");
   });
 
   it("401 on the kept token: says access expired, and Refresh then goes through the Google window", async () => {
@@ -207,7 +209,7 @@ describe("Tick a finished task off in Google Tasks (W2.8)", () => {
     expect(await panel.complete(TASK)).toEqual({ ticked: false, message: NOT_TICKED.expired });
     expect(requestToken).toHaveBeenCalledTimes(1); // the token had write: no window for the tick
     expect(completeTask).toHaveBeenCalledWith("token-w", TASK);
-    expect(NOT_TICKED.expired).toContain("Refresh in Settings → Google Tasks");
+    expect(NOT_TICKED.expired).toContain("Resume on the Tasks page");
     vi.mocked(readTasks).mockResolvedValueOnce([TASK, LUNCH]);
     byId("tasks-refresh").click();
     await settle();
@@ -231,5 +233,70 @@ describe("Tick a finished task off in Google Tasks (W2.8)", () => {
     // Last: a second panel on the same fake buttons would also answer their clicks.
     expect(await new TasksPanel().complete(TASK)).toEqual({ ticked: false, message: NOT_TICKED.disconnected });
     expect(completeTask).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("All day: kept over a reload, renewed without the consent screen (user 11 Nov)", () => {
+  const storage = (init: Record<string, string> = {}) => {
+    const map = new Map(Object.entries(init));
+    return { getItem: (k: string) => map.get(k) ?? null, setItem: (k: string, v: string) => void map.set(k, v), removeItem: (k: string) => void map.delete(k), map };
+  };
+
+  it("restores this tab's token after a reload and reads the tasks without any click", async () => {
+    const onChange = vi.fn();
+    const session = storage({ [TOKEN_KEY]: JSON.stringify({ value: "token-s", expiresAt: Date.now() + 1_800_000 }) });
+    const local = storage({ [LINKED_KEY]: "1" });
+    vi.mocked(readTasks).mockResolvedValueOnce([TASK]);
+    const panel = new TasksPanel(onChange);
+    panel.restore(session, local);
+    await settle();
+    expect(readTasks).toHaveBeenLastCalledWith("token-s");
+    expect(requestToken).not.toHaveBeenCalled();
+    expect(panel.connected).toBe(true);
+    expect(onChange).toHaveBeenLastCalledWith([TASK], true, true);
+  });
+
+  it("an expired kept token is not used: Paused, and Resume renews with prompt \"\" (negative control)", async () => {
+    const session = storage({ [TOKEN_KEY]: JSON.stringify({ value: "token-old", expiresAt: Date.now() + 10_000 }) });
+    const local = storage({ [LINKED_KEY]: "1" });
+    const panel = new TasksPanel();
+    panel.restore(session, local);
+    await settle();
+    expect(readTasks).not.toHaveBeenCalled();
+    expect(panel.connected).toBe(false);
+    expect(byId("tasks-status").textContent).toBe("Paused. Press Resume to sync.");
+    expect(byId("tasks-connect").textContent).toBe("Resume");
+
+    vi.mocked(readTasks).mockResolvedValueOnce([TASK]);
+    byId("tasks-connect").click();
+    await settle();
+    expect(vi.mocked(requestToken).mock.calls[0][3]).toBe(true); // renew: no account chooser, no consent screen
+    expect(panel.connected).toBe(true);
+    expect(JSON.parse(session.map.get(TOKEN_KEY)!).value).toBe("token-a");
+  });
+
+  it("a browser that never connected shows Connect, and a click elsewhere renews nothing", () => {
+    const panel = new TasksPanel();
+    panel.restore(storage(), storage());
+    expect(byId("tasks-connect").textContent).toBe("Connect Google Tasks");
+    expect(panel.renewInClick()).toBeNull();
+    expect(requestToken).not.toHaveBeenCalled();
+  });
+
+  it("Disconnect forgets the token and the flag", async () => {
+    const session = storage();
+    const local = storage();
+    const panel = new TasksPanel();
+    panel.restore(session, local);
+    vi.mocked(readTasks).mockResolvedValueOnce([TASK]);
+    byId("tasks-connect").click();
+    await settle();
+    expect(session.map.has(TOKEN_KEY)).toBe(true);
+    expect(local.map.get(LINKED_KEY)).toBe("1");
+    byId("tasks-disconnect").click();
+    await settle();
+    expect(session.map.has(TOKEN_KEY)).toBe(false);
+    expect(local.map.has(LINKED_KEY)).toBe(false);
+    expect(byId("tasks-connect").textContent).toBe("Connect Google Tasks");
   });
 });

@@ -24,6 +24,7 @@
       </a>
       <nav class="tabs" aria-label="Pages">
         <a href="#dashboard" data-page-link="dashboard">Dashboard</a>
+        <a href="#tasks" data-page-link="tasks">Tasks</a>
         <a href="#insights" data-page-link="insights">Insights</a>
         <a href="#settings" data-page-link="settings">Settings</a>
         <a id="nav-debug" href="#debug" data-page-link="debug" hidden>Debug</a>
@@ -79,7 +80,7 @@
               </div>
               <div id="paused-veil" class="paused-veil" hidden>
                 <p class="eyebrow">Monitoring paused</p>
-                <p>The camera is off. Nothing is read or stored until you resume.</p>
+                <p>Camera off. Nothing is read until you resume.</p>
               </div>
             </div>
             <div class="stage-bar">
@@ -140,7 +141,7 @@
               </div>
             </details>
 
-            <p id="send-note" class="helper" hidden>No advice while you're away from the screen: there is nothing to assess.</p>
+            <p id="send-note" class="helper" hidden>No advice while you're away.</p>
             <div id="answer" class="answer" aria-live="polite"></div>
             <div id="feedback" class="feedback" hidden>
               <span class="choices-label">This advice:</span>
@@ -162,15 +163,17 @@
           <section id="plan" class="card plan" aria-labelledby="h-plan">
             <div class="card-head">
               <h2 id="h-plan">Plan my next hour</h2>
-              <span id="plan-source" class="eyebrow"></span>
+              <a class="link" href="#tasks"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M222-214 80-356l42-42 100 99 179-179 42 43-221 221Zm0-320L80-676l42-42 100 99 179-179 42 43-221 221Zm298 244v-60h360v60H520Zm0-320v-60h360v60H520Z" /></svg><span id="plan-source">Tasks</span></a>
             </div>
-            <p class="muted">A short plan from your energy right now and your open tasks.</p>
             <p id="plan-note" class="helper"></p>
-            <p id="plan-connect" class="callout info" hidden>Connect Google Tasks to plan with your own tasks: <a href="#tasks-card">Settings → Google Tasks</a>.</p>
+            <div id="plan-connect" class="callout info plan-connect" hidden>
+              <p>Plan with your own tasks.</p>
+              <a class="btn tonal" href="#tasks"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M450-280H280q-83 0-141.5-58.5T80-480q0-83 58.5-141.5T280-680h170v60H280q-58.33 0-99.17 40.76-40.83 40.77-40.83 99Q140-422 180.83-381q40.84 41 99.17 41h170v60ZM325-450v-60h310v60H325Zm185 170v-60h170q58.33 0 99.17-40.76 40.83-40.77 40.83-99Q820-538 779.17-579q-40.84-41-99.17-41H510v-60h170q83 0 141.5 58.5T880-480q0 83-58.5 141.5T680-280H510Z" /></svg>Connect Google Tasks</a>
+            </div>
             <div id="plan-ask" class="plan-ask" hidden></div>
             <div class="row"><button id="plan-make" type="button" class="btn primary">Plan my next hour</button></div>
             <div id="plan-out" class="plan-out" aria-live="polite"></div>
-            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Sends your energy level and each task as t1, t2… with its kind and due day. Never task titles.</p>
+            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Sends tasks as t1, t2… Never titles.</p>
           </section>
 
           <section class="readout" aria-labelledby="h-readout">
@@ -237,6 +240,36 @@
               <p id="kss-note" class="helper" aria-live="polite"></p>
             </section>
           </div>
+        </section>
+
+        <!-- ── Tasks: Google Tasks and the kind of each task (user 11 Nov) ───── -->
+        <section class="page" data-page="tasks" aria-labelledby="h-tasks-page" hidden>
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Tasks</p>
+              <h1 id="h-tasks-page" tabindex="-1">Your tasks</h1>
+            </div>
+          </div>
+
+          <section id="tasks-card" class="card tasks-card" aria-labelledby="h-tasks">
+            <div class="card-head">
+              <h2 id="h-tasks">Google Tasks</h2>
+              <span id="tasks-count" class="eyebrow"></span>
+            </div>
+            <div class="tasks-bar">
+              <p id="tasks-status" class="sync-line" aria-live="polite"></p>
+              <div class="row">
+                <button id="tasks-connect" type="button" class="btn primary">Connect Google Tasks</button>
+                <button id="tasks-refresh" type="button" class="btn outline" hidden><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M167-160v-60h130l-15-12q-64-51-93-111t-29-134q0-106 62.5-190.5T387-784v62q-75 29-121 96.5T220-477q0 63 23.5 109.5T307-287l30 21v-124h60v230H167Zm407-15v-63q76-29 121-96.5T740-483q0-48-23.5-97.5T655-668l-29-26v124h-60v-230h230v60H665l15 14q60 56 90 120t30 123q0 106-62 191T574-175Z" /></svg>Sync</button>
+                <button id="tasks-disconnect" type="button" class="btn text" hidden>Disconnect</button>
+              </div>
+            </div>
+            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M140-160q-24.75 0-42.37-17.63Q80-195.25 80-220v-520q0-24.75 17.63-42.38Q115.25-800 140-800h471q14.25 0 27 6.37 12.75 6.38 21 17.63l222 296-221 296q-8.25 11.25-21 17.62-12.75 6.38-27 6.38H140Zm0-60h471l195-260-195-260H140v520Zm236-260Z" /></svg>Set a kind so plans fit your energy.</p>
+            <ul id="tasks-list" class="tasks-list" hidden></ul>
+            <p class="fine"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm314.5-162.03Q557-324.06 557-355q0-30-22.67-54.5t-54.5-24.5q-31.83 0-54.33 24.5t-22.5 55q0 30.5 22.67 52.5t54.5 22q31.83 0 54.33-22.03ZM350-634h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" /></svg>Titles stay on this laptop.</p>
+          </section>
+
+          <a class="fab" href="#plan"><svg class="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M510-570v-270h330v270H510ZM120-450v-390h330v390H120Zm390 330v-390h330v390H510Zm-390 0v-270h330v270H120Zm60-390h210v-270H180v270Zm390 330h210v-270H570v270Zm0-450h210v-150H570v150ZM180-180h210v-150H180v150Zm210-330Zm180-120Zm0 180ZM390-330Z" /></svg>Back to Dashboard</a>
         </section>
 
         <!-- ── Insights: the pattern over days, then one day in detail ──────── -->
@@ -329,7 +362,7 @@
                 <dt>Name</dt><dd id="settings-name">–</dd>
                 <dt>Email</dt><dd id="settings-email">–</dd>
               </dl>
-              <p class="helper">Stored by Supabase to sign you in, with sign-in times and logs. Your states and history are not.</p>
+              <p class="helper">Supabase keeps your sign-in. Not your states or history.</p>
               <div class="row"><button id="sign-out-2" type="button" class="btn outline">Sign out</button></div>
             </section>
 
@@ -341,21 +374,6 @@
               <p id="calib-status" class="calib-status" aria-live="polite"></p>
               <div id="calib-progress" class="bar progress" hidden><span></span></div>
               <button id="calib-button" type="button" class="btn primary" disabled>Start calibration</button>
-            </section>
-
-            <section id="tasks-card" class="card" aria-labelledby="h-tasks">
-              <div class="card-head">
-                <h2 id="h-tasks">Google Tasks</h2>
-                <span id="tasks-count" class="eyebrow"></span>
-              </div>
-              <p class="helper">Equilibre reads your open tasks to plan your next hour. It changes nothing, unless you allow it when you press “I finished it” on a plan: then it only marks that task completed. Titles stay in this tab and are never sent. Closing the tab or pressing Disconnect ends the access.</p>
-              <ul id="tasks-list" class="tasks-list" hidden></ul>
-              <p id="tasks-status" class="helper" aria-live="polite"></p>
-              <div class="row">
-                <button id="tasks-connect" type="button" class="btn primary">Connect Google Tasks</button>
-                <button id="tasks-refresh" type="button" class="btn outline" hidden>Refresh</button>
-                <button id="tasks-disconnect" type="button" class="btn outline" hidden>Disconnect</button>
-              </div>
             </section>
 
             <section class="card" aria-labelledby="h-pantau">
@@ -397,56 +415,56 @@
                   <span class="flow-icon never" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M880-275 720-435v111l-60-60v-356H304l-60-60h416q24 0 42 18t18 42v215l160-160v410ZM848-27 39-836l42-42L890-69l-42 42ZM484-560Zm-87 82ZM159-800l60 60h-79v520h520v-79l60 60v19q0 24-18 42t-42 18H140q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h19Z" /></svg></span>
                   <div>
                     <p class="flow-title">Video and face images: never sent</p>
-                    <p class="muted">MediaPipe reads the camera in this browser. Only numbers remain, like how long your eyes were closed.</p>
+                    <p class="muted">Only numbers leave the camera, like how long your eyes were closed.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
                     <p class="flow-title">Advice requests go to IBM Langflow</p>
-                    <p class="muted">Your state, a few numbers from the last minute, and the names of the signs read (e.g. "yawn").</p>
+                    <p class="muted">Your state, a few numbers and the signs read, like “yawn”.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
                     <p class="flow-title">Questions go to IBM Bob and Langflow</p>
-                    <p class="muted">Your question (emails and long numbers masked), your last state and today's summary numbers.</p>
+                    <p class="muted">Your question (emails and long numbers masked), last state and today's totals.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">Plan requests go to IBM Langflow when you press Plan</p>
-                    <p class="muted">Your energy level, whether it is your usual low hour, minutes since your last break, and each task as t1, t2… with its kind, days to its due date and place in your list. Never task titles or list names.</p>
+                    <p class="flow-title">Plans go to IBM Langflow when you press Plan</p>
+                    <p class="muted">Energy level, minutes since a break, and tasks as t1, t2… with kind and due day. Never titles.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
                     <p class="flow-title">Your account is kept by Supabase</p>
-                    <p class="muted">Name, email, a password hash (or, with Google, your Google name and picture link), and sign-in times and logs.</p>
+                    <p class="muted">Name, email and sign-in times. With Google: your Google name and photo link.</p>
                   </div>
                 </li>
                 <li id="flow-uji" hidden>
                   <span class="flow-icon sent" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="m242-246-42-42 412-412H234v-60h480v480h-60v-378L242-246Z" /></svg></span>
                   <div>
-                    <p class="flow-title">User test results go to the developer's Google Sheet when you press Send</p>
-                    <p class="muted">The history during the test (state and numbers every 10 s, sleepiness checks, corrections, breaks), calibration numbers, browser type, your starting answers and feedback, and the plans made during the test (tasks as t1, t2… with your answers, never titles). No video, no name.</p>
+                    <p class="flow-title">Test results go to the developer's Google Sheet when you press Send</p>
+                    <p class="muted">State and numbers every 10 s, sleepiness checks, breaks, your answers, calibration numbers, browser type, and plans with tasks as t1, t2…. No video, no name.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon local" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" /></svg></span>
                   <div>
-                    <p class="flow-title">History, calibration, sleepiness checks and plans: this device only</p>
-                    <p class="muted">Kept in this browser for 30 days, separately for each account. Plans are kept with tasks as t1, t2… and your answers, never task titles.</p>
+                    <p class="flow-title">History, calibration and plans: this device only</p>
+                    <p class="muted">Kept 30 days in this browser, per account.</p>
                   </div>
                 </li>
                 <li>
                   <span class="flow-icon local" aria-hidden="true"><svg class="icon" viewBox="0 -960 960 960"><path d="M0-160v-60h80v-620h800v620h80v60H0Zm396-60h170v-42H396v42ZM144-322h680v-458H144v458Zm340-229Z" /></svg></span>
                   <div>
                     <p class="flow-title">Google Tasks: titles stay in this tab</p>
-                    <p class="muted">Only when you connect: open task titles and due dates, straight from Google. Notes are ignored. “I finished it” on a Google task sends Google only that task’s ids and “completed”, once you allow it. Titles are gone when you close the tab; the kinds of work you confirm are remembered on this device.</p>
+                    <p class="muted">Read straight from Google. “I finished it” sends Google only that task’s id. Access ends with the tab; kinds stay on this device.</p>
                   </div>
                 </li>
               </ul>
@@ -465,17 +483,17 @@
                   <span class="switch-track" aria-hidden="true"></span>
                   <span class="setting-title">Debug mode</span>
                 </label>
-                <p class="helper">Adds the Debug page to the menu: raw signals, features, the baseline and the data that is sent.</p>
+                <p class="helper">Adds a Debug page with raw signals and the data sent.</p>
               </div>
             </section>
 
             <section class="card about" aria-labelledby="h-batas">
               <div class="card-head"><h2 id="h-batas">Limits</h2></div>
               <ul class="plain-list">
-                <li><strong>Not a medical device.</strong> A state is an estimate from your face and posture, a pattern, not a diagnosis. If tiredness keeps coming back, talk to a health professional.</li>
-                <li>Glasses, lighting or a new seating position make readings less accurate. Recalibrate above.</li>
-                <li>Holding a phone at chest height can sometimes read as "Mildly tired". Hold it at chin height or in your lap.</li>
-                <li>Equilibre only reads tiredness. It does not guess emotions.</li>
+                <li><strong>Not a medical device.</strong> A state is an estimate, not a diagnosis. If tiredness keeps coming back, see a health professional.</li>
+                <li>New lighting or seating? Recalibrate.</li>
+                <li>A phone held at chest height can read as “Mildly tired”. Hold it at chin height.</li>
+                <li>Reads tiredness only, never emotions.</li>
               </ul>
             </section>
           </div>

@@ -203,11 +203,13 @@ export function loadGis(timeoutMs = 15_000): Promise<Gis> {
 // Opens Google's consent popup. Must run inside the click that asked for it, or the browser blocks the popup: the
 // popup opens synchronously, in this call. write: ask for TASKS_WRITE_SCOPE on top of what was granted before
 // (incremental authorization, W2.8); the user may still untick it, so the token says whether it was granted.
-export function requestToken(lib: Gis, now: () => number = Date.now, write = false): Promise<TasksToken> {
+// renew: a new token for an access granted before (it lasts about an hour, and Google renews it only from a click):
+// prompt "" skips the account chooser and the consent screen, and include_granted_scopes keeps an earlier write grant.
+export function requestToken(lib: Gis, now: () => number = Date.now, write = false, renew = false): Promise<TasksToken> {
   return new Promise((resolve, reject) => {
     const client = lib.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
-      ...(write ? { scope: TASKS_WRITE_SCOPE, include_granted_scopes: true } : { scope: TASKS_SCOPE }),
+      ...(write || renew ? { scope: write ? TASKS_WRITE_SCOPE : TASKS_SCOPE, include_granted_scopes: true } : { scope: TASKS_SCOPE }),
       callback: (response) => {
         if (!response.access_token) {
           reject(new TasksError("denied", response.error === "access_denied" ? "Access was not allowed." : "Google gave no access."));
@@ -225,7 +227,8 @@ export function requestToken(lib: Gis, now: () => number = Date.now, write = fal
         reject(new TasksError(kind, error.type === "popup_failed_to_open" ? "The browser blocked the Google window." : "The Google window was closed."));
       },
     });
-    client.requestAccessToken();
+    if (renew) client.requestAccessToken({ prompt: "" });
+    else client.requestAccessToken();
   });
 }
 

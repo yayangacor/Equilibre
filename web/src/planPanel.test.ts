@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DecisionRecord } from "./decisionLog.ts";
 import type { ImportedTask } from "./googleTasks.ts";
 import type { EvaluationRecord } from "./history.ts";
-import { PlanPanel, type PlanDeps } from "./planPanel.ts";
-import { memoryTagStore } from "./taskTagger.ts";
+import { AUTO_NOTE, PlanPanel, type PlanDeps } from "./planPanel.ts";
+import { memoryTagStore, rememberTag } from "./taskTagger.ts";
 
 // The Dashboard card "Plan my next hour" (planPanel.ts) over a minimal fake DOM: the "Kind: … Change" control on the
 // plan's task (D-89, review B, 8 Nov) from the click to the next plan. Logic only; how it looks is the browser check.
@@ -114,20 +114,67 @@ function panel(over: Partial<PlanDeps> = {}) {
   return { panel: new PlanPanel(deps), records, tags, onTaskDone, taskDone, completeTask: deps.completeTask };
 }
 
-describe("the rubric question, once per group (O2, user 9 Nov, D-107)", () => {
-  it("asks about each \"[…]\" course once with its number of tasks, and one tap tags the whole course", () => {
+describe("kinds are set on the Tasks page (user 11 Nov); the card only links there", () => {
+  it("counts the open tasks without a kind and links to #tasks, with no questions on the card", () => {
     const courses = ["Algorithm and Programming", "Deep Learning"];
     const sessions = Array.from({ length: 12 }, (_, i) => task(`c${i}`, `[${courses[i % 2]}] - [Sesi ${i + 1}]`, i));
     const { panel: card, tags } = panel({ tasks: () => ({ connected: true, tasks: sessions }) });
     card.tasksChanged();
     const ask = byId("plan-ask");
-    expect(texts(ask)).toContain("[Algorithm and Programming] · 6 tasks");
-    expect(texts(ask)).toContain("[Deep Learning] · 6 tasks");
-    expect(buttons(ask, "Active, demanding")).toHaveLength(2); // two questions, not twelve
-    buttons(ask, "Active, demanding")[0].click();
-    expect(texts(ask)).not.toContain("[Algorithm and Programming] · 6 tasks");
-    expect(texts(ask)).toContain("[Deep Learning] · 6 tasks");
-    expect([...tags.google.load().personal.keys()]).toEqual(["[algorithm and programming]"]);
+    expect(ask.hidden).toBe(false);
+    expect(texts(ask)).toContain("12 tasks have no kind. Set kinds");
+    expect(descendants(ask).find((e) => e.textContent.startsWith("12 tasks"))?.getAttribute("href")).toBe("#tasks");
+    expect(descendants(ask).filter((e) => e.className.includes("rubric-choice"))).toHaveLength(0);
+    // Control: once every course has a kind (on the Tasks page), the line goes away.
+    let memory = tags.google.load();
+    for (const t of sessions) memory = rememberTag(memory, t, { sifat: "aktif", beban: "berat" });
+    tags.google.save(memory);
+    card.render();
+    expect(ask.hidden).toBe(true);
+  });
+});
+
+describe("a plan by itself when the state turns Mildly tired or Tired (user 11 Nov)", () => {
+  it("entering Mildly tired makes one plan on this laptop, marked as automatic, without the server", async () => {
+    const server = vi.fn(() => true);
+    const { panel: card, records } = panel({ server, live: () => ({ label: "lelah ringan", quality: "nilai", menitSejakJeda: 10 }) });
+    card.labelChanged("normal");
+    expect(records).toHaveLength(0);
+    card.labelChanged("lelah ringan");
+    await settle();
+    expect(records).toHaveLength(1);
+    expect(server).not.toHaveBeenCalled();
+    const out = byId("plan-out");
+    expect(texts(out)).toContain("Suggested at 10:00 · you look tired");
+    expect(texts(out)).toContain(AUTO_NOTE);
+  });
+
+  it("staying tired, Tired after Mildly tired, or a second dip within 30 minutes makes no new plan (negative control)", async () => {
+    const { panel: card, records } = panel();
+    card.labelChanged("lelah ringan");
+    await settle();
+    card.labelChanged("lelah ringan");
+    card.labelChanged("lelah");
+    await settle();
+    expect(records).toHaveLength(1);
+    card.labelChanged("normal");
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 20, 0));
+    card.labelChanged("lelah");
+    await settle();
+    expect(records).toHaveLength(1);
+    // After 30 minutes it may suggest again.
+    card.labelChanged("normal");
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 31, 0));
+    card.labelChanged("lelah");
+    await settle();
+    expect(records).toHaveLength(2);
+  });
+
+  it("no tasks to plan with: nothing is made", async () => {
+    const { panel: card, records } = panel({ tasks: () => ({ connected: false, tasks: [] }) });
+    card.labelChanged("lelah");
+    await settle();
+    expect(records).toHaveLength(0);
   });
 });
 
@@ -149,7 +196,7 @@ describe("Kind: … Change on the plan's task", () => {
     expect(button(out, "Cancel").getAttribute("aria-expanded")).toBe("true");
 
     button(out, "Routine, light").click();
-    expect(texts(byId("plan-ask"))).toContain("Saved on this laptop. Plan again to use it.");
+    expect(texts(byId("plan-ask"))).toContain("Saved. Plan again to use it.");
     expect(texts(out)).toContain("Kind: Routine, light");
     expect(buttons(out, "Routine, light")).toHaveLength(0); // closed again after the pick
     expect(tags.google.load().corrections.size).toBe(1);

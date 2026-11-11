@@ -47,7 +47,7 @@ import {
 import { GREETING, initialGreetingState, snoozeGreeting, stepGreeting } from "./companion.ts";
 import { LOCALE } from "./format.ts";
 import { brightness, faceBoxes, LIGHT, wholeFrame, toLightSample, type Box, type LightSample } from "./light.ts";
-import { toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
+import { dayKey, toBreakRecord, toEvaluationRecord, toRecommendationRecord, type DaySummary } from "./history.ts";
 import { DB_NAME, openHistory } from "./historyDb.ts";
 import { DEMO_ACCOUNTS, demoHistory, demoNote, demoTasks, parseDemo, seedKey, seedStamp, type DemoPersona } from "./demoAccount.ts";
 import { HistoryPanel } from "./historyPanel.ts";
@@ -478,6 +478,8 @@ function evaluateAt(t: number) {
   renderStatus();
   renderPayload();
   maybeAutoSend();
+  // Mildly tired or Tired: the plan card suggests what fits, made on this laptop (user 11 Nov).
+  planPanel.labelChanged(unassessed() ? null : (monitor.labelState.shown?.label ?? null));
 }
 
 function maybeAutoSend() {
@@ -583,7 +585,7 @@ function renderSinceBreak() {
   sinceBreakValue.title = lastCameraBreak === null && !breakMarked ? "No break yet: counted from the start" : "";
 }
 
-// Google Tasks import in Settings (plan P20 W2.1); "Plan my next hour" reads tasksPanel.current.
+// Google Tasks on the Tasks page (plan P20 W2.1, own page since 11 Nov); "Plan my next hour" reads tasksPanel.current.
 // The local decision log of "Plan my next hour" (plan P20 W2.7): in the history database, never sent. A Google Tasks
 // read while connected tells whether a planned task is still open; a disconnect is no read, and it and a new token
 // from the Google window forget the watched tasks, so another account's list is never compared with them.
@@ -599,10 +601,21 @@ panel.onCleared = () => {
   planPanel.render();
 };
 
-export const tasksPanel = new TasksPanel((tasks, newGrant) => {
+// Every read goes to the decision log; the plan on screen is dropped only when the tasks changed (a minute's sync that
+// finds the same tasks leaves it).
+export const tasksPanel = new TasksPanel((tasks, newGrant, changed) => {
   void decisionLog.googleTasksChanged(tasksPanel.connected ? new Set(tasks.map((t) => t.id)) : null, Date.now(), newGrant);
-  planPanel.tasksChanged();
+  if (changed) planPanel.tasksChanged();
+  else planPanel.render();
 });
+
+function openSession(): KeyValueStore | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
 
 // "Plan my next hour" on the Dashboard (plan P20 W2.6): asks /api/rencana only on the button (NOTES D-19). The demo
 // account plans with its sample tasks while Google is not connected; their rubric answers are kept apart.
@@ -640,8 +653,19 @@ export const planPanel = new PlanPanel({
   onTaskDone: () => walkTick(true),
   // "I finished it" on a Google task ticks it off in Google Tasks, browser to Google only (W2.8, D-103).
   completeTask: (task) => tasksPanel.complete(task),
+  // Plan after the hour's token ran out: the click renews it first (no consent screen), then plans with fresh tasks.
+  beforePlan: () => tasksPanel.renewInClick(),
   log: decisionLog,
   session: SESSION,
+});
+
+// The kind of each task, set on the Tasks page; the plan card counts the ones still missing.
+tasksPanel.useKinds({ store: () => taskKinds.google, today: () => dayKey(Date.now()), onChange: () => planPanel.render() });
+// All day (user 11 Nov): this tab's token survives a reload; a minute's sync while it is valid; the Tasks tab renews it.
+tasksPanel.restore(openSession(), store);
+tasksPanel.startSync();
+document.addEventListener("click", (event) => {
+  if (event.target instanceof Element && event.target.closest('a[href="#tasks"]')) void tasksPanel.renewInClick();
 });
 
 // "Tanya Equilibre" (plan P07): the shown label and today's numbers go with the question (D-44).

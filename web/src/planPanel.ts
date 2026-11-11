@@ -2,6 +2,8 @@ import { toDecisionRecord, type DecisionLog } from "./decisionLog.ts";
 import { LOCALE } from "./format.ts";
 import type { ImportedTask } from "./googleTasks.ts";
 import { dayKey, type EvaluationRecord, type KssRecord } from "./history.ts";
+import { icon, type IconName } from "./icons.ts";
+import type { Label } from "./rules.ts";
 import { energyPhase } from "./phase.ts";
 import {
   chooseTasks,
@@ -13,8 +15,6 @@ import {
   planView,
   RUBRIC_CHOICES,
   sourceLine,
-  tasksToAsk,
-  type AskItem,
   type LiveState,
   type PhaseView,
   type PlanView,
@@ -23,11 +23,18 @@ import {
 import { offlinePlan, requestPlan, toRencanaRequest } from "./rencana.ts";
 import type { TickResult } from "./tasksPanel.ts";
 import { rememberTag, type Rubric, type TagMemoryStore } from "./taskTagger.ts";
+import { tasksWithoutKind } from "./tasksView.ts";
 
 // Dashboard card "Plan my next hour" (plan P20 W2.6). Thin DOM over planCard.ts: the view is built there.
-// The plan is asked for only when the user presses the button (NOTES D-19: never on a timer, a page load or a label
-// change); /api/rencana gets the energy phase and the abstract tasks t1..tn, never a title (rencana.ts, D-90).
-// Every text from tasks or the server goes in via textContent.
+// The server's plan is asked for only when the user presses the button (NOTES D-19: never on a timer, a page load or a
+// label change); /api/rencana gets the energy phase and the abstract tasks t1..tn, never a title (rencana.ts, D-90).
+// When the shown state turns Mildly tired or Tired, the card makes the plan on this laptop by itself (user 11 Nov: the
+// Dashboard shows what work fits when tired), nothing sent. Every text from tasks or the server goes in via textContent.
+
+// At most one automatic plan per this time, and none while a plan made in it is on screen.
+export const AUTO_GAP_MS = 30 * 60_000;
+export const AUTO_NOTE = "Made on this laptop because you look tired. Press Plan again for Langflow's plan.";
+const LOW: readonly (Label | null)[] = ["lelah ringan", "lelah"];
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -38,10 +45,16 @@ function el(tag: string, text: string, className?: string): HTMLElement {
   return node;
 }
 
+// An icon before the text, where the DOM can draw SVG (the fake DOM of the tests cannot).
+function withIcon(node: HTMLElement, name: IconName): HTMLElement {
+  if (typeof document.createElementNS === "function") node.prepend(icon(name));
+  return node;
+}
+
 const clock = (t: number) => new Date(t).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 
 export type PlanDeps = {
-  tasks: () => { connected: boolean; tasks: readonly ImportedTask[] }; // Settings → Google Tasks (tasksPanel.ts)
+  tasks: () => { connected: boolean; tasks: readonly ImportedTask[] }; // the Tasks page (tasksPanel.ts)
   sample: ((today: string) => ImportedTask[]) | null; // the demo account's sample tasks (?demo=rina)
   tags: { google: TagMemoryStore; sample: TagMemoryStore }; // the rubric answers, apart for the sample tasks
   live: () => LiveState; // the shown label, the quality level and minutes since the last break, right now
@@ -54,6 +67,9 @@ export type PlanDeps = {
   // click, since the first time it opens Google's window for the write permission.
   completeTask: (task: ImportedTask) => Promise<TickResult>;
   log: Pick<DecisionLog, "planned" | "answered" | "taskDone">; // the local decision log (W2.7), nothing sent
+  // Inside the Plan click, before anything is awaited: renews an expired Google access (tasksPanel.ts renewInClick),
+  // which may open Google's window only from a click. The plan waits for it, so it uses the tasks read then.
+  beforePlan?: () => Promise<void> | null;
   session: number; // the page load, the history's `sesi`
 };
 
@@ -61,7 +77,9 @@ export type PlanDeps = {
 // logId: this plan's record in the decision log; null when the history could not store it.
 // task: the chosen task, for "Change" (D-89); null for a break or no task.
 // tick: what came of ticking the task off in Google Tasks (W2.8); null before "I finished it" and for sample tasks.
+// auto: made by itself when the state turned Mildly tired or Tired, on this laptop only.
 type Shown = {
+  auto: boolean;
   view: PlanView;
   phase: PhaseView;
   at: number;
@@ -84,10 +102,11 @@ export class PlanPanel {
   private shown: Shown | null = null;
   private busy: "server" | "local" | null = null;
   private problem: string | null = null;
-  private askLater = false; // "Not now": no rubric question for the rest of this tab
   private changing = false; // "Change" on the plan's task: its four buttons are open
   private saved: string | null = null;
   private generation = 0; // bumped when the tasks change, so a plan for tasks no longer there is dropped
+  private lastLabel: Label | null = null;
+  private lastAuto = -Infinity;
 
   constructor(deps: PlanDeps) {
     this.deps = deps;
@@ -114,15 +133,35 @@ export class PlanPanel {
     return choice.kind === "sample" ? this.deps.tags.sample : this.deps.tags.google;
   }
 
-  private async make() {
+  // The shown state after every evaluation (null while it cannot be read). Entering Mildly tired or Tired makes a plan
+  // on this laptop, unless one was made in the last AUTO_GAP_MS.
+  labelChanged(label: Label | null) {
+    const entered = LOW.includes(label) && !LOW.includes(this.lastLabel);
+    this.lastLabel = label;
+    if (!entered || this.busy) return;
+    const now = Date.now();
+    if (now - this.lastAuto < AUTO_GAP_MS || (this.shown && now - this.shown.at < AUTO_GAP_MS)) return;
+    if (this.choice(dayKey(now)).kind === "none") return;
+    this.lastAuto = now;
+    void this.make(true);
+  }
+
+  private async make(auto = false) {
     if (this.busy) return;
+    const renewing = auto ? null : (this.deps.beforePlan?.() ?? null);
+    if (renewing) {
+      this.busy = "local";
+      this.render();
+      await renewing.catch(() => {});
+      this.busy = null;
+    }
     const now = Date.now();
     const today = dayKey(now);
     const choice = this.choice(today);
-    if (choice.kind === "none") return;
+    if (choice.kind === "none") return this.render();
     const generation = this.generation;
     const live = this.deps.live();
-    const server = this.deps.server();
+    const server = !auto && this.deps.server();
     this.busy = server ? "server" : "local";
     this.problem = null;
     this.render();
@@ -131,7 +170,7 @@ export class PlanPanel {
       const input = phaseInputFrom(live, evaluasi, kss, now, this.deps.evalIntervalMs);
       const phase = energyPhase(input);
       const req = toRencanaRequest(phase, input.menitSejakJeda, choice.tasks, today, this.tagStore(choice).load());
-      const plan = server ? await requestPlan(req) : offlinePlan(req, this.deps.offlineReason);
+      const plan = server ? await requestPlan(req) : offlinePlan(req, auto ? AUTO_NOTE : this.deps.offlineReason);
       if (generation !== this.generation) return;
       // Logged before it shows, so "Fits" and "I finished it" always have its record (the card says "Making your
       // plan…" until then). The task's own id stays in memory for tidak_terbuka_60; only a Google one can be looked
@@ -141,6 +180,7 @@ export class PlanPanel {
       const logId = await this.deps.log.planned(record, googleId);
       if (generation !== this.generation) return;
       this.shown = {
+        auto,
         view: planView(plan),
         phase: phaseView(phase, input.slump),
         at: now,
@@ -155,7 +195,7 @@ export class PlanPanel {
       this.changing = false;
     } catch (err) {
       console.error("Plan not made:", err);
-      this.problem = "The plan could not be made. Try again.";
+      this.problem = "Couldn't make the plan. Try again.";
     } finally {
       this.busy = null;
       this.render();
@@ -165,12 +205,12 @@ export class PlanPanel {
   render() {
     const today = dayKey(Date.now());
     const choice = this.choice(today);
-    this.source.textContent = sourceLine(choice);
+    this.source.textContent = sourceLine(choice) || "Tasks";
     this.note.textContent =
       choice.kind === "sample"
-        ? "Sample tasks of the demo account, not from Google."
+        ? "Sample tasks (demo account)."
         : choice.kind === "google" && choice.tasks.length === 0
-          ? "No open tasks in Google Tasks: the plan can only suggest a walk or a break."
+          ? "No open tasks. The plan can only suggest a walk or a break."
           : "";
     this.connect.hidden = choice.kind !== "none";
     this.button.hidden = choice.kind === "none";
@@ -180,35 +220,22 @@ export class PlanPanel {
     this.renderOut();
   }
 
-  // ── One-tap rubric (D-89) ──
+  // ── Kinds of work (D-89): set on the Tasks page (user 11 Nov); here only how many are missing ──
 
   private renderAsk(choice: TaskChoice, today: string) {
-    const store = this.tagStore(choice);
-    const items = this.askLater ? [] : tasksToAsk(choice.tasks, today, store.load());
-    this.ask.hidden = items.length === 0 && this.saved === null;
+    const missing = choice.kind === "google" ? tasksWithoutKind(choice.tasks, today, this.tagStore(choice).load()) : 0;
+    this.ask.hidden = missing === 0 && this.saved === null;
     this.ask.replaceChildren();
-    if (items.length > 0) {
-      this.ask.append(el("p", "What kind of work is it? Asked once per group, kept on this laptop.", "choices-label"));
-      for (const item of items) this.ask.append(this.askRow(item, store));
-      const later = el("button", "Not now", "btn text");
-      (later as HTMLButtonElement).type = "button";
-      later.addEventListener("click", () => {
-        this.askLater = true;
-        this.render();
-      });
-      this.ask.append(later);
+    if (missing > 0) {
+      const link = withIcon(el("a", `${missing} ${missing === 1 ? "task has" : "tasks have"} no kind. Set kinds`, "link"), "label");
+      link.setAttribute("href", "#tasks");
+      this.ask.append(link);
     }
     if (this.saved) this.ask.append(el("p", this.saved, "helper"));
   }
 
-  private askRow(item: AskItem, store: TagMemoryStore): HTMLElement {
-    const row = el("div", "", "rubric-item");
-    row.append(el("p", item.label, "rubric-title"), this.choiceRow(item, store, null));
-    return row;
-  }
-
   // The four kinds, one tap each; current: the kind the task has now (pressed), null when not assessed.
-  private choiceRow(item: Pick<AskItem, "id" | "title">, store: TagMemoryStore, current: Rubric | null): HTMLElement {
+  private choiceRow(item: Pick<ImportedTask, "id" | "title">, store: TagMemoryStore, current: Rubric | null): HTMLElement {
     const choices = el("div", "", "choice-row");
     for (const choice of RUBRIC_CHOICES) {
       const button = el("button", choice.text, "btn outline rubric-choice") as HTMLButtonElement;
@@ -220,11 +247,11 @@ export class PlanPanel {
     return choices;
   }
 
-  private answer(item: Pick<AskItem, "id" | "title">, rubric: Rubric, store: TagMemoryStore) {
+  private answer(item: Pick<ImportedTask, "id" | "title">, rubric: Rubric, store: TagMemoryStore) {
     const ok = store.save(rememberTag(store.load(), item, rubric));
     this.saved = ok
-      ? `Saved on this laptop.${this.shown ? " Plan again to use it." : ""}`
-      : "It could not be saved on this laptop.";
+      ? `Saved.${this.shown ? " Plan again to use it." : ""}`
+      : "Couldn't save on this laptop.";
     this.changing = false;
     this.render();
   }
@@ -254,7 +281,7 @@ export class PlanPanel {
 
   private renderOut() {
     if (this.busy) {
-      this.out.replaceChildren(el("p", this.busy === "server" ? "Langflow is writing your plan…" : "Making your plan…", "muted"));
+      this.out.replaceChildren(el("p", this.busy === "server" ? "Langflow is planning…" : "Planning…", "muted"));
       return;
     }
     if (this.problem) {
@@ -269,7 +296,8 @@ export class PlanPanel {
     const card = el("div", "", "plan-result");
 
     const head = el("div", "", "plan-phase");
-    head.append(el("p", `Planned at ${clock(at)}`, "eyebrow"), el("p", phase.title, "plan-phase-title"));
+    head.append(el("p", this.shown.auto ? `Suggested at ${clock(at)} · you look tired` : `Planned at ${clock(at)}`, "eyebrow"));
+    head.append(el("p", phase.title, "plan-phase-title"));
     head.append(el("p", phase.note, phase.assessed ? "helper" : "callout info"));
     if (phase.slump) head.append(el("p", phase.slump, "helper"));
     card.append(head);
@@ -293,7 +321,7 @@ export class PlanPanel {
     if (view.why) card.append(this.why(view.why));
 
     if (view.sources) {
-      if (view.sources.length === 0) card.append(el("p", "No sources from the knowledge base.", "helper"));
+      if (view.sources.length === 0) card.append(el("p", "No sources.", "helper"));
       else {
         const list = el("ul", "", "sources");
         list.append(...view.sources.map((s) => el("li", s.text, s.known ? undefined : "error")));
@@ -389,7 +417,7 @@ export class PlanPanel {
     const update = () => {
       const answer = this.shown?.cocok ?? null;
       for (const [button, cocok] of buttons) button.setAttribute("aria-pressed", String(answer === cocok));
-      note.textContent = answer === null ? "" : "Thanks. Your answer stays on this laptop.";
+      note.textContent = answer === null ? "" : "Thanks. Saved on this laptop.";
     };
     update();
     box.append(note);

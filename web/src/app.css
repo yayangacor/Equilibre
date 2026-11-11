@@ -1040,28 +1040,141 @@ abbr.eyebrow {
   overflow-wrap: anywhere;
 }
 
-/* Settings: preview of the imported Google Tasks (plan P20 W2.1) */
-.tasks-list {
-  list-style: none;
-  margin: 0 0 10px;
-  padding: 0;
+/* Tasks page (user 11 Nov): Google Tasks, the kind of each task, a way back to the Dashboard close by */
+.tasks-card {
   display: grid;
-  gap: 6px;
+  gap: 14px;
+  padding-bottom: 20px;
 }
 
-.tasks-list li {
+.tasks-bar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  overflow-wrap: anywhere;
+  gap: 10px;
 }
 
-.tasks-list .due,
-.tasks-list .more {
+.sync-line {
+  margin: 0;
   font-family: var(--mono);
   font-size: 0.75rem;
   color: var(--ink-3);
-  white-space: nowrap;
+}
+
+.tasks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.task-row[data-unset="true"] .kind-select {
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+.task-main {
+  min-width: 0;
+}
+
+.task-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.task-meta .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.kind-select {
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+}
+
+.task-members {
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.task-members summary {
+  cursor: pointer;
+  color: var(--ink-3);
+}
+
+.task-members ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
+/* Extended FAB: Back to Dashboard sticks to the bottom of the content column while the list scrolls, a short move
+   from the kind pickers, and clear of the camera dock at the window's corner. */
+.fab {
+  position: sticky;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  justify-self: end;
+  align-self: flex-end;
+  width: max-content;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  color: var(--on-ink);
+  background: var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.fab .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.plan-connect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan-connect p {
+  margin: 0;
 }
 
 /* ── Plan my next hour (plan P20 W2.6): the rubric question, the timeline, the model badge ── */
@@ -1461,4 +1574,11 @@ dialog.welcome[open] {
   .live-dot {
     animation: none;
   }
+}
+
+.tasks-card .btn,
+.plan-connect .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
